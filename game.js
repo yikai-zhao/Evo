@@ -1,11 +1,11 @@
-// 終焉之地 The Land's End — Prototype v0.9.0
-// v0.9.0 心智 Sanity + 世界 Boss 觸星之眼 + 秘境復活 + 成神試煉 + 星圖大升級 + 教學
+// 終焉之地 The Land's End — Prototype v1.0.0
+// v1.0.0 大地圖 10000² + 4 階段紀元 + 小 Boss 古修殘魂 + 群星正確事件 + 9 權柄 + 星圖霧戰/標記/Ping + 階段橫幅 + 死亡時間軸
 'use strict';
 
 // =====================================================================
 // 常數
 // =====================================================================
-const WORLD = { w: 6400, h: 6400 };
+const WORLD = { w: 10000, h: 10000 };  // v1.0.0 大地圖（4× 面積）
 const TILE = 256;
 const KEYS = {};
 const MOUSE = { x:0, y:0, wx:0, wy:0, ldown:false, rdown:false };
@@ -314,6 +314,10 @@ const AUTHORITIES = [
     desc:'30s 體型 ×2.2 攻擊 ×2.5 護甲 ×2' },
   { id:'time',    name:'時光權柄',  color:'#cc88ff', icon:'時', cd:30,
     desc:'全圖敵人停止 8s + 永久 +10 分鐘壽命' },
+  { id:'void',    name:'裂界權柄',  color:'#7a00cc', icon:'裂', cd:22,
+    desc:'1200 半徑空間裂縫吸入敵人 + 300 真實傷害 + 撕裂 8s' },
+  { id:'omni',    name:'群星權柄',  color:'#ffdd66', icon:'神', cd:40,
+    desc:'揭示全圖 12s + 立即打 Boss 800 傷 + 全圖修為 +50% 持續 90s' },
 ];
 
 // =====================================================================
@@ -377,7 +381,13 @@ const G = {
   soundOn:true, lastHitTime:0, deathBy:'',
   fps:60, frameAcc:0, frameN:0, mapOpen:false,
   boss:null, bossSpawnT:240, bossDefeated:0,
-  tutorialT:0, tutorialStep:0, visited:null,
+  miniboss:null, minibossSpawnT:180, miniDefeated:0,
+  event:null, eventCdT:120,  // 群星正確之時
+  stage:1, stageBannerT:0, stageBannerText:'', stageBannerSub:'',
+  revealT:0, pingX:0, pingY:0, pingT:0,
+  timeline:[],  // 死亡時間軸
+  tutorialT:0, tutorialStep:0,
+  visited:null, visitedCellSize:200, visitedRadius:5,
 };
 const FAKE_NAMES = ['魔女','玄名','梵人','紅嬜','隱者','社鋒','闇哲','太陽','高堤','恍惚','規則','欺詐','秘主','振箪','指揮','蛟之者','黑夜','學生','虛減','舊日','吞噬','快樂','虛偽','火舌','雮明','巐崙','企鵝','火之使徒','靈媒','國王'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
@@ -566,6 +576,7 @@ function onBossDeath(b){
     logMsg('★★★ 斬外神：+1500 修為 + 心智回復 ★★★','promote');
     try{ playSound('promote'); flash('#ffffff',0.9); shake(30); }catch(e){}
     G.bossDefeated++;
+    G.timeline.push({t:G.time, text:'斬外神 觸星之眼'});
     // 掉一個隨機權柄
     if (G.player.authoritySlots.length<6 && AUTHORITIES.length>0){
       const a = AUTHORITIES[(Math.random()*AUTHORITIES.length)|0];
@@ -625,32 +636,175 @@ function applyDamageToBoss(dmg){
   if (G.boss && G.boss.hp>0){ G.boss.hp -= dmg; if (dmg>0) G.cam.hitFlash = Math.max(G.cam.hitFlash, 0.1); }
 }
 
+
+// =====================================================================
+// 小 Boss · 古修者殘魂 (v1.0.0)  — 修煉紀起循環刷新
+// =====================================================================
+function spawnMiniboss(){
+  // 在隨機秘境位置 spawn（玩家不在的那一個）
+  let spot = null;
+  const candidates = G.rifts.slice().sort(()=>Math.random()-0.5);
+  for (const rf of candidates){ if (!G.player || dist(rf, G.player) > 600){ spot = rf; break; } }
+  if (!spot){ spot = { x: WORLD.w/2 + rand(-3000,3000), y: WORLD.h/2 + rand(-3000,3000) }; }
+  G.miniboss = {
+    isBoss:true, isMiniboss:true, name:'古修者殘魂',
+    x:spot.x, y:spot.y, vx:0, vy:0, r:50,
+    hp:1800, maxHp:1800, atk:55,
+    atkCdT:0, dashT:5, eyeT:0, color:'#66ccff',
+  };
+  pushKillFeed('☄ 古修者殘魂於秘境邊緣現身','#66ccff');
+  logMsg('★ 古修者殘魂（小 Boss）出現！斬之得 +600 修為 + 道具雨','promote');
+  try{ flash('#66ccff',0.4); shake(15); playSound('auth'); }catch(e){}
+}
+function updateMiniboss(b, dt){
+  b.eyeT += dt;
+  if (!G.player) return;
+  const dx = G.player.x - b.x, dy = G.player.y - b.y, d = Math.hypot(dx,dy)||1;
+  // 快速短衝
+  b.dashT -= dt;
+  if (b.dashT<=0 && d<800){
+    b.dashT = 4;
+    b.vx = dx/d*350; b.vy = dy/d*350;
+    G.shockwaves.push({x:b.x,y:b.y,r:0,max:80,life:0.4,color:'#66ccff'});
+  }
+  b.x += b.vx*dt; b.y += b.vy*dt;
+  b.vx *= 0.92; b.vy *= 0.92;
+  // 普通跟蹤
+  b.x += (dx/d) * 70 * dt;
+  b.y += (dy/d) * 70 * dt;
+  // 近戰
+  if (d < b.r + G.player.r + 8){
+    b.atkCdT -= dt;
+    if (b.atkCdT<=0){
+      b.atkCdT = 0.7;
+      G.player.hp -= b.atk;
+      try{ playSound('hurt'); shake(5); }catch(e){}
+    }
+  }
+}
+function onMinibossDeath(b){
+  if (G.player){
+    G.player.qi += 600;
+    G.player.sanity = Math.min(G.player.maxSanity, G.player.sanity + 15);
+    addFloat(G.player.x, G.player.y-30, '斬殘魂！+600 修為', '#66ccff', 18, 1.8);
+    pushKillFeed('★ 你擊敗了【古修者殘魂】','#66ccff');
+    G.miniDefeated = (G.miniDefeated||0) + 1;
+    G.timeline.push({t:G.time, text:'擊敗 古修者殘魂'});
+  }
+  // 道具雨
+  for (let i=0;i<14;i++){
+    const a = Math.random()*Math.PI*2, d = rand(20,140);
+    const def = weightedPickup();
+    G.pickups.push({...def, x:b.x+Math.cos(a)*d, y:b.y+Math.sin(a)*d, pulse:0});
+  }
+  for (let i=0;i<50;i++) G.particles.push({x:b.x,y:b.y,vx:rand(-300,300),vy:rand(-300,300),life:1.2,color:'#66ccff',r:3});
+  G.shockwaves.push({x:b.x,y:b.y,r:0,max:400,life:1,color:'#66ccff'});
+  try{ playSound('promote'); flash('#66ccff',0.5); shake(15); }catch(e){}
+}
+function drawMiniboss(){
+  if (!G.miniboss || G.miniboss.hp<=0) return;
+  const b = G.miniboss;
+  const pul = 1 + Math.sin(b.eyeT*4)*0.08;
+  // 鬼火光環
+  const g = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*2.4);
+  g.addColorStop(0,'#66ccffaa'); g.addColorStop(1,'#66ccff00');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*2.4,0,Math.PI*2); ctx.fill();
+  // 身體（飄忽人形）
+  ctx.fillStyle = '#0a1a2a';
+  ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r*pul*0.6, b.r*pul, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#88ccff'; ctx.lineWidth = 3; ctx.stroke();
+  // 雙眼
+  for (const sx of [-1,1]){
+    ctx.fillStyle = '#ffffaa';
+    ctx.beginPath(); ctx.arc(b.x + sx*b.r*0.18, b.y - b.r*0.3, b.r*0.1*pul, 0, Math.PI*2); ctx.fill();
+  }
+  // 名稱 + HP
+  ctx.fillStyle = '#66ccff'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(b.name, b.x, b.y - b.r*pul - 24);
+  const bw = 140, bh = 7;
+  ctx.fillStyle = '#000a'; ctx.fillRect(b.x-bw/2, b.y-b.r*pul-18, bw, bh);
+  ctx.fillStyle = '#66ccff'; ctx.fillRect(b.x-bw/2, b.y-b.r*pul-18, bw*(b.hp/b.maxHp), bh);
+}
+
+// =====================================================================
+// 階段橫幅 + 世界事件 FX (v1.0.0)
+// =====================================================================
+function drawStageBanner(){
+  if (G.stageBannerT<=0) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  const t = G.stageBannerT;
+  const a = t > 4 ? (5-t) : Math.min(1, t/0.8);
+  ctx.fillStyle = 'rgba(0,0,0,'+(0.5*a)+')';
+  ctx.fillRect(0, H*0.35, W, 130);
+  ctx.fillStyle = 'rgba(255,221,102,'+a+')';
+  ctx.font = 'bold 44px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.fillText(G.stageBannerText, W/2, H*0.35 + 55);
+  ctx.fillStyle = 'rgba(255,255,255,'+(a*0.8)+')';
+  ctx.font = '18px sans-serif';
+  ctx.fillText(G.stageBannerSub, W/2, H*0.35 + 90);
+}
+function drawWorldEventFX(){
+  if (!G.event || G.event.type!=='aligned') return;
+  // 全螢幕金紫光暈
+  const W = window.innerWidth, H = window.innerHeight;
+  const g = ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.1, W/2,H/2,Math.max(W,H)*0.7);
+  g.addColorStop(0,'rgba(255,221,102,0)'); g.addColorStop(1,'rgba(255,221,102,0.18)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  // 頂部倒計時
+  ctx.fillStyle = '#ffdd66'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('☄ 群星正確之時 ' + G.event.t.toFixed(1) + 's', W/2, 32);
+}
+
+// =====================================================================
+// 星圖：生態區標籤工具（v1.0.0）
+// =====================================================================
+function _biomeCentroids(){
+  if (G._biomeCentroidsCache) return G._biomeCentroidsCache;
+  const acc = {};
+  if (G.terrain){
+    for (let y=0;y<G.terrain.rows;y++) for (let x=0;x<G.terrain.cols;x++){
+      const b = G.terrain.map[y][x];
+      if (!acc[b]) acc[b] = {sx:0,sy:0,n:0};
+      acc[b].sx += x; acc[b].sy += y; acc[b].n++;
+    }
+  }
+  const out = [];
+  for (const k of Object.keys(acc)){
+    const a = acc[k];
+    out.push({biome:k, x:(a.sx/a.n)*TILE, y:(a.sy/a.n)*TILE, n:a.n});
+  }
+  G._biomeCentroidsCache = out;
+  return out;
+}
+
 function generateNodes(){
   G.qiSprings = [];
   const cx = WORLD.w/2, cy = WORLD.h/2;
+  // v1.0.0: 10 個靈氣泉（內 6 + 外 4），大地圖更需要修為來源
   for (let i=0;i<6;i++){
     const ang = (i/6)*Math.PI*2 + Math.PI/6;
-    const D = 2200;
-    G.qiSprings.push({
-      x: cx + Math.cos(ang)*D, y: cy + Math.sin(ang)*D,
-      r: 140, tcd: 3, pulse: Math.random()*Math.PI*2,
-    });
+    G.qiSprings.push({ x: cx + Math.cos(ang)*2400, y: cy + Math.sin(ang)*2400, r: 150, tcd: 3, pulse: Math.random()*Math.PI*2 });
+  }
+  for (let i=0;i<4;i++){
+    const ang = (i/4)*Math.PI*2 + Math.PI/4;
+    G.qiSprings.push({ x: cx + Math.cos(ang)*4200, y: cy + Math.sin(ang)*4200, r: 180, tcd: 3, pulse: Math.random()*Math.PI*2 });
   }
   G.rifts = [];
+  // v1.0.0: 8 個秘境（4 內 + 4 外）
   const riftDefs = [
     {name:'修為秘境',  icon:'修', color:'#bb88ff', reward:'qi'},
     {name:'生機秘境',  icon:'生', color:'#ff7080', reward:'heal'},
     {name:'力之秘境',  icon:'力', color:'#ffd66b', reward:'power'},
     {name:'外神秘境',  icon:'★', color:'#aa44ff', reward:'all'},
+    {name:'星辰秘境',  icon:'星', color:'#88ccff', reward:'qi'},
+    {name:'血脈秘境',  icon:'血', color:'#ff4466', reward:'heal'},
+    {name:'雷霆秘境',  icon:'雷', color:'#fff080', reward:'power'},
+    {name:'虛無秘境',  icon:'虛', color:'#7a00cc', reward:'all'},
   ];
   for (let i=0;i<riftDefs.length;i++){
-    const ang = (i/riftDefs.length)*Math.PI*2;
-    const D = 2800;
-    G.rifts.push({
-      ...riftDefs[i],
-      x: cx + Math.cos(ang)*D, y: cy + Math.sin(ang)*D,
-      r: 60, used:false, pulse: Math.random()*Math.PI*2,
-    });
+    const ang = (i/riftDefs.length)*Math.PI*2 + Math.PI/8;
+    const D = i<4 ? 3000 : 4400;
+    G.rifts.push({ ...riftDefs[i], x: cx + Math.cos(ang)*D, y: cy + Math.sin(ang)*D, r: 70, used:false, pulse: Math.random()*Math.PI*2 });
   }
 }
 
@@ -880,18 +1034,25 @@ function spawnInitialWorld(){
   generateDecor();
   generateCosmos();
   generateNodes();
-  for (let i=0;i<320;i++) spawnPickup();
-  for (let i=0;i<160;i++) spawnSpirit();
+  // v1.0.0: visited fog grid (200px cells)
+  const vcs = G.visitedCellSize;
+  const vw = Math.ceil(WORLD.w/vcs), vh = Math.ceil(WORLD.h/vcs);
+  G.visited = [];
+  for (let y=0;y<vh;y++){ const row=[]; for (let x=0;x<vw;x++) row.push(0); G.visited.push(row); }
+  G.stage = 1; G.eventCdT = 120; G.minibossSpawnT = 180; G.bossSpawnT = 240; G.timeline = [];
+  // 大地圖：道具/靈氣同步擴張
+  for (let i=0;i<560;i++) spawnPickup();
+  for (let i=0;i<260;i++) spawnSpirit();
   for (const qs of G.qiSprings){
     for (let i=0;i<30;i++){
       const ang=Math.random()*Math.PI*2, dd=rand(20, qs.r*0.9);
       G.spirits.push({x:qs.x+Math.cos(ang)*dd, y:qs.y+Math.sin(ang)*dd, pulse:Math.random()*Math.PI*2, qi:6});
     }
   }
-  for (let i=0;i<7;i++){
+  for (let i=0;i<AUTHORITIES.length;i++){
     const a = AUTHORITIES[i];
-    const ang = (i/7)*Math.PI*2;
-    const D = 1800;
+    const ang = (i/AUTHORITIES.length)*Math.PI*2;
+    const D = 3000;  // v1.0.0 大地圖外擴
     G.authorities.push({...a, x: WORLD.w/2 + Math.cos(ang)*D, y: WORLD.h/2 + Math.sin(ang)*D, pulse:0});
   }
   // 出生點周遭塞一些靈氣與道具讓玩家先成長
@@ -961,6 +1122,21 @@ function setupInput(canvas){
   canvas.addEventListener('mousedown', e=>{
     if (e.button===0) MOUSE.ldown = true;
     if (e.button===2) MOUSE.rdown = true;
+    // v1.0.0: 星圖開啟時左鍵設定 Ping 標記
+    if (G.mapOpen && e.button===0){
+      const r = canvas.getBoundingClientRect();
+      const cx = e.clientX - r.left, cy = e.clientY - r.top;
+      const W=window.innerWidth, H=window.innerHeight, PAD=60;
+      const aspect = WORLD.w/WORLD.h; let mw = W-PAD*2, mh = H-PAD*2-40;
+      if (mw/mh > aspect) mw = mh*aspect; else mh = mw/aspect;
+      const mx = (W-mw)/2, my = PAD+20;
+      if (cx>=mx && cx<=mx+mw && cy>=my && cy<=my+mh){
+        G.pingX = (cx-mx)/mw * WORLD.w;
+        G.pingY = (cy-my)/mh * WORLD.h;
+        G.pingT = 8;
+        try{ playSound('block'); }catch(e2){}
+      }
+    }
     e.preventDefault();
   });
   canvas.addEventListener('mouseup', e=>{
@@ -978,6 +1154,17 @@ function updatePlayer(p, dt){
   if (p.invuln>0) p.invuln-=dt;
   if (p.bleed>0){ p.hp -= 6*dt; p.bleed-=dt; }
   if (p.poison>0){ p.hp -= 10*p.daohen*dt; p.poison-=dt; }
+  if (p.qiBonusT>0) p.qiBonusT -= dt;
+  // v1.0.0: visited fog 解除（每幀標記玩家附近）
+  if (G.visited){
+    const cs = G.visitedCellSize || 1;
+    const cx = (p.x/cs)|0, cy = (p.y/cs)|0;
+    const rad = G.visitedRadius || 4;
+    for (let dy=-rad; dy<=rad; dy++) for (let dx=-rad; dx<=rad; dx++){
+      const xx = cx+dx, yy = cy+dy;
+      if (xx>=0 && yy>=0 && yy<G.visited.length && xx<G.visited[0].length && dx*dx+dy*dy<=rad*rad) G.visited[yy][xx] = 1;
+    }
+  }
   if (p.slow>0) p.slow-=dt;
   // 玩家不會被凍結（避免無法操作卡死）
   if (p.isPlayer) p.freeze = 0;
@@ -1120,6 +1307,8 @@ function fireProjectile(p, ang, dmg, spd, color, pierce=1){
 }
 function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
   if (!target || target.hp<=0) return;
+  // v1.0.0: 群星正確之時，所有非玩家攻擊者 +30%
+  if (G.event && G.event.type==='aligned' && attacker && !attacker.isPlayer) dmg *= 1.3;
   // v0.9.0: 外神 Boss 走自有結算
   if (target.isBoss){
     const f = Math.max(1, Math.round(dmg||1));
@@ -1476,6 +1665,36 @@ function castAuthority(p, slot){
       flash('#cc88ff', 0.7);
       break;
     }
+    case 'void': {
+      // 空間裂縫：吸力 + 真實傷害 + 撕裂
+      G.shockwaves.push({x:p.x,y:p.y,r:0,max:1200,life:1.6,color:'#7a00cc'});
+      G.shockwaves.push({x:p.x,y:p.y,r:0,max:600,life:1.0,color:'#220033'});
+      G.hazards.push({type:'rift', x:p.x, y:p.y, r:1200, life:2, dmg:0, color:'#7a00cc', tick:0, owner:p});
+      for (const e of enemiesOf(p)){
+        const d = dist(p,e); if (d<1200){
+          const ang = angTo(e,p);
+          e.x += Math.cos(ang)*Math.min(d*0.6, 600);
+          e.y += Math.sin(ang)*Math.min(d*0.6, 600);
+          e.hp -= 300*dh; e.bleed = Math.max(e.bleed||0, 8);
+          addFloat(e.x,e.y-e.r,'300','#7a00cc',13,0.7);
+          if (e.hp<=0) onKill(p,e);
+        }
+      }
+      if (G.boss && G.boss.hp>0 && dist(p,G.boss)<1200){ applyDamageToBoss(300*dh); }
+      flash('#7a00cc', 0.6);
+      break;
+    }
+    case 'omni': {
+      // 揭示全圖 + 重擊 Boss + 全圖修為加成
+      G.revealT = 12;
+      p.qiBonusT = 90; p.qiBonusMul = 1.5;
+      if (G.boss && G.boss.hp>0){ applyDamageToBoss(800*dh); addFloat(G.boss.x,G.boss.y-G.boss.r-40,'群星 800!','#ffdd66',20,1.5); }
+      flash('#ffdd66', 1.0); shake(20);
+      // 揭示時填滿 visited
+      if (G.visited){ for (let y=0;y<G.visited.length;y++) for (let x=0;x<G.visited[0].length;x++) G.visited[y][x] = 1; }
+      pushKillFeed('★ 群星正確！全圖揭示','#ffdd66');
+      break;
+    }
   }
 }
 
@@ -1489,8 +1708,11 @@ function autoPickup(p){
     const dx = p.x-s.x, dy=p.y-s.y, d2=dx*dx+dy*dy;
     if (d2 < 250*250){ const d=Math.sqrt(d2)||1; s.x += dx/d*300* (1/60); s.y += dy/d*300*(1/60); }
     if (d2 < R2){
-      p.qi += s.qi || 5;
-      addFloat(s.x,s.y,`+${s.qi||5} 修為`,'#bb88ff',10,0.6);
+      let q = s.qi || 5;
+      if (p.qiBonusT>0) q = (q * (p.qiBonusMul||1))|0;
+      if (G.event && G.event.type==='aligned') q = (q * 1.5)|0;
+      p.qi += q;
+      addFloat(s.x,s.y,`+${q} 修為`,'#bb88ff',10,0.6);
       s._gone = true;
     }
   }
@@ -1533,7 +1755,7 @@ function autoPickup(p){
   }
   for (const rf of G.rifts){
     if (rf.used) continue;
-    if (dist(p, rf) < rf.r){ rf.used = true; rf.respawnT = 300; p.q.riftsUsed++; p.sanity = Math.min(p.maxSanity, p.sanity+25); grantRiftReward(p, rf); }
+    if (dist(p, rf) < rf.r){ rf.used = true; rf.respawnT = 300; p.q.riftsUsed++; p.sanity = Math.min(p.maxSanity, p.sanity+25); G.timeline.push({t:G.time, text:'開啟 '+rf.name}); grantRiftReward(p, rf); }
   }
   // v0.9.0: 心智 (Sanity) 計算
   if (!isFinite(p.sanity)) p.sanity = 100;
@@ -1715,6 +1937,15 @@ function die(reason){
   document.getElementById('death').classList.remove('hidden');
   document.getElementById('deathReason').textContent = reason || G.deathBy || '不明原因';
   document.getElementById('deathStats').textContent = `階位：${tierName(G.player)} | 擊殺：${G.player.q.kills} | 高階：${G.player.q.killHighTier} | 修為：${G.player.qi} | 生存 ${G.time.toFixed(0)}s`;
+  // v1.0.0: 死亡時間軸
+  try{
+    const tl = (G.timeline||[]).slice(-8);
+    if (tl.length){
+      const txt = '修行紀事：\n' + tl.map(e=>'  '+e.t.toFixed(0)+'s · '+e.text).join('\n');
+      const el = document.getElementById('deathReason');
+      if (el) el.textContent = (el.textContent||'') + '\n\n' + txt;
+    }
+  }catch(e){}
 }
 function winGame(){
   if (G.won) return;
@@ -1839,13 +2070,61 @@ function update(dt){
   // 清理死敵 + 補充
   G.enemies = G.enemies.filter(e=>e.hp>0 && isFinite(e.x) && isFinite(e.y));
   G.minions = G.minions.filter(m=>m.hp>0);
-  while (G.enemies.length < 70) spawnEnemy();
+  // v1.0.0: 大地圖敵人數量隨階段提升
+  const enemyCap = [120, 160, 200, 240][G.stage-1] || 120;
+  while (G.enemies.length < enemyCap) spawnEnemy();
   // v0.9.0: 秘境復活
   for (const rf of G.rifts){ if (rf.used && rf.respawnT){ rf.respawnT -= dt; if (rf.respawnT<=0){ rf.used=false; rf.respawnT=0; pushKillFeed("★ 秘境復甦："+rf.name, rf.color); } } }
   // v0.9.0: 世界 Boss
   if (G.boss && G.boss.hp<=0){ onBossDeath(G.boss); G.boss=null; G.bossSpawnT=300; }
   if (!G.boss){ G.bossSpawnT -= dt; if (G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=300; } }
   if (G.boss) updateBoss(G.boss, dt);
+  // v1.0.0: 階段進程
+  const stageThresholds = [180, 480, 900];  // 生物紀 / 修煉紀 / 星辰紀 / 詭異紀
+  const stageNames = ['生物紀','修煉紀','星辰紀','詭異紀'];
+  const stageSubs  = [
+    '萬靈萌生 · 熟悉生態與獵食',
+    '秘境綻放 · 權柄降世，群魔復甦',
+    '星辰震動 · 觸手肆虐，心智動搖',
+    '詭異橫流 · 外神循環，登神試煉'
+  ];
+  let newStage = 1;
+  for (let i=0;i<stageThresholds.length;i++) if (G.time >= stageThresholds[i]) newStage = i+2;
+  if (newStage !== G.stage){
+    G.stage = newStage;
+    G.stageBannerT = 5; G.stageBannerText = '★ 第 '+newStage+' 紀元 · '+stageNames[newStage-1];
+    G.stageBannerSub  = stageSubs[newStage-1];
+    try{ flash('#ffdd66', 0.5); shake(15); playSound('promote'); }catch(e){}
+    pushKillFeed('☄ 紀元更替：'+stageNames[newStage-1]+' ☄','#ffdd66');
+    logMsg('★★★ '+G.stageBannerText+' — '+G.stageBannerSub,'promote');
+    G.timeline.push({t:G.time, text:'進入 '+stageNames[newStage-1]});
+    if (newStage===4){ G.bossSpawnT = Math.min(G.bossSpawnT, 60); }
+  }
+  if (G.stageBannerT>0) G.stageBannerT -= dt;
+  if (G.revealT>0) G.revealT -= dt;
+  if (G.pingT>0) G.pingT -= dt;
+  // v1.0.0: 小 Boss · 古修者殘魂（修煉紀起，每 180s）
+  if (G.stage>=2){
+    if (G.miniboss && G.miniboss.hp<=0){ onMinibossDeath(G.miniboss); G.miniboss=null; G.minibossSpawnT = G.stage>=3?150:180; }
+    if (!G.miniboss){ G.minibossSpawnT -= dt; if (G.minibossSpawnT<=0){ spawnMiniboss(); G.minibossSpawnT = G.stage>=3?150:180; } }
+    if (G.miniboss) updateMiniboss(G.miniboss, dt);
+  }
+  // v1.0.0: 世界事件 · 群星正確之時（修煉紀起，每 120s, 20s 持續）
+  if (G.stage>=2){
+    if (G.event){
+      G.event.t -= dt;
+      if (G.event.t<=0){ G.event = null; G.eventCdT = 120; pushKillFeed('☄ 群星散去','#aaccff'); }
+    } else {
+      G.eventCdT -= dt;
+      if (G.eventCdT<=0){
+        G.event = {type:'aligned', t:20};
+        pushKillFeed('☄ 群星正確之時！怪 +30% 攻 · 修為 +50% (20s)','#ffdd66');
+        logMsg('★ 群星正確之時：危險與機會並存，20s 內全力收割','promote');
+        try{ flash('#ffdd66',0.5); shake(10); }catch(e){}
+        G.timeline.push({t:G.time, text:'群星正確之時'});
+      }
+    }
+  }
   // v0.9.0: 教學浮窗
   G.tutorialT += dt;
   if (G.tutorialStep===0 && G.tutorialT>3){ addFloat(G.player.x, G.player.y-60, "WASD 移動 · 左鍵近戰", "#ffd66b", 18, 4); G.tutorialStep=1; }
@@ -1854,7 +2133,7 @@ function update(dt){
   if (G.tutorialStep===3 && G.tutorialT>22){ addFloat(G.player.x, G.player.y-60, "找四座秘境 + 斬外神 = 登神", "#ff88cc", 18, 5); G.tutorialStep=4; }
   // 補充靈氣與道具
   if (G.spirits.length<100 && Math.random()<0.5) spawnSpirit();
-  if (G.pickups.length<200 && Math.random()<0.2) spawnPickup();
+  if (G.pickups.length<400 && Math.random()<0.4) spawnPickup();  // v1.0.0
   // 更新排行榜
   updateLeaderboard();
   // HUD
@@ -1897,6 +2176,7 @@ function render(){
     drawAuthoritiesWorld();
     drawHazards();
     try{ drawBoss(); }catch(e){}
+    try{ drawMiniboss(); }catch(e){}
     for (const m of G.minions) try{ drawCreature(m); }catch(e){}
     for (const e of G.enemies) try{ drawCreature(e); }catch(err){}
     try{ drawCreature(G.player); }catch(e){}
@@ -1929,6 +2209,8 @@ function render(){
   ctx.fillStyle = '#88ccff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
   ctx.fillText(G.mapOpen?'[M] 關閉星圖':'[M] 開啟星圖', window.innerWidth-12, window.innerHeight-8);
   if (G.mapOpen) try{ drawStarMap(); }catch(e){ console.warn('[starmap]',e); }
+  try{ drawWorldEventFX(); }catch(e){}
+  try{ drawStageBanner(); }catch(e){}
   // v0.9.0: 心智低紫色暈眩
   if (G.player && G.player.sanity<30){
     const lvl = (30-G.player.sanity)/30;
@@ -2518,6 +2800,59 @@ function drawStarMap(){
     ctx.fillStyle = '#aaa'; ctx.font='10px sans-serif';
     ctx.fillText('HP '+(G.boss.hp|0)+'/'+G.boss.maxHp, bx, by + 18);
   }
+  // v1.0.0: 小 Boss 古修殘魂
+  if (G.miniboss && G.miniboss.hp>0){
+    const bx = mx + G.miniboss.x*sx, by = my + G.miniboss.y*sy;
+    ctx.fillStyle = '#66ccff'; ctx.beginPath(); ctx.arc(bx,by,5,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#88ccff'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle = '#88ccff'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('殘魂', bx, by - 8);
+  }
+  // v1.0.0: 權柄標記（黃色小星）
+  for (const a of G.authorities){
+    const ax = mx + a.x*sx, ay = my + a.y*sy;
+    ctx.fillStyle = a.color; ctx.beginPath(); ctx.arc(ax,ay,3,0,Math.PI*2); ctx.fill();
+  }
+  // v1.0.0: Ping 標記
+  if (G.pingT>0){
+    const ppx = mx + G.pingX*sx, ppy = my + G.pingY*sy;
+    const pr = 8 + Math.sin(G.time*6)*4;
+    ctx.strokeStyle='#ff44aa'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(ppx,ppy,pr,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(ppx,ppy,pr+6,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#ff44aa'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('PING '+G.pingT.toFixed(0)+'s', ppx, ppy - 14);
+  }
+  // v1.0.0: 霧戰（未探索區域加暗）
+  if (G.visited && G.revealT<=0){
+    const cs = G.visitedCellSize;
+    const cellW = (cs/WORLD.w)*mw, cellH = (cs/WORLD.h)*mh;
+    ctx.fillStyle = 'rgba(2,1,8,0.78)';
+    for (let cy=0;cy<G.visited.length;cy++){
+      for (let cx=0;cx<G.visited[0].length;cx++){
+        if (!G.visited[cy][cx]) ctx.fillRect(mx + cx*cellW, my + cy*cellH, cellW+0.5, cellH+0.5);
+      }
+    }
+  }
+  // v1.0.0: 生態區標籤
+  try {
+    const cents = _biomeCentroids();
+    ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+    for (const c of cents){
+      if (c.n < 30) continue;
+      const cx2 = mx + c.x*sx, cy2 = my + c.y*sy;
+      // 霧戰中只顯示已探索區域標籤
+      let visible = G.revealT>0;
+      if (!visible && G.visited){
+        const gx = (c.x/G.visitedCellSize)|0, gy = (c.y/G.visitedCellSize)|0;
+        if (gy>=0 && gy<G.visited.length && gx>=0 && gx<G.visited[0].length && G.visited[gy][gx]) visible = true;
+      }
+      if (!visible) continue;
+      ctx.fillStyle='#00000088'; ctx.fillRect(cx2-30, cy2-10, 60, 16);
+      ctx.fillStyle = BIOMES[c.biome] ? '#eeeeff' : '#aaa';
+      ctx.fillText(BIOMES[c.biome] ? BIOMES[c.biome].name : c.biome, cx2, cy2+3);
+    }
+  } catch(e){}
   // 星座連線：玩家 ↔ 所有秘境（紫色光絲）
   if (G.player){
     const ppx = mx + G.player.x*sx, ppy = my + G.player.y*sy;
@@ -2551,12 +2886,33 @@ function drawStarMap(){
   ctx.fillStyle = '#cc99ff'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center';
   ctx.fillText('☄ 星圖 · 終焉之地 ☄', W/2, PAD/2 + 6);
   ctx.fillStyle = '#888'; ctx.font='11px sans-serif';
-  ctx.fillText('M/Esc 關閉 | 白=你 紫=靈氣泉 彩=秘境 紫眼=外神 | 紫絲=導引線', W/2, H - PAD/2 + 6);
+  const stageNamesM = ['生物紀','修煉紀','星辰紀','詭異紀'];
+  ctx.fillStyle = '#ffdd66'; ctx.font='bold 13px sans-serif';
+  ctx.fillText('★ 第 '+G.stage+' 紀元 · '+stageNamesM[G.stage-1]+'　|　時間 '+G.time.toFixed(0)+'s', W/2, PAD/2 + 28);
+  ctx.fillStyle = '#888'; ctx.font='11px sans-serif';
+  ctx.fillText('M/Esc 關閉 | 左鍵 = 設定 Ping 標記 | 白=你 紫=靈氣 彩=秘境 紫眼=外神 青=殘魂 黃=權柄', W/2, H - PAD/2 + 6);
 }
 
 function drawMinimap(){
   const mw = 200, mh = 200, mx = window.innerWidth-mw-10, my = 10;
   ctx.fillStyle = '#000c'; ctx.fillRect(mx,my,mw,mh);
+  // v1.0.0: ping marker on minimap
+  if (G.pingT>0){
+    const px = mx + (G.pingX/WORLD.w)*mw, py = my + (G.pingY/WORLD.h)*mh;
+    ctx.strokeStyle='#ff44aa'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(px,py,4+Math.sin(G.time*6)*2,0,Math.PI*2); ctx.stroke();
+  }
+  // v1.0.0: 小 Boss marker
+  if (G.miniboss && G.miniboss.hp>0){
+    const px = mx + (G.miniboss.x/WORLD.w)*mw, py = my + (G.miniboss.y/WORLD.h)*mh;
+    ctx.fillStyle='#66ccff'; ctx.beginPath(); ctx.arc(px,py,3,0,Math.PI*2); ctx.fill();
+  }
+  if (G.boss && G.boss.hp>0){
+    const px = mx + (G.boss.x/WORLD.w)*mw, py = my + (G.boss.y/WORLD.h)*mh;
+    const pr = 5+Math.sin(G.time*4)*2;
+    ctx.fillStyle='#aa44ff'; ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#ff44aa'; ctx.lineWidth=1; ctx.stroke();
+  }
   // 地形：使用預建快取
   if (G.terrain && G.terrain.miniCache){
     const prevSmoothing = ctx.imageSmoothingEnabled;
@@ -2771,6 +3127,9 @@ function startGame(){
   logMsg('操作：WASD 移動 / 左鍵近戰 / 右鍵防禦反擊 / F 遠程 / Q E R 技能 / X 衝刺 / 1-6 權柄 / M 星圖', 'promote');
   logMsg('★ 心智 0 會自殘，靠近觸手/外神/秘境會掉，靈氣泉回滿。', 'promote');
   logMsg('★ 5 分鐘後外神【觸星之眼】降臨地圖中央。斬之得 +1500 修為。', 'promote');
+  logMsg('★ 4 紀元：生物 → 修煉 → 星辰 → 詭異。每段都有專屬挑戰。', 'promote');
+  logMsg('★ 修煉紀後：每 180s 小 Boss 殘魂出現；每 120s 群星正確之時。', 'promote');
+  logMsg('★ 星圖 M 鍵：左鍵設 Ping 標記、霧戰探索、9 大權柄全圖位置。', 'promote');
   logMsg('★ 成神試煉（第 8→9 階）：斬外神 + 開 4 秘境 + 心智 ≥ 60。', 'promote');
   logMsg('★ 各途徑專屬晉階儀式，仔細看左下任務描述！', 'promote');
 }
