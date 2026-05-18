@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>終焉之地 The Land's End — Prototype</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="menu" class="overlay">
+    <h1>終焉之地<span class="sub">The Land's End</span></h1>
+    <p class="tag">六大序列 · 九階登神 · 每階獨有能力 · 詭秘風進階 — Prototype v0.6.3</p>
+
+    <h2>選擇你的物種</h2>
+    <div id="speciesList"></div>
+
+    <div class="hint">
+      <p><b>移動</b> WASD　<b>衝刺</b> X　<b>近戰</b> 左鍵/空白　<b>防禦反擊</b> 右鍵（80% 減傷 + 30% 反射）　<b>遠程</b> F　<b>技能</b> Q E R　<b>權柄</b> 1 2 3　<b>拾取</b> 自動</p>
+      <p>每物種有 <b>3 個專屬主動技能（Q/E/R）</b>，E 於 3 階、R 於 6 階解鎖。每條序列<b>每階皆有獨有能力</b>（演化進階，會疊加），如：血蝠飲血、金翅穿甲、神威反震、涅槃復生…</p>
+      <p>左上有 <b>修為榜 TOP 5</b>，右上有 <b>擊殺播報</b>。出生 10 秒無敵，遠處才會出現高階敵人。</p>
+    </div>
+    <button id="startBtn" disabled>選擇物種後開始</button>
+  </div>
+
+  <div id="death" class="overlay hidden">
+    <h1>你死了</h1>
+    <p id="deathReason"></p>
+    <p id="deathStats"></p>
+    <button id="restartBtn">重新開始</button>
+  </div>
+
+  <div id="win" class="overlay hidden">
+    <h1>你成為了神！</h1>
+    <p id="winStats"></p>
+    <button id="winRestartBtn">再來一局</button>
+  </div>
+
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="bar"><span class="lbl">HP</span><div class="track"><div id="hpFill" class="fill hp"></div></div><span id="hpTxt" class="num"></span></div>
+    <div class="bar"><span class="lbl">STA</span><div class="track"><div id="staFill" class="fill sta"></div></div><span id="staTxt" class="num"></span></div>
+    <div class="bar life"><span class="lbl">LIFE</span><div class="track"><div id="lifeFill" class="fill life"></div></div><span id="lifeTxt" class="num"></span></div>
+    <div class="bar evo"><span class="lbl">修為</span><div class="track"><div id="evoFill" class="fill evo"></div></div><span id="evoTxt" class="num"></span></div>
+    <div id="stats"></div>
+    <div id="fruitSlots"></div>
+    <div id="fruitsPanel">
+      <h3>七大權柄（全圖唯一）</h3>
+      <ul id="fruitList"></ul>
+    </div>
+    <div id="log"></div>
+  </div>
+
+  <div id="touch" class="hidden">
+    <div id="joystick"><div id="stick"></div></div>
+    <div id="touchButtons">
+      <div class="row"><button id="btnAtk">近戰</button><button id="btnRng">遠程</button></div>
+      <div class="row"><button id="btnDef">防禦</button><button id="btnSpr">衝刺</button></div>
+      <div class="row fruits"><button id="btnF1">1</button><button id="btnF2">2</button><button id="btnF3">3</button></div>
+    </div>
+  </div>
+
+  <script src="game.js?v=0.6.3"></script>
+</body>
+</html>

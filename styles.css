@@ -1,0 +1,100 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background:#000; font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; color: #eee; user-select: none; }
+
+canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
+
+.overlay {
+  position: fixed; inset: 0; background: rgba(8,10,18,.95);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px; z-index: 50; overflow-y:auto;
+}
+.overlay.hidden { display: none; }
+.overlay h1 { font-size: 42px; letter-spacing: 6px; margin-bottom: 4px; color:#ffd66b; text-shadow: 0 0 18px rgba(255,180,80,.4); }
+.overlay h1 .sub { display:block; font-size:14px; letter-spacing:4px; color:#999; margin-top:6px; }
+.overlay h2 { font-size:18px; margin: 16px 0 8px; color:#9cdcfe; }
+.overlay .tag { color:#888; margin-bottom: 18px; font-size:13px; }
+.overlay .hint { margin-top:16px; color:#aaa; font-size:12px; max-width:560px; text-align:center; line-height:1.7; }
+.overlay button {
+  margin-top: 22px; padding: 12px 28px; font-size: 16px;
+  background: linear-gradient(180deg,#ffd66b,#e89d3b); color:#222; border: none; border-radius: 8px;
+  cursor: pointer; font-weight: 700; letter-spacing: 2px;
+}
+.overlay button:disabled { opacity:.4; cursor:not-allowed; }
+
+#speciesList { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 10px; max-width: 760px; width:100%; }
+.species {
+  border: 2px solid #333; border-radius: 10px; padding: 12px;
+  background:#15192a; cursor: pointer; transition: all .15s;
+}
+.species:hover { border-color:#666; transform: translateY(-2px); }
+.species.sel { border-color:#ffd66b; background:#2a2415; box-shadow: 0 0 18px rgba(255,200,80,.3); }
+.species h3 { font-size:16px; color:#ffd66b; margin-bottom:6px; }
+.species .role { font-size:11px; color:#9cdcfe; margin-bottom:6px; }
+.species .desc { font-size:11px; color:#aaa; line-height:1.5; }
+.species .nums { font-size:11px; color:#7fd07f; margin-top:6px; }
+.species .skills { font-size:10px; color:#9cdcfe; margin-top:4px; }
+.pathGroup { margin-bottom:14px; }
+.pathHeader { font-size:15px; font-weight:700; margin:8px 0 6px; padding-bottom:4px; border-bottom:1px dashed #444; }
+
+/* HUD */
+#hud { position: fixed; left:10px; top:10px; width: 260px; z-index: 10; pointer-events:none; }
+#hud.hidden { display:none; }
+.bar { display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:12px; }
+.bar .lbl { width:34px; color:#bbb; }
+.bar .track { flex:1; height:14px; background:#0007; border:1px solid #333; border-radius:3px; overflow:hidden; }
+.bar .fill { height:100%; transition: width .15s; }
+.fill.hp { background: linear-gradient(90deg,#ff5b5b,#ff8888); }
+.fill.sta { background: linear-gradient(90deg,#5ed1ff,#7ee8ff); }
+.fill.life { background: linear-gradient(90deg,#ffd66b,#ffa641); }
+.fill.evo  { background: linear-gradient(90deg,#bb88ff,#dabbff); }
+.bar.life .lbl { color:#ffd66b; }
+.bar.evo .lbl  { color:#bb88ff; }
+.bar .num { width:64px; text-align:right; color:#ddd; font-variant-numeric: tabular-nums; }
+
+#stats { background:#0008; border:1px solid #222; border-radius:6px; padding:6px 8px; font-size:11px; line-height:1.7; margin-top:6px; color:#ddd; }
+#stats b { color:#ffd66b; }
+
+#fruitSlots { margin-top:8px; display:flex; gap:6px; }
+#fruitSlots .slot {
+  flex:1; min-height:54px; border:2px solid #333; border-radius:6px; background:#0009;
+  font-size:10px; color:#888; padding:4px; text-align:center; position:relative;
+}
+#fruitSlots .slot.empty { color:#444; border-style:dashed; }
+#fruitSlots .slot span { display:block; font-size:11px; margin-top:2px; font-weight:700; }
+#fruitSlots .slot.cd { opacity:.5; }
+#fruitSlots .slot .cdnum { position:absolute; right:4px; bottom:2px; color:#fff; font-size:10px; }
+#stats .cdrow { color:#9cdcfe; font-size:10px; }
+#stats .quest { margin-top:4px; padding:4px 6px; background:#bb88ff22; border-left:3px solid #bb88ff; border-radius:3px; color:#dabbff; font-size:11px; }
+#stats .quest .qprog { color:#ffd66b; font-weight:700; }
+#stats .quest .qdone { color:#ffd66b; font-weight:700; }
+#stats .pathLine { font-size:13px; margin-bottom:2px; }
+#stats .unlocks { margin-top:4px; font-size:10px; color:#aaa; }
+#stats .unlocks span { background:#222; padding:1px 4px; border-radius:3px; margin-right:3px; color:#ffd66b; }
+
+#fruitsPanel { margin-top:8px; background:#0008; border:1px solid #222; border-radius:6px; padding:6px 8px; font-size:11px; }
+#fruitsPanel h3 { font-size:12px; color:#9cdcfe; margin-bottom:4px; }
+#fruitsPanel ul { list-style:none; }
+#fruitsPanel li { padding:2px 0; color:#888; }
+#fruitsPanel li.owned { color:#7fd07f; }
+#fruitsPanel li.taken { color:#ff7f7f; text-decoration: line-through; }
+
+#log { margin-top:8px; max-height: 30vh; overflow:hidden; font-size:11px; }
+#log .line { padding:2px 6px; background:#0009; border-left:3px solid #555; margin-bottom:2px; opacity:.95; }
+#log .line.warn { border-color:#ffb347; color:#ffd66b; }
+#log .line.kill { border-color:#ff5b5b; color:#ff8888; }
+#log .line.fruit { border-color:#bb88ff; color:#d4a8ff; }
+#log .line.train { border-color:#5ed1ff; color:#7ee8ff; }
+#log .line.spirit { border-color:#bb88ff; color:#dabbff; }
+#log .line.promote { border-color:#ffd66b; color:#ffe089; font-weight:700; }
+
+/* Touch */
+#touch { position: fixed; inset:auto 0 0 0; height:160px; z-index:20; pointer-events:none; }
+#touch.hidden { display:none; }
+#joystick { position:absolute; left:20px; bottom:20px; width:120px; height:120px; border-radius:50%; background: rgba(255,255,255,.07); border:2px solid rgba(255,255,255,.15); pointer-events:auto; }
+#stick { position:absolute; left:30px; top:30px; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,.25); }
+#touchButtons { position:absolute; right:14px; bottom:14px; display:flex; flex-direction:column; gap:6px; pointer-events:auto; }
+#touchButtons .row { display:flex; gap:6px; justify-content:flex-end; }
+#touchButtons button { width:64px; height:44px; border-radius:22px; border:none; background:rgba(255,214,107,.85); color:#222; font-weight:700; font-size:12px; }
+#touchButtons .row.fruits button { background:rgba(187,136,255,.85); color:#fff; }
+#touch { height: 220px; }
+@media (pointer:fine) { #touch { display:none !important; } }
