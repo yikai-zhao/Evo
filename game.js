@@ -1,5 +1,5 @@
-// 終焉之地 The Land's End — Prototype v0.6.3
-// v0.6.3 地圖修復：邊緣/地圖黑屏、小地圖永久快取、相機夾在世界內、NaN 保護
+// 終焉之地 The Land's End — Prototype v0.6.4
+// v0.6.4 地圖細紋理、AI 降戰意、物種平衡收斂、簡化操作
 'use strict';
 
 // =====================================================================
@@ -157,51 +157,51 @@ const QI_THR = [0, 25, 70, 150, 270, 450, 700, 1050, 1500, 2100];
 const SPECIES = {
   // 人之道
   swordsman: { path:'human', name:'劍客', icon:'劍', color:'#ffd66b', shape:'humanoid',
-    base:{hp:120,atk:14,def:5,spd:170,sta:90,life:240, r:18, atkR:50, atkCd:0.35, rngR:520, rngCd:0.7, rngDmg:14, rngSpd:560},
+    base:{hp:130,atk:15,def:5,spd:185,sta:90,life:240, r:18, atkR:55, atkCd:0.4, rngR:480, rngCd:0.8, rngDmg:12, rngSpd:540},
     skillQ:{name:'三連箭', cd:3.5, type:'arrow3', desc:'扇形射出 3 箭，每箭 ×0.7 傷害'},
     skillE:{name:'劍意斬', cd:6,  type:'cleave',  desc:'前方扇形 180° 大範圍斬擊，×3 傷害', unlockRank:3},
     skillR:{name:'萬劍訣', cd:18, type:'sword_rain', desc:'環繞 24 把劍同時射向最近敵人', unlockRank:6},
   },
   lizard: { path:'beast', name:'蜥蜴', icon:'蜥', color:'#7fd07f', shape:'reptile',
-    base:{hp:160,atk:18,def:6,spd:160,sta:80,life:200, r:20, atkR:60, atkCd:0.4},
+    base:{hp:150,atk:16,def:6,spd:170,sta:80,life:200, r:20, atkR:58, atkCd:0.42},
     skillQ:{name:'旋風斬', cd:3, type:'spin', desc:'360° 旋轉斬擊，×2 傷害 + 擊退'},
     skillE:{name:'尾甩', cd:5,  type:'tail',  desc:'掃尾 280° 範圍擊飛敵人', unlockRank:3},
     skillR:{name:'狂暴形態', cd:18, type:'rage', desc:'10s 攻速 ×2 護甲 ×2', unlockRank:6},
   },
   croc: { path:'beast', name:'鱷魚', icon:'鱷', color:'#6aa86a', shape:'reptile',
-    base:{hp:200,atk:22,def:9,spd:140,sta:80,life:240, r:22, atkR:55, atkCd:0.55},
+    base:{hp:170,atk:18,def:8,spd:155,sta:80,life:240, r:22, atkR:55, atkCd:0.5},
     skillQ:{name:'死亡翻滾', cd:3.5, type:'roll', desc:'前衝撕咬，路徑上敵人受 ×2 傷害 + 流血'},
     skillE:{name:'鎖頷', cd:6, type:'grab', desc:'抓住最近敵人 2s，每 0.3s 撕咬一次', unlockRank:3},
     skillR:{name:'血河', cd:22, type:'bloodpool', desc:'吐血池，敵人踩到流血', unlockRank:6},
   },
   dino: { path:'dragon', name:'恐龍', icon:'恐', color:'#7a8a3a', shape:'beast',
-    base:{hp:300,atk:32,def:14,spd:130,sta:80,life:260, r:30, atkR:75, atkCd:0.65},
+    base:{hp:180,atk:20,def:10,spd:150,sta:80,life:260, r:26, atkR:65, atkCd:0.5},
     skillQ:{name:'踏擊', cd:3, type:'stomp', desc:'250 半徑 AoE 震波 + 暈眩 1s'},
     skillE:{name:'尾砸', cd:6, type:'tail',  desc:'巨型尾砸 320° 範圍 ×3 傷害', unlockRank:3},
     skillR:{name:'霸王咆哮', cd:20, type:'roar', desc:'全螢幕敵人後退 + 暈眩 3s', unlockRank:6},
   },
   wolf: { path:'beast', name:'狼', icon:'狼', color:'#a0a0a0', shape:'beast',
-    base:{hp:130,atk:16,def:4,spd:200,sta:100,life:200, r:18, atkR:50, atkCd:0.3},
+    base:{hp:130,atk:15,def:5,spd:195,sta:100,life:200, r:18, atkR:55, atkCd:0.388},
     skillQ:{name:'撲擊', cd:2.5, type:'pounce', desc:'快速撲向目標 + 撕咬 ×2 傷害'},
     skillE:{name:'群狼召喚', cd:8, type:'summon_wolf', desc:'召喚 3 隻幻影狼 15s', unlockRank:3},
     skillR:{name:'狂血嗜殺', cd:20, type:'frenzy', desc:'12s 攻速 ×2 + 擊殺回滿血', unlockRank:6},
   },
   // 龍
   longSnake: { path:'dragon', name:'蛟蛇', icon:'蛟', color:'#88e0ff', shape:'dragon',
-    base:{hp:180,atk:18,def:7,spd:170,sta:90,life:260, r:22, atkR:60, atkCd:0.45, rngR:480, rngCd:1.0, rngDmg:22, rngSpd:540},
+    base:{hp:160,atk:17,def:7,spd:170,sta:90,life:260, r:22, atkR:60, atkCd:0.45, rngR:460, rngCd:1.1, rngDmg:18, rngSpd:520},
     skillQ:{name:'龍息', cd:3, type:'breath', desc:'前方 400px 火焰錐 ×0.6/tick'},
     skillE:{name:'纏繞', cd:6, type:'whirl', desc:'環繞自身的能量帶持續 3s', unlockRank:3},
     skillR:{name:'真龍降世', cd:25, type:'dragon_form', desc:'15s 體型 ×1.5，攻 +100%', unlockRank:6},
   },
   // 羽
   eagle: { path:'bird', name:'雄鷹', icon:'鷹', color:'#cce0ff', shape:'bird',
-    base:{hp:90,atk:12,def:3,spd:240,sta:120,life:200, r:16, atkR:48, atkCd:0.3, rngR:600, rngCd:0.5, rngDmg:12, rngSpd:680},
+    base:{hp:110,atk:13,def:4,spd:200,sta:120,life:200, r:16, atkR:50, atkCd:0.38, rngR:540, rngCd:0.6, rngDmg:10, rngSpd:640},
     skillQ:{name:'俯衝', cd:3, type:'dive', desc:'快速衝向滑鼠位置，撞擊 ×3 傷害'},
     skillE:{name:'雷羽風暴', cd:6, type:'feather_storm', desc:'發射 12 道羽刃 ×0.5 傷害', unlockRank:3},
     skillR:{name:'雷霆貫穿', cd:20, type:'thunder_dive', desc:'天降閃電貫穿全螢幕', unlockRank:6},
   },
   owl: { path:'bird', name:'夜梟', icon:'梟', color:'#aabbcc', shape:'bird',
-    base:{hp:100,atk:14,def:4,spd:210,sta:100,life:220, r:16, atkR:50, atkCd:0.35, rngR:560, rngCd:0.6, rngDmg:18, rngSpd:600},
+    base:{hp:115,atk:14,def:4,spd:190,sta:100,life:220, r:16, atkR:52, atkCd:0.4, rngR:520, rngCd:0.7, rngDmg:14, rngSpd:580},
     skillQ:{name:'幽影箭', cd:3, type:'shadow_arrow', desc:'穿透箭 ×2 傷害'},
     skillE:{name:'夜幕', cd:8, type:'darkness', desc:'8s 隱身 + 攻擊有 50% 暴擊', unlockRank:3},
     skillR:{name:'死亡之眼', cd:20, type:'death_gaze', desc:'瞄準目標 1.5s 後造成 999 真傷', unlockRank:6},
@@ -214,14 +214,14 @@ const SPECIES = {
     skillR:{name:'深淵召喚', cd:22, type:'abyss', desc:'召喚 5 隻幻影鯊圍攻', unlockRank:6},
   },
   electroEel: { path:'fish', name:'電鰻', icon:'鰻', color:'#aaffe0', shape:'fish',
-    base:{hp:120,atk:14,def:4,spd:160,sta:120,life:200, r:18, atkR:45, atkCd:0.35, rngR:500, rngCd:0.4, rngDmg:10, rngSpd:700},
+    base:{hp:120,atk:13,def:4,spd:170,sta:120,life:200, r:18, atkR:50, atkCd:0.4, rngR:480, rngCd:0.5, rngDmg:9, rngSpd:660},
     skillQ:{name:'放電', cd:3, type:'shock', desc:'250 半徑電擊 + 暈眩 0.5s'},
     skillE:{name:'雷電鏈', cd:6, type:'chain', desc:'8 跳鏈電每跳 ×0.6 傷害', unlockRank:3},
     skillR:{name:'天雷', cd:20, type:'sky_lightning', desc:'天降 15 道閃電隨機落點', unlockRank:6},
   },
   // 蟲
   scorpion: { path:'insect', name:'蠍', icon:'蠍', color:'#c0ff60', shape:'insect',
-    base:{hp:140,atk:16,def:7,spd:150,sta:90,life:220, r:18, atkR:55, atkCd:0.4, rngR:450, rngCd:0.8, rngDmg:14, rngSpd:520},
+    base:{hp:140,atk:15,def:7,spd:160,sta:90,life:220, r:18, atkR:55, atkCd:0.42, rngR:430, rngCd:0.9, rngDmg:12, rngSpd:500},
     skillQ:{name:'毒尾', cd:3, type:'poison_sting', desc:'長矛突刺，命中敵人 6s DOT 5/s'},
     skillE:{name:'毒霧', cd:7, type:'poison_cloud', desc:'200 半徑毒雲 6s 持續傷害', unlockRank:3},
     skillR:{name:'蟲皇之毒', cd:22, type:'plague', desc:'全圖敵人中毒 10s，每秒 30 傷', unlockRank:6},
@@ -1180,31 +1180,35 @@ function aiUpdate(e, dt){
   if (e.rngCdT>0) e.rngCdT-=dt;
   if (e.skillQT>0) e.skillQT-=dt;
   e.aiTimer-=dt;
-  // 找目標
+  // 找目標（視野設為 500，比原 800 低）
   let tgt = null, td = Infinity;
   const cands = e.isMinion ? G.enemies.filter(x=>x.hp>0) : [G.player, ...G.minions.filter(m=>m.hp>0)];
+  const sightR = 500 + (e.rank||1)*20;
   for (const c of cands){
     if (!c||c.hp<=0) continue;
     if (c.isPlayer && c.invuln>0) continue; // 出生保護時 AI 無視玩家
-    const d=dist(e,c); if (d<800 && d<td){ td=d; tgt=c; }
+    const d=dist(e,c); if (d<sightR && d<td){ td=d; tgt=c; }
   }
-  if (!tgt){
+  // 每只 AI 有個「懶散度」：低階心虐手軟，高階才主動進攒
+  if (e.aiLazy === undefined) e.aiLazy = rand(0.3, 0.85) - (e.rank||1)*0.04;
+  if (!tgt || Math.random() < e.aiLazy*dt*0.6){
     // 漫遊
-    if (e.aiTimer<=0){ e.aiTimer=rand(1,3); e._wx=rand(-1,1); e._wy=rand(-1,1); const l=Math.hypot(e._wx,e._wy)||1; e._wx/=l; e._wy/=l; }
-    e.vx = (e._wx||0)*e.spd*0.4; e.vy = (e._wy||0)*e.spd*0.4;
+    if (e.aiTimer<=0){ e.aiTimer=rand(1.5,4); e._wx=rand(-1,1); e._wy=rand(-1,1); const l=Math.hypot(e._wx,e._wy)||1; e._wx/=l; e._wy/=l; }
+    e.vx = (e._wx||0)*e.spd*0.35; e.vy = (e._wy||0)*e.spd*0.35;
   } else {
     e.facing = angTo(e,tgt);
     // 近戰範圍內：攻擊
     if (td < e.atkR + e.r + tgt.r){
       e.vx*=0.5; e.vy*=0.5;
-      if (e.atkCdT<=0){ doMelee(e); e.atkCdT = e.atkCd; }
-    } else if (e.rngDmg>0 && td<e.rngR && e.rngCdT<=0 && Math.random()<0.5){
-      doRanged(e); e.rngCdT = e.rngCd*1.5;
+      if (e.atkCdT<=0 && Math.random()<0.7){ doMelee(e); e.atkCdT = e.atkCd * 1.35; }
+    } else if (e.rngDmg>0 && td<e.rngR && e.rngCdT<=0 && Math.random()<0.22){
+      doRanged(e); e.rngCdT = e.rngCd*2.2;
     } else {
-      const ang=angTo(e,tgt); e.vx=Math.cos(ang)*e.spd*(e.slow>0?0.5:1); e.vy=Math.sin(ang)*e.spd*(e.slow>0?0.5:1);
+      const ang=angTo(e,tgt); const sp = e.spd*0.85*(e.slow>0?0.5:1);
+      e.vx=Math.cos(ang)*sp; e.vy=Math.sin(ang)*sp;
     }
-    // AI 偶爾用 Q 技能（玩家沒出生保護時才讓 AI 釋技，避免複雜交互出 bug）
-    if (e.skillQT<=0 && td<400 && Math.random()<0.004 && !(tgt && tgt.isPlayer && tgt.invuln>0)){ try{ castSkill(e, e.sp.skillQ); }catch(err){ console.warn('AI skill err', err);} e.skillQT = e.sp.skillQ.cd; }
+    // AI 技能釋放機率大幅下調（1/8 以下）
+    if (e.skillQT<=0 && td<380 && Math.random()<0.0012 && !(tgt && tgt.isPlayer && tgt.invuln>0)){ try{ castSkill(e, e.sp.skillQ); }catch(err){ console.warn('AI skill err', err);} e.skillQT = e.sp.skillQ.cd * 1.5; }
   }
   e.x = clamp(e.x+e.vx*dt, 20, WORLD.w-20);
   e.y = clamp(e.y+e.vy*dt, 20, WORLD.h-20);
@@ -1476,14 +1480,18 @@ function drawTerrain(){
       const base = BIOMES[b].color;
       ctx.fillStyle = base;
       ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
-      // 棋盤格效應營造紋理
-      if ((x+y)%2===0){
-        ctx.fillStyle = shadeColor(base, 8);
-        ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+      // 細分 8x8 sub-cell + 偽隨機色差 — 打散大方塊的「巨型像素」感
+      const SUB = 8, ss = TILE/SUB;
+      const seed = (x*2654435761 ^ y*40503) >>> 0;
+      let s = seed;
+      for (let sy=0; sy<SUB; sy++){
+        for (let sx=0; sx<SUB; sx++){
+          s = (s*1664525 + 1013904223) >>> 0;
+          const v = ((s>>>16) & 0x1f) - 16; // -16~+15
+          ctx.fillStyle = shadeColor(base, Math.floor(v*0.6));
+          ctx.fillRect(x*TILE + sx*ss, y*TILE + sy*ss, ss+0.5, ss+0.5);
+        }
       }
-      // 邊界線
-      ctx.strokeStyle = '#0003'; ctx.lineWidth = 1;
-      ctx.strokeRect(x*TILE, y*TILE, TILE, TILE);
     }
   }
   // 裝飾物
