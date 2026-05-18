@@ -1,5 +1,5 @@
-// 終焉之地 The Land's End — Prototype v0.7.0
-// v0.8.0 星圖(M) + 6 權柄槽(1-6) + 終焉之地修復 + 修為溢出寬限 + 任務阻擋提示
+// 終焉之地 The Land's End — Prototype v0.9.0
+// v0.9.0 心智 Sanity + 世界 Boss 觸星之眼 + 秘境復活 + 成神試煉 + 星圖大升級 + 教學
 'use strict';
 
 // =====================================================================
@@ -149,7 +149,7 @@ const RANK_BONUS = [
   { hp:300,atk:70, def:25,spd:15, sta:30, life:180,zy:0.50, dh:0.50 },
 ];
 // 修為門檻（rank N 需要 QI_THR[N]）— v0.7.0 再次收斂，玩起來更爽
-const QI_THR = [0, 15, 40, 90, 160, 270, 430, 650, 950, 1350];
+const QI_THR = [0, 15, 40, 90, 160, 270, 430, 650, 950, 4000];
 
 // =====================================================================
 // 物種
@@ -376,6 +376,8 @@ const G = {
   selectedSpecies:null, msg:'', killFeed:[], leaderboard:[], errorCount:0, lastError:'',
   soundOn:true, lastHitTime:0, deathBy:'',
   fps:60, frameAcc:0, frameN:0, mapOpen:false,
+  boss:null, bossSpawnT:240, bossDefeated:0,
+  tutorialT:0, tutorialStep:0, visited:null,
 };
 const FAKE_NAMES = ['魔女','玄名','梵人','紅嬜','隱者','社鋒','闇哲','太陽','高堤','恍惚','規則','欺詐','秘主','振箪','指揮','蛟之者','黑夜','學生','虛減','舊日','吞噬','快樂','虛偽','火舌','雮明','巐崙','企鵝','火之使徒','靈媒','國王'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
@@ -501,6 +503,128 @@ function generateCosmos(){
   }
 }
 
+
+// =====================================================================
+// 世界 Boss · 舊日 · 觸星之眼 (v0.9.0)
+// =====================================================================
+function spawnBoss(){
+  const cx=WORLD.w/2, cy=WORLD.h/2;
+  G.boss = {
+    isBoss:true, name:'舊日 · 觸星之眼',
+    x:cx, y:cy, vx:0, vy:0, r:80,
+    hp:8000, maxHp:8000, atk:80,
+    atkCdT:0, projT:4, eyeT:0, phase:1,
+    color:'#aa44ff',
+  };
+  pushKillFeed('☄ 舊日降臨：觸星之眼 ☄','#aa44ff');
+  logMsg('★★★ 外神降臨！地圖中央，謹慎接近 ★★★','promote');
+  try{ playSound('auth'); flash('#aa44ff',0.6); shake(30); }catch(e){}
+}
+function updateBoss(b, dt){
+  b.eyeT += dt;
+  // 二階段：低於 50% 加速
+  if (b.hp < b.maxHp*0.5 && b.phase===1){
+    b.phase = 2; pushKillFeed('☄ 觸星之眼覺醒','#ff44aa');
+    try{ flash('#ff44aa',0.5); shake(20); }catch(e){}
+  }
+  // 緩慢追玩家
+  if (G.player){
+    const dx = G.player.x - b.x, dy = G.player.y - b.y, d = Math.hypot(dx,dy)||1;
+    const sp = b.phase===2 ? 40 : 22;
+    b.x += (dx/d) * sp * dt;
+    b.y += (dy/d) * sp * dt;
+    // 撞擊近戰
+    if (d < b.r + G.player.r + 10){
+      b.atkCdT -= dt;
+      if (b.atkCdT<=0){
+        b.atkCdT = 0.8;
+        G.player.hp -= b.atk * (G.player.def>0?100/(100+G.player.def):1);
+        try{ playSound('hurt'); shake(8); G.cam.hitFlash = Math.max(G.cam.hitFlash, 0.4); }catch(e){}
+        G.player.sanity = Math.max(0, G.player.sanity - 5);
+      }
+    }
+    // 觸手彈幕（每 4s 一次 12 顆）
+    b.projT -= dt;
+    if (b.projT<=0){
+      b.projT = b.phase===2 ? 2.4 : 4;
+      const N = b.phase===2 ? 16 : 12;
+      for (let i=0;i<N;i++){
+        const a = i/N*Math.PI*2 + Math.random()*0.1;
+        G.projectiles.push({x:b.x,y:b.y, vx:Math.cos(a)*260, vy:Math.sin(a)*260, life:3, r:8, dmg:35, hostile:true, color:'#aa44ff', owner:b, hit:new Set(), pierce:1});
+      }
+      try{ playSound('auth'); }catch(e){}
+    }
+  }
+}
+function onBossDeath(b){
+  if (G.player){
+    G.player.qi += 1500;
+    G.player.q.bossKilled = (G.player.q.bossKilled||0) + 1;
+    G.player.sanity = Math.min(G.player.maxSanity, G.player.sanity + 40);
+    addFloat(G.player.x, G.player.y-40, '斬外神！+1500 修為', '#ffd66b', 22, 2.5);
+    pushKillFeed('★★ 你擊敗了【'+b.name+'】 ★★','#ffd66b');
+    logMsg('★★★ 斬外神：+1500 修為 + 心智回復 ★★★','promote');
+    try{ playSound('promote'); flash('#ffffff',0.9); shake(30); }catch(e){}
+    G.bossDefeated++;
+    // 掉一個隨機權柄
+    if (G.player.authoritySlots.length<6 && AUTHORITIES.length>0){
+      const a = AUTHORITIES[(Math.random()*AUTHORITIES.length)|0];
+      G.authorities.push({...a, x:b.x, y:b.y, pulse:0});
+      pushKillFeed('★ 外神遺落：'+a.name, a.color);
+    }
+  }
+  for (let i=0;i<160;i++) G.particles.push({x:b.x,y:b.y,vx:rand(-600,600),vy:rand(-600,600),life:2,color:'#aa44ff',r:4});
+  G.shockwaves.push({x:b.x,y:b.y,r:0,max:800,life:1.5,color:'#aa44ff'});
+}
+function drawBoss(){
+  if (!G.boss || G.boss.hp<=0) return;
+  const b = G.boss;
+  // 外光環脈動
+  const pul = 1 + Math.sin(b.eyeT*3)*0.1;
+  for (let i=3;i>=1;i--){
+    const g = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*pul*(2+i*0.4));
+    g.addColorStop(0,'#aa44ff'+['66','44','22'][i-1]); g.addColorStop(1,'#00000000');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pul*(2+i*0.4),0,Math.PI*2); ctx.fill();
+  }
+  // 黑色巨眼本體
+  ctx.fillStyle = '#0a0014'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pul,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 4; ctx.stroke();
+  // 瞳孔追玩家
+  if (G.player){
+    const ang = Math.atan2(G.player.y-b.y, G.player.x-b.x);
+    const pr = b.r*0.45;
+    const px = b.x + Math.cos(ang)*pr*0.4, py = b.y + Math.sin(ang)*pr*0.4;
+    ctx.fillStyle = '#ff44aa'; ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px,py,pr*0.4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(px,py,pr*0.18,0,Math.PI*2); ctx.fill();
+  }
+  // 6 隻環繞觸手
+  for (let i=0;i<6;i++){
+    const a = b.eyeT*0.6 + i*Math.PI/3;
+    const x0 = b.x + Math.cos(a)*b.r*pul, y0 = b.y + Math.sin(a)*b.r*pul;
+    ctx.strokeStyle = '#220033'; ctx.lineWidth = 14; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(x0,y0);
+    for (let k=1;k<=5;k++){
+      const f = k/5;
+      const wob = Math.sin(b.eyeT*2 + i + f*4)*30*f;
+      const ex = x0 + Math.cos(a)*220*f + Math.cos(a+Math.PI/2)*wob;
+      const ey = y0 + Math.sin(a)*220*f + Math.sin(a+Math.PI/2)*wob;
+      ctx.lineTo(ex,ey);
+    }
+    ctx.stroke();
+  }
+  // 名稱 + HP 條
+  ctx.fillStyle = '#aa44ff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(b.name, b.x, b.y - b.r*pul - 30);
+  const bw = 240, bh = 10;
+  ctx.fillStyle = '#000a'; ctx.fillRect(b.x-bw/2, b.y-b.r*pul-22, bw, bh);
+  ctx.fillStyle = '#aa44ff'; ctx.fillRect(b.x-bw/2, b.y-b.r*pul-22, bw*(b.hp/b.maxHp), bh);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.strokeRect(b.x-bw/2, b.y-b.r*pul-22, bw, bh);
+}
+function applyDamageToBoss(dmg){
+  if (G.boss && G.boss.hp>0){ G.boss.hp -= dmg; if (dmg>0) G.cam.hitFlash = Math.max(G.cam.hitFlash, 0.1); }
+}
+
 function generateNodes(){
   G.qiSprings = [];
   const cx = WORLD.w/2, cy = WORLD.h/2;
@@ -601,7 +725,9 @@ function drawRifts(){
       ctx.fillStyle = '#221122aa';
       ctx.beginPath(); ctx.arc(rf.x, rf.y, rf.r*0.5, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#888'; ctx.font='12px sans-serif'; ctx.textAlign='center';
-      ctx.fillText('（已開啟）'+rf.name, rf.x, rf.y);
+      ctx.fillText(rf.name, rf.x, rf.y - 8);
+      ctx.fillStyle = '#aaa'; ctx.font='10px sans-serif';
+      ctx.fillText('復甦中 '+((rf.respawnT||0)|0)+'s', rf.x, rf.y + 8);
       continue;
     }
     const r = rf.r;
@@ -652,7 +778,8 @@ function makeCreature(speciesKey, x, y, isPlayer=false){
     defending:false,
     bleed:0, poison:0, slow:0, freeze:0, stun:0, invuln:0, rageT:0, titanT:0, darkT:0,
     bonusAtkMult:1, bonusSpdMult:1, bonusDefMult:1, bonusSizeMult:1,
-    q:{ kills:0, killHighTier:0, killEpic:0, casts:0, terrains:new Set(), enteredEnd:false, authorities:0 },
+    q:{ kills:0, killHighTier:0, killEpic:0, casts:0, terrains:new Set(), enteredEnd:false, authorities:0, bossKilled:0, riftsUsed:0 },
+    sanity:100, maxSanity:100,
     aiState:'wander', aiTarget:null, aiTimer:0,
     unlocks:[],
     color: sp.color,
@@ -699,6 +826,19 @@ function tryPromote(p){
     // v0.8.0: 修為溢出寬限 — 達到 1.8 倍門檻則無視任務直接突破
     const grace = p.qi >= QI_THR[p.rank] * 1.8;
     if (q && !q.req(p) && !grace) break;
+    // v0.9.0: 成神試煉 — 第 8→9 階需擊敗外神 + 開啟 4 秘境 + 心智 ≥ 60，無寬限
+    if (p.rank===8){
+      if (p.q.bossKilled<1 || p.q.riftsUsed<4 || p.sanity<60){
+        if (p.isPlayer && (!p._godTipT || G.time - p._godTipT > 8)){
+          p._godTipT = G.time;
+          const need=[]; if (p.q.bossKilled<1) need.push(`斬外神 ${p.q.bossKilled}/1`);
+          if (p.q.riftsUsed<4) need.push(`開秘境 ${p.q.riftsUsed}/4`);
+          if (p.sanity<60) need.push(`心智 ${p.sanity|0}/60`);
+          pushKillFeed('★ 成神試煉未完成：'+need.join(' / '),'#ff88cc');
+        }
+        break;
+      }
+    }
     const b = RANK_BONUS[p.rank-1];
     p.rank++;
     p.zhenyuan += b.zy;
@@ -980,6 +1120,14 @@ function fireProjectile(p, ang, dmg, spd, color, pierce=1){
 }
 function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
   if (!target || target.hp<=0) return;
+  // v0.9.0: 外神 Boss 走自有結算
+  if (target.isBoss){
+    const f = Math.max(1, Math.round(dmg||1));
+    target.hp -= f;
+    addFloat(target.x, target.y-target.r-10, ''+f, isCrit?'#ffeb40':color, isCrit?16:13, 0.7);
+    if (target.hp<=0){ target.hp = 0; }
+    return;
+  }
   if (target.invuln>0){ addFloat(target.x, target.y-target.r, '免', '#ffff80', 12, 0.5); return; }
   let final = dmg;
   if (!isFinite(final) || final<0) final = 1;
@@ -1385,8 +1533,25 @@ function autoPickup(p){
   }
   for (const rf of G.rifts){
     if (rf.used) continue;
-    if (dist(p, rf) < rf.r){ rf.used = true; grantRiftReward(p, rf); }
+    if (dist(p, rf) < rf.r){ rf.used = true; rf.respawnT = 300; p.q.riftsUsed++; p.sanity = Math.min(p.maxSanity, p.sanity+25); grantRiftReward(p, rf); }
   }
+  // v0.9.0: 心智 (Sanity) 計算
+  if (!isFinite(p.sanity)) p.sanity = 100;
+  let sanDelta = 0.3; // 基礎緩回
+  for (const t of G.tendrils){
+    let bx,by; if (t.side==="top"){bx=t.pos;by=0;} else if(t.side==="bottom"){bx=t.pos;by=WORLD.h;}
+    else if(t.side==="left"){bx=0;by=t.pos;} else {bx=WORLD.w;by=t.pos;}
+    const d = Math.hypot(p.x-bx,p.y-by); if (d<800) sanDelta -= 1.5*(1-d/800);
+  }
+  if (terrainAt(p.x,p.y)==="end") sanDelta -= 3;
+  if (G.boss && G.boss.hp>0 && dist(p,G.boss)<900) sanDelta -= 5;
+  for (const qs of G.qiSprings){ if (dist(p,qs)<qs.r) sanDelta += 6; }
+  p.sanity = clamp(p.sanity + sanDelta*(1/60), 0, p.maxSanity);
+  // 心智效應
+  if (p.sanity<10 && Math.random()<0.02){
+    addFloat(p.x+rand(-30,30), p.y-30, ["瘋了…","祂在看…","逃啊…","回不去了","群星正確","蛻吧"][((Math.random()*6)|0)], "#ff66aa", 12, 1.2);
+  }
+  if (p.sanity<=0 && Math.random()<0.5){ p.hp = Math.max(0, p.hp - 10*(1/60)*10); }
   tryPromote(p);
 }
 function grantRiftReward(p, rf){
@@ -1475,11 +1640,26 @@ function aiUpdate(e, dt){
 // =====================================================================
 // 投射物 / 危險區 / 召喚物
 // =====================================================================
+function _bossProjCheck(pr){
+  if (!G.boss || G.boss.hp<=0) return false;
+  if (pr.hostile) return false;
+  if (Math.hypot(pr.x-G.boss.x, pr.y-G.boss.y) < G.boss.r + (pr.r||4)){
+    applyDamageToBoss(pr.dmg||10); pr._dead=true; G.particles.push({x:pr.x,y:pr.y,vx:0,vy:0,life:0.3,color:"#aa44ff",r:3}); return true;
+  }
+  return false;
+}
+function _playerMeleeBoss(p){
+  if (!G.boss || G.boss.hp<=0 || !p || !p.isPlayer) return;
+  if (dist(p, G.boss) < (p.atkR||50) + G.boss.r && p.atkCdT<=0){
+    /* melee handled in player attack code */
+  }
+}
 function updateProjectiles(dt){
   for (const pr of G.projectiles){
     pr.x += pr.vx*dt; pr.y += pr.vy*dt; pr.life-=dt;
     if (pr.life<=0 || pr.x<0||pr.y<0||pr.x>WORLD.w||pr.y>WORLD.h){ pr._gone=true; continue; }
-    const targets = pr.owner.isPlayer ? G.enemies : (pr.owner.isMinion ? G.enemies.filter(e=>e!==pr.owner) : [G.player, ...G.minions]);
+    let targets = pr.owner.isPlayer ? G.enemies : (pr.owner.isMinion ? G.enemies.filter(e=>e!==pr.owner) : [G.player, ...G.minions]);
+    if (pr.owner && pr.owner.isPlayer && G.boss && G.boss.hp>0) targets = targets.concat([G.boss]);
     for (const t of targets){
       if (!t || t.hp<=0 || pr.hit.has(t)) continue;
       if (Math.hypot(t.x-pr.x,t.y-pr.y) < t.r+pr.r){
@@ -1489,7 +1669,8 @@ function updateProjectiles(dt){
       }
     }
   }
-  G.projectiles = G.projectiles.filter(p=>!p._gone);
+  for (const pr of G.projectiles){ if (!pr._gone && !pr._dead) _bossProjCheck(pr); }
+  G.projectiles = G.projectiles.filter(p=>!p._gone && !p._dead);
 }
 function updateHazards(dt){
   for (const h of G.hazards){
@@ -1615,6 +1796,18 @@ function update(dt){
   MOUSE.wy = G.cam.y + (MOUSE.y - window.innerHeight/2);
 
   updatePlayer(G.player, dt);
+  // v0.9.0: 玩家近戰可以打 Boss
+  if (G.boss && G.boss.hp>0 && G.player.hp>0){
+    if (dist(G.player, G.boss) < (G.player.atkR||50) + G.boss.r + 10){
+      if (G.player._meleeTick === undefined) G.player._meleeTick = 0;
+      G.player._meleeTick -= dt;
+      if (G.player._meleeTick<=0){
+        G.player._meleeTick = G.player.atkCd || 0.4;
+        applyDamageToBoss(G.player.atk * 0.8);
+        addFloat(G.boss.x+rand(-30,30), G.boss.y-G.boss.r-10, (G.player.atk*0.8|0)+"", "#ffd66b", 13, 0.6);
+      }
+    }
+  }
   // NaN 守衛
   if (!isFinite(G.player.x) || !isFinite(G.player.y)){
     G.player.x = WORLD.w/2; G.player.y = WORLD.h/2; G.player.vx=0; G.player.vy=0;
@@ -1647,6 +1840,18 @@ function update(dt){
   G.enemies = G.enemies.filter(e=>e.hp>0 && isFinite(e.x) && isFinite(e.y));
   G.minions = G.minions.filter(m=>m.hp>0);
   while (G.enemies.length < 70) spawnEnemy();
+  // v0.9.0: 秘境復活
+  for (const rf of G.rifts){ if (rf.used && rf.respawnT){ rf.respawnT -= dt; if (rf.respawnT<=0){ rf.used=false; rf.respawnT=0; pushKillFeed("★ 秘境復甦："+rf.name, rf.color); } } }
+  // v0.9.0: 世界 Boss
+  if (G.boss && G.boss.hp<=0){ onBossDeath(G.boss); G.boss=null; G.bossSpawnT=300; }
+  if (!G.boss){ G.bossSpawnT -= dt; if (G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=300; } }
+  if (G.boss) updateBoss(G.boss, dt);
+  // v0.9.0: 教學浮窗
+  G.tutorialT += dt;
+  if (G.tutorialStep===0 && G.tutorialT>3){ addFloat(G.player.x, G.player.y-60, "WASD 移動 · 左鍵近戰", "#ffd66b", 18, 4); G.tutorialStep=1; }
+  if (G.tutorialStep===1 && G.tutorialT>9){ addFloat(G.player.x, G.player.y-60, "靠近紫光靈氣泉吸修為", "#bb88ff", 18, 4); G.tutorialStep=2; }
+  if (G.tutorialStep===2 && G.tutorialT>15){ addFloat(G.player.x, G.player.y-60, "按 M 開星圖 · 1-6 釋放權柄", "#88ccff", 18, 4); G.tutorialStep=3; }
+  if (G.tutorialStep===3 && G.tutorialT>22){ addFloat(G.player.x, G.player.y-60, "找四座秘境 + 斬外神 = 登神", "#ff88cc", 18, 5); G.tutorialStep=4; }
   // 補充靈氣與道具
   if (G.spirits.length<100 && Math.random()<0.5) spawnSpirit();
   if (G.pickups.length<200 && Math.random()<0.2) spawnPickup();
@@ -1691,6 +1896,7 @@ function render(){
     drawPickups();
     drawAuthoritiesWorld();
     drawHazards();
+    try{ drawBoss(); }catch(e){}
     for (const m of G.minions) try{ drawCreature(m); }catch(e){}
     for (const e of G.enemies) try{ drawCreature(e); }catch(err){}
     try{ drawCreature(G.player); }catch(e){}
@@ -1723,6 +1929,17 @@ function render(){
   ctx.fillStyle = '#88ccff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
   ctx.fillText(G.mapOpen?'[M] 關閉星圖':'[M] 開啟星圖', window.innerWidth-12, window.innerHeight-8);
   if (G.mapOpen) try{ drawStarMap(); }catch(e){ console.warn('[starmap]',e); }
+  // v0.9.0: 心智低紫色暈眩
+  if (G.player && G.player.sanity<30){
+    const lvl = (30-G.player.sanity)/30;
+    const g = ctx.createRadialGradient(window.innerWidth/2, window.innerHeight/2, Math.min(window.innerWidth,window.innerHeight)*0.2, window.innerWidth/2, window.innerHeight/2, Math.max(window.innerWidth,window.innerHeight)*0.7);
+    g.addColorStop(0,'rgba(170,68,255,0)'); g.addColorStop(1,'rgba(170,68,255,'+(lvl*0.5)+')');
+    ctx.fillStyle=g; ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
+    if (G.player.sanity<10){
+      ctx.fillStyle='rgba(255,68,170,'+(0.05+Math.random()*0.05)+')';
+      ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
+    }
+  }
   // 受擊紅暈
   if (G.cam.hitFlash>0){
     const g = ctx.createRadialGradient(window.innerWidth/2, window.innerHeight/2, Math.min(window.innerWidth,window.innerHeight)*0.3, window.innerWidth/2, window.innerHeight/2, Math.max(window.innerWidth,window.innerHeight)*0.7);
@@ -2195,7 +2412,7 @@ function drawCrosshair(){
 }
 
 // =====================================================================
-// 星圖（M 開啟）— 全螢幕克蘇魯星空總覽
+// 星圖 v0.9.0 — 星座連線 + 生態標籤 + Boss 標記 + 羅盤 + 比例尺
 // =====================================================================
 function drawStarMap(){
   const W = window.innerWidth, H = window.innerHeight;
@@ -2290,11 +2507,51 @@ function drawStarMap(){
     ctx.fillStyle = G.player.path.color; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
     ctx.fillText('你', px, py - 10);
   }
+  // v0.9.0: 外神 Boss
+  if (G.boss && G.boss.hp>0){
+    const bx = mx + G.boss.x*sx, by = my + G.boss.y*sy;
+    const pul = 6 + Math.sin(G.time*4)*3;
+    ctx.fillStyle = '#aa44ff'; ctx.beginPath(); ctx.arc(bx,by,pul,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#ff44aa'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx,by,pul+4,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#ff44aa'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('☄ '+G.boss.name, bx, by - 16);
+    ctx.fillStyle = '#aaa'; ctx.font='10px sans-serif';
+    ctx.fillText('HP '+(G.boss.hp|0)+'/'+G.boss.maxHp, bx, by + 18);
+  }
+  // 星座連線：玩家 ↔ 所有秘境（紫色光絲）
+  if (G.player){
+    const ppx = mx + G.player.x*sx, ppy = my + G.player.y*sy;
+    ctx.strokeStyle = '#aa44ff44'; ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+    for (const rf of G.rifts){ if (!rf.used){ ctx.beginPath(); ctx.moveTo(ppx,ppy); ctx.lineTo(mx+rf.x*sx, my+rf.y*sy); ctx.stroke(); } }
+    if (G.boss && G.boss.hp>0){ ctx.strokeStyle='#ff446688'; ctx.beginPath(); ctx.moveTo(ppx,ppy); ctx.lineTo(mx+G.boss.x*sx, my+G.boss.y*sy); ctx.stroke(); }
+    ctx.setLineDash([]);
+  }
+  // 羅盤
+  ctx.fillStyle = '#88ccff'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('北', mx+mw/2, my-6); ctx.fillText('南', mx+mw/2, my+mh+18);
+  ctx.textAlign='right'; ctx.fillText('西', mx-6, my+mh/2+5);
+  ctx.textAlign='left'; ctx.fillText('東', mx+mw+6, my+mh/2+5);
+  // 玩家狀態總覽（左上）
+  if (G.player){
+    const p = G.player;
+    ctx.fillStyle = '#000c'; ctx.fillRect(20, 60, 240, 130);
+    ctx.strokeStyle = '#aa44ff'; ctx.strokeRect(20, 60, 240, 130);
+    ctx.fillStyle = '#cc99ff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('☄ 修行紀錄', 30, 80);
+    ctx.fillStyle = '#fff'; ctx.font='12px sans-serif';
+    ctx.fillText(`階位：${tierName(p)} (${p.rank}/9)`, 30, 100);
+    ctx.fillText(`修為：${p.qi|0} / ${QI_THR[p.rank]||'∞'}`, 30, 116);
+    ctx.fillText(`心智：${p.sanity|0} / ${p.maxSanity}`, 30, 132);
+    ctx.fillText(`斬外神：${p.q.bossKilled||0} · 秘境：${p.q.riftsUsed||0}/4`, 30, 148);
+    ctx.fillText(`擊殺：${p.q.kills} · 生存：${G.time.toFixed(0)}s`, 30, 164);
+    ctx.fillStyle = '#aaa'; ctx.font='10px sans-serif';
+    ctx.fillText(`下次外神：${(G.bossSpawnT||0)|0}s`, 30, 180);
+  }
   // 標題 + 提示
   ctx.fillStyle = '#cc99ff'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center';
   ctx.fillText('☄ 星圖 · 終焉之地 ☄', W/2, PAD/2 + 6);
   ctx.fillStyle = '#888'; ctx.font='11px sans-serif';
-  ctx.fillText('按 M 或 Esc 關閉　|　白點=你　紫=靈氣泉　彩=秘境　紅紫=高階敵', W/2, H - PAD/2 + 6);
+  ctx.fillText('M/Esc 關閉 | 白=你 紫=靈氣泉 彩=秘境 紫眼=外神 | 紫絲=導引線', W/2, H - PAD/2 + 6);
 }
 
 function drawMinimap(){
@@ -2384,6 +2641,8 @@ function updateHUD(){
   const set = (id,v)=>{ const el=document.getElementById(id); if (el) el.textContent=v; };
   const setW = (id,pct)=>{ const el=document.getElementById(id); if (el) el.style.width=(clamp(pct,0,1)*100).toFixed(1)+'%'; };
   setW('hpFill', p.hp/p.maxHp); set('hpTxt', `${p.hp|0}/${p.maxHp}`);
+  // v0.9.0: 心智條
+  setW('sanFill', p.sanity/p.maxSanity); set('sanTxt', `${p.sanity|0}/${p.maxSanity}`);
   setW('staFill', p.sta/p.maxSta); set('staTxt', `${p.sta|0}/${p.maxSta}`);
   setW('lifeFill', p.life/p.maxLife); set('lifeTxt', `${p.life|0}s`);
   const need = QI_THR[p.rank] || QI_THR[8];
@@ -2398,6 +2657,7 @@ function updateHUD(){
       <div class="pathLine"><b style="color:${p.path.color}">${p.path.name}</b> · <span style="color:${p.path.color}">${tierName(p)}</span>（第 ${p.rank}/9 階）— <span style="color:#cccccc">${tierData(p)?tierData(p).pname:''}</span></div>
       <div>真元 ×${p.zhenyuan.toFixed(2)} · 道痕 ×${p.daohen.toFixed(2)}</div>
       <div class="cdrow">Q ${p.skillQT>0?p.skillQT.toFixed(1):'★'} ${p.sp.skillQ.name} | E ${p.skillET>0?p.skillET.toFixed(1):(p.rank>=(p.sp.skillE.unlockRank||1)?'★':'?')} ${p.sp.skillE.name} | R ${p.skillRT>0?p.skillRT.toFixed(1):(p.rank>=(p.sp.skillR.unlockRank||1)?'★':'?')} ${p.sp.skillR.name}</div>
+      ${G.boss && G.boss.hp>0 ? `<div class="quest" style="background:#aa44ff33;border-left-color:#aa44ff;color:#dabbff;">☄ 外神 ${G.boss.name} · HP ${G.boss.hp|0}/${G.boss.maxHp}</div>` : `<div style="color:#888;font-size:10px;margin-top:4px">外神降臨：${(G.bossSpawnT||0)|0}s 後</div>`}
       ${q ? `<div class="quest" style="${p.qi>=QI_THR[p.rank]&&!q.req(p)?'background:#ff446644;border-left-color:#ff4466;color:#ffccdd;':''}">${p.qi>=QI_THR[p.rank]&&!q.req(p)?'⚠ 修為已足！需完成任務或修為達 '+(QI_THR[p.rank]*1.8|0)+' 強行突破：':'任務：'}${q.desc}　<span class="qprog">[${q.show(p)}]</span> ${q.req(p)?'<span class="qdone">✓</span>':''}</div>` : '<div class="quest qdone">★ 已達神位</div>'}
     `;
   }
@@ -2509,6 +2769,9 @@ function startGame(){
   logMsg(`你選擇了【${G.player.sp.name}】 · ${G.player.path.name}`, 'promote');
   logMsg('★ 出生保護 10 秒：先熟悉操作再進攻！', 'promote');
   logMsg('操作：WASD 移動 / 左鍵近戰 / 右鍵防禦反擊 / F 遠程 / Q E R 技能 / X 衝刺 / 1-6 權柄 / M 星圖', 'promote');
+  logMsg('★ 心智 0 會自殘，靠近觸手/外神/秘境會掉，靈氣泉回滿。', 'promote');
+  logMsg('★ 5 分鐘後外神【觸星之眼】降臨地圖中央。斬之得 +1500 修為。', 'promote');
+  logMsg('★ 成神試煉（第 8→9 階）：斬外神 + 開 4 秘境 + 心智 ≥ 60。', 'promote');
   logMsg('★ 各途徑專屬晉階儀式，仔細看左下任務描述！', 'promote');
 }
 function restartGame(){

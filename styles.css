@@ -47,6 +47,7 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 .fill.sta { background: linear-gradient(90deg,#5ed1ff,#7ee8ff); }
 .fill.life { background: linear-gradient(90deg,#ffd66b,#ffa641); }
 .fill.evo  { background: linear-gradient(90deg,#bb88ff,#dabbff); }
+.fill.san  { background: linear-gradient(90deg,#aa44ff,#cc88ff); }
 .bar.life .lbl { color:#ffd66b; }
 .bar.evo .lbl  { color:#bb88ff; }
 .bar .num { width:64px; text-align:right; color:#ddd; font-variant-numeric: tabular-nums; }
