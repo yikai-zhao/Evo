@@ -1,5 +1,5 @@
-// 終焉之地 The Land's End — Prototype v1.0.0
-// v1.0.0 大地圖 10000² + 4 階段紀元 + 小 Boss 古修殘魂 + 群星正確事件 + 9 權柄 + 星圖霧戰/標記/Ping + 階段橫幅 + 死亡時間軸
+// 終焉之地 The Land's End — Prototype v1.0.1
+// v1.0.1 缺陷修補：玩家可斬小Boss + Boss/小Boss 攻擊走 dealDamage(尊重無敵與護甲) + safeDist 適配大地圖 + 小地圖 Ping 從玩家連線 + 生態快取重置 + 開機 Ping 短按 P 標記玩家位置
 'use strict';
 
 // =====================================================================
@@ -548,9 +548,9 @@ function updateBoss(b, dt){
       b.atkCdT -= dt;
       if (b.atkCdT<=0){
         b.atkCdT = 0.8;
-        G.player.hp -= b.atk * (G.player.def>0?100/(100+G.player.def):1);
-        try{ playSound('hurt'); shake(8); G.cam.hitFlash = Math.max(G.cam.hitFlash, 0.4); }catch(e){}
-        G.player.sanity = Math.max(0, G.player.sanity - 5);
+        dealDamage(b, G.player, b.atk, '#aa44ff');
+        try{ shake(8); G.cam.hitFlash = Math.max(G.cam.hitFlash, 0.4); }catch(e){}
+        if (!(G.player.invuln>0)) G.player.sanity = Math.max(0, G.player.sanity - 5);
       }
     }
     // 觸手彈幕（每 4s 一次 12 顆）
@@ -672,13 +672,13 @@ function updateMiniboss(b, dt){
   // 普通跟蹤
   b.x += (dx/d) * 70 * dt;
   b.y += (dy/d) * 70 * dt;
-  // 近戰
+  // 近戰（v1.0.1: 走 dealDamage）
   if (d < b.r + G.player.r + 8){
     b.atkCdT -= dt;
     if (b.atkCdT<=0){
       b.atkCdT = 0.7;
-      G.player.hp -= b.atk;
-      try{ playSound('hurt'); shake(5); }catch(e){}
+      dealDamage(b, G.player, b.atk, '#66ccff');
+      try{ shake(5); }catch(e){}
     }
   }
 }
@@ -729,6 +729,27 @@ function drawMiniboss(){
 // =====================================================================
 // 階段橫幅 + 世界事件 FX (v1.0.0)
 // =====================================================================
+function drawPingArrow(){
+  if (G.pingT<=0 || !G.player) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  const cx = W/2, cy = H/2;
+  const wx = (G.pingX - G.cam.x); // 相對相機
+  const wy = (G.pingY - G.cam.y);
+  // 若 Ping 已在可視範圍內，不顯示箭頭
+  if (Math.abs(wx) < W/2 - 80 && Math.abs(wy) < H/2 - 80) return;
+  const ang = Math.atan2(wy, wx);
+  const ax = cx + Math.cos(ang) * Math.min(W,H) * 0.35;
+  const ay = cy + Math.sin(ang) * Math.min(W,H) * 0.35;
+  ctx.save();
+  ctx.translate(ax, ay); ctx.rotate(ang);
+  ctx.fillStyle = 'rgba(255,68,170,0.92)';
+  ctx.beginPath(); ctx.moveTo(18,0); ctx.lineTo(-10,-10); ctx.lineTo(-4,0); ctx.lineTo(-10,10); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle='#ff44aa'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+  const dPing = Math.hypot(wx,wy)|0;
+  ctx.fillText('PING '+dPing+'px', ax, ay - 22);
+}
+
 function drawStageBanner(){
   if (G.stageBannerT<=0) return;
   const W = window.innerWidth, H = window.innerHeight;
@@ -1030,6 +1051,7 @@ function addFloat(x,y,text,color,size=12,life=0.8){
 // 世界初始化 / 補充
 // =====================================================================
 function spawnInitialWorld(){
+  G._biomeCentroidsCache = null;  // v1.0.1: 重置生態快取
   generateTerrain();
   generateDecor();
   generateCosmos();
@@ -1080,7 +1102,8 @@ function spawnSpirit(){
 function spawnEnemy(initial=false){
   const keys = Object.keys(SPECIES);
   const sp = keys[(Math.random()*keys.length)|0];
-  const safeDist = initial ? 2000 : 1100;
+  // v1.0.1: 大地圖適配（10000² ≈ 1.56× linear）
+  const safeDist = initial ? 3000 : 1600;
   let x,y, tries=0;
   do { x=rand(100,WORLD.w-100); y=rand(100,WORLD.h-100); tries++; }
   while (G.player && dist({x,y},G.player) < safeDist && tries<20);
@@ -1113,6 +1136,7 @@ function setupInput(canvas){
     if (e.key===' ') e.preventDefault();
     if (k==='m' && G.started){ G.mapOpen = !G.mapOpen; }
     if (k==='escape' && G.mapOpen){ G.mapOpen = false; }
+    if (k==='p' && G.started && G.player){ G.pingX = G.player.x; G.pingY = G.player.y; G.pingT = 8; try{ playSound('block'); }catch(e){} }
   });
   window.addEventListener('keyup', e=>{ KEYS[e.key.toLowerCase()]=false; });
   canvas.addEventListener('mousemove', e=>{
@@ -1881,7 +1905,10 @@ function updateProjectiles(dt){
     pr.x += pr.vx*dt; pr.y += pr.vy*dt; pr.life-=dt;
     if (pr.life<=0 || pr.x<0||pr.y<0||pr.x>WORLD.w||pr.y>WORLD.h){ pr._gone=true; continue; }
     let targets = pr.owner.isPlayer ? G.enemies : (pr.owner.isMinion ? G.enemies.filter(e=>e!==pr.owner) : [G.player, ...G.minions]);
-    if (pr.owner && pr.owner.isPlayer && G.boss && G.boss.hp>0) targets = targets.concat([G.boss]);
+    if (pr.owner && pr.owner.isPlayer){
+      if (G.boss && G.boss.hp>0) targets = targets.concat([G.boss]);
+      if (G.miniboss && G.miniboss.hp>0) targets = targets.concat([G.miniboss]);
+    }
     for (const t of targets){
       if (!t || t.hp<=0 || pr.hit.has(t)) continue;
       if (Math.hypot(t.x-pr.x,t.y-pr.y) < t.r+pr.r){
@@ -2027,16 +2054,22 @@ function update(dt){
   MOUSE.wy = G.cam.y + (MOUSE.y - window.innerHeight/2);
 
   updatePlayer(G.player, dt);
-  // v0.9.0: 玩家近戰可以打 Boss
-  if (G.boss && G.boss.hp>0 && G.player.hp>0){
-    if (dist(G.player, G.boss) < (G.player.atkR||50) + G.boss.r + 10){
-      if (G.player._meleeTick === undefined) G.player._meleeTick = 0;
-      G.player._meleeTick -= dt;
-      if (G.player._meleeTick<=0){
-        G.player._meleeTick = G.player.atkCd || 0.4;
-        applyDamageToBoss(G.player.atk * 0.8);
-        addFloat(G.boss.x+rand(-30,30), G.boss.y-G.boss.r-10, (G.player.atk*0.8|0)+"", "#ffd66b", 13, 0.6);
+  // v1.0.1: 玩家近戰可以打 Boss + 小 Boss
+  if (G.player.hp>0){
+    if (G.player._meleeTick === undefined) G.player._meleeTick = 0;
+    G.player._meleeTick -= dt;
+    const meleeReady = G.player._meleeTick<=0;
+    if (meleeReady){
+      let hit=false;
+      if (G.boss && G.boss.hp>0 && dist(G.player,G.boss)<(G.player.atkR||50)+G.boss.r+10){
+        dealDamage(G.player, G.boss, G.player.atk*0.8, '#ffd66b');
+        hit=true;
       }
+      if (G.miniboss && G.miniboss.hp>0 && dist(G.player,G.miniboss)<(G.player.atkR||50)+G.miniboss.r+10){
+        dealDamage(G.player, G.miniboss, G.player.atk*1.0, '#66ccff');
+        hit=true;
+      }
+      if (hit) G.player._meleeTick = G.player.atkCd || 0.4;
     }
   }
   // NaN 守衛
@@ -2210,6 +2243,7 @@ function render(){
   ctx.fillText(G.mapOpen?'[M] 關閉星圖':'[M] 開啟星圖', window.innerWidth-12, window.innerHeight-8);
   if (G.mapOpen) try{ drawStarMap(); }catch(e){ console.warn('[starmap]',e); }
   try{ drawWorldEventFX(); }catch(e){}
+  try{ drawPingArrow(); }catch(e){}
   try{ drawStageBanner(); }catch(e){}
   // v0.9.0: 心智低紫色暈眩
   if (G.player && G.player.sanity<30){
@@ -2896,11 +2930,18 @@ function drawStarMap(){
 function drawMinimap(){
   const mw = 200, mh = 200, mx = window.innerWidth-mw-10, my = 10;
   ctx.fillStyle = '#000c'; ctx.fillRect(mx,my,mw,mh);
-  // v1.0.0: ping marker on minimap
+  // v1.0.0/1.0.1: ping marker + 從玩家連線
   if (G.pingT>0){
     const px = mx + (G.pingX/WORLD.w)*mw, py = my + (G.pingY/WORLD.h)*mh;
+    if (G.player){
+      const ppx = mx + (G.player.x/WORLD.w)*mw, ppy = my + (G.player.y/WORLD.h)*mh;
+      ctx.strokeStyle='#ff44aa88'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(ppx,ppy); ctx.lineTo(px,py); ctx.stroke();
+      ctx.setLineDash([]);
+    }
     ctx.strokeStyle='#ff44aa'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(px,py,4+Math.sin(G.time*6)*2,0,Math.PI*2); ctx.stroke();
+    // 螢幕邊指引箭頭：當 Ping 離開可視範圍時，於玩家頭頂顯示方向
   }
   // v1.0.0: 小 Boss marker
   if (G.miniboss && G.miniboss.hp>0){
@@ -3130,6 +3171,7 @@ function startGame(){
   logMsg('★ 4 紀元：生物 → 修煉 → 星辰 → 詭異。每段都有專屬挑戰。', 'promote');
   logMsg('★ 修煉紀後：每 180s 小 Boss 殘魂出現；每 120s 群星正確之時。', 'promote');
   logMsg('★ 星圖 M 鍵：左鍵設 Ping 標記、霧戰探索、9 大權柄全圖位置。', 'promote');
+  logMsg('★ 快捷鍵 P：直接在玩家位置設 Ping（不必開星圖）。', 'promote');
   logMsg('★ 成神試煉（第 8→9 階）：斬外神 + 開 4 秘境 + 心智 ≥ 60。', 'promote');
   logMsg('★ 各途徑專屬晉階儀式，仔細看左下任務描述！', 'promote');
 }
