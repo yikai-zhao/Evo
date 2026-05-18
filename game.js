@@ -1,5 +1,5 @@
 // 終焉之地 The Land's End — Prototype v0.7.0
-// v0.7.0 克蘇魯星空 + 觸手 + 秘境 + 靈氣泉 + 紋理快取 + 修為門檻下調 + FPS 顯示
+// v0.8.0 星圖(M) + 6 權柄槽(1-6) + 終焉之地修復 + 修為溢出寬限 + 任務阻擋提示
 'use strict';
 
 // =====================================================================
@@ -327,7 +327,7 @@ const BIOMES = {
   water:  { name:'水域', color:'#1f3a55' },
   mtn:    { name:'山地', color:'#555560' },
   snow:   { name:'雪原', color:'#aac0d0' },
-  end:    { name:'終焉之地', color:'#08020c' },
+  end:    { name:'終焉之地', color:'#1a0a28' },
 };
 
 // =====================================================================
@@ -375,7 +375,7 @@ const G = {
   time:0, started:false, dead:false, won:false,
   selectedSpecies:null, msg:'', killFeed:[], leaderboard:[], errorCount:0, lastError:'',
   soundOn:true, lastHitTime:0, deathBy:'',
-  fps:60, frameAcc:0, frameN:0,
+  fps:60, frameAcc:0, frameN:0, mapOpen:false,
 };
 const FAKE_NAMES = ['魔女','玄名','梵人','紅嬜','隱者','社鋒','闇哲','太陽','高堤','恍惚','規則','欺詐','秘主','振箪','指揮','蛟之者','黑夜','學生','虛減','舊日','吞噬','快樂','虛偽','火舌','雮明','巐崙','企鵝','火之使徒','靈媒','國王'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
@@ -440,6 +440,21 @@ function generateTerrain(){
           tctx.fillStyle = shadeColor(base, Math.floor(v*0.6));
           tctx.fillRect(sx*ss, sy*ss, ss+0.5, ss+0.5);
         }
+      }
+      // v0.8.0: 終焉之地額外灑星，避免一整片黑屏
+      if (bk==='end'){
+        for (let i=0;i<24;i++){
+          seed = (seed*1664525 + 1013904223) >>> 0;
+          const px = (seed>>>0) % TILE;
+          seed = (seed*1664525 + 1013904223) >>> 0;
+          const py = (seed>>>0) % TILE;
+          seed = (seed*1664525 + 1013904223) >>> 0;
+          const rr = 0.5 + ((seed>>>16) & 0x3) * 0.4;
+          tctx.fillStyle = ['#ccaaff','#aaccff','#ffccee','#ffffff'][(seed>>>4)&3];
+          tctx.globalAlpha = 0.5 + ((seed>>>8)&0x7)/16;
+          tctx.beginPath(); tctx.arc(px, py, rr, 0, Math.PI*2); tctx.fill();
+        }
+        tctx.globalAlpha = 1;
       }
       G.terrain.biomeTex[bk] = tx;
     }
@@ -681,7 +696,9 @@ function tryPromote(p){
   while (p.rank < 9 && safety-->0){
     if (p.qi < QI_THR[p.rank]) break; // 注意：rank=1 想升 2 需要 QI_THR[1]
     const q = currentQuest(p);
-    if (q && !q.req(p)) break;
+    // v0.8.0: 修為溢出寬限 — 達到 1.8 倍門檻則無視任務直接突破
+    const grace = p.qi >= QI_THR[p.rank] * 1.8;
+    if (q && !q.req(p) && !grace) break;
     const b = RANK_BONUS[p.rank-1];
     p.rank++;
     p.zhenyuan += b.zy;
@@ -790,8 +807,11 @@ function spawnEnemy(initial=false){
 // =====================================================================
 function setupInput(canvas){
   window.addEventListener('keydown', e=>{
-    KEYS[e.key.toLowerCase()]=true;
+    const k = e.key.toLowerCase();
+    KEYS[k]=true;
     if (e.key===' ') e.preventDefault();
+    if (k==='m' && G.started){ G.mapOpen = !G.mapOpen; }
+    if (k==='escape' && G.mapOpen){ G.mapOpen = false; }
   });
   window.addEventListener('keyup', e=>{ KEYS[e.key.toLowerCase()]=false; });
   canvas.addEventListener('mousemove', e=>{
@@ -910,6 +930,9 @@ function updatePlayer(p, dt){
   if (KEYS['1'] && p.authoritySlots[0] && p.authCdT[0]<=0){ castAuthority(p,0); p.authCdT[0] = p.authoritySlots[0].cd; }
   if (KEYS['2'] && p.authoritySlots[1] && p.authCdT[1]<=0){ castAuthority(p,1); p.authCdT[1] = p.authoritySlots[1].cd; }
   if (KEYS['3'] && p.authoritySlots[2] && p.authCdT[2]<=0){ castAuthority(p,2); p.authCdT[2] = p.authoritySlots[2].cd; }
+  if (KEYS['4'] && p.authoritySlots[3] && p.authCdT[3]<=0){ castAuthority(p,3); p.authCdT[3] = p.authoritySlots[3].cd; }
+  if (KEYS['5'] && p.authoritySlots[4] && p.authCdT[4]<=0){ castAuthority(p,4); p.authCdT[4] = p.authoritySlots[4].cd; }
+  if (KEYS['6'] && p.authoritySlots[5] && p.authCdT[5]<=0){ castAuthority(p,5); p.authCdT[5] = p.authoritySlots[5].cd; }
 
   // 自動拾取
   autoPickup(p);
@@ -1335,7 +1358,7 @@ function autoPickup(p){
   // 權柄
   for (const a of G.authorities){
     if (dist2(p,a) < (60+40)*(60+40)){
-      if (p.authoritySlots.length<3){
+      if (p.authoritySlots.length<6){
         p.authoritySlots.push(a); p.authCdT.push(0); p.q.authorities++;
         logMsg(`★ 獲得【${a.name}】`, 'promote');
         pushKillFeed(`你獲得權柄 ${a.name}`, a.color);
@@ -1697,6 +1720,9 @@ function render(){
   ctx.fillStyle = G.fps<30 ? '#ff6666' : (G.fps<50 ? '#ffcc66' : '#88ff88');
   ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
   ctx.fillText('FPS '+G.fps, 8, window.innerHeight-8);
+  ctx.fillStyle = '#88ccff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+  ctx.fillText(G.mapOpen?'[M] 關閉星圖':'[M] 開啟星圖', window.innerWidth-12, window.innerHeight-8);
+  if (G.mapOpen) try{ drawStarMap(); }catch(e){ console.warn('[starmap]',e); }
   // 受擊紅暈
   if (G.cam.hitFlash>0){
     const g = ctx.createRadialGradient(window.innerWidth/2, window.innerHeight/2, Math.min(window.innerWidth,window.innerHeight)*0.3, window.innerWidth/2, window.innerHeight/2, Math.max(window.innerWidth,window.innerHeight)*0.7);
@@ -2167,6 +2193,110 @@ function drawCrosshair(){
   ctx.moveTo(MOUSE.x,MOUSE.y-10); ctx.lineTo(MOUSE.x,MOUSE.y-3);
   ctx.moveTo(MOUSE.x,MOUSE.y+3); ctx.lineTo(MOUSE.x,MOUSE.y+10); ctx.stroke();
 }
+
+// =====================================================================
+// 星圖（M 開啟）— 全螢幕克蘇魯星空總覽
+// =====================================================================
+function drawStarMap(){
+  const W = window.innerWidth, H = window.innerHeight;
+  // 黑底（半透讓星空透出感覺）
+  ctx.fillStyle = 'rgba(4,2,12,0.92)';
+  ctx.fillRect(0,0,W,H);
+  // 計算地圖區（保留邊距讓 UI 不擋）
+  const PAD = 60;
+  const aspect = WORLD.w / WORLD.h;
+  let mw = W - PAD*2, mh = H - PAD*2 - 40;
+  if (mw/mh > aspect) mw = mh*aspect; else mh = mw/aspect;
+  const mx = (W - mw)/2, my = PAD + 20;
+  const sx = mw/WORLD.w, sy = mh/WORLD.h;
+  // 星空（地圖外）
+  for (const st of G.stars){
+    if (st.x<0||st.x>WORLD.w||st.y<0||st.y>WORLD.h){
+      const px = mx + (st.x/WORLD.w)*mw, py = my + (st.y/WORLD.h)*mh;
+      if (px<0||px>W||py<0||py>H) continue;
+      const a = 0.3 + 0.4*Math.abs(Math.sin(G.time*st.tw + st.ph));
+      ctx.globalAlpha = a; ctx.fillStyle = '#e8e8ff';
+      ctx.beginPath(); ctx.arc(px,py,st.r*0.6,0,Math.PI*2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  // 星雲（淺淺一層）
+  for (const n of G.nebula){
+    const px = mx + (n.x/WORLD.w)*mw, py = my + (n.y/WORLD.h)*mh;
+    const pr = n.r * Math.min(sx,sy);
+    const g = ctx.createRadialGradient(px,py,0,px,py,pr);
+    g.addColorStop(0, n.color+'44'); g.addColorStop(1, n.color+'00');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2); ctx.fill();
+  }
+  // 地圖本體：用 miniCache
+  if (G.terrain && G.terrain.miniCache){
+    ctx.globalAlpha = 0.85;
+    try { ctx.drawImage(G.terrain.miniCache, mx, my, mw, mh); } catch(e){}
+    ctx.globalAlpha = 1;
+  }
+  // 邊框 + 觸手指示
+  ctx.strokeStyle = '#6633aa'; ctx.lineWidth = 2;
+  ctx.strokeRect(mx, my, mw, mh);
+  // 邊界觸手符號
+  for (const t of G.tendrils){
+    let tx=mx, ty=my;
+    if (t.side==='top'){ tx = mx + (t.pos/WORLD.w)*mw; ty = my; }
+    else if (t.side==='bottom'){ tx = mx + (t.pos/WORLD.w)*mw; ty = my+mh; }
+    else if (t.side==='left'){ tx = mx; ty = my + (t.pos/WORLD.h)*mh; }
+    else if (t.side==='right'){ tx = mx+mw; ty = my + (t.pos/WORLD.h)*mh; }
+    ctx.fillStyle = '#aa0033'; ctx.beginPath(); ctx.arc(tx,ty,3,0,Math.PI*2); ctx.fill();
+  }
+  // 終焉之地中心標記
+  const cxw = mx + (WORLD.w/2)*sx, cyw = my + (WORLD.h/2)*sy;
+  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 1;
+  for (let i=0;i<3;i++){
+    ctx.beginPath(); ctx.arc(cxw, cyw, 8+i*6+Math.sin(G.time*2+i)*2, 0, Math.PI*2); ctx.stroke();
+  }
+  ctx.fillStyle = '#aa44ff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('終焉之地', cxw, cyw - 26);
+  // 靈氣泉
+  for (const qs of G.qiSprings){
+    const px = mx + qs.x*sx, py = my + qs.y*sy;
+    ctx.fillStyle = '#bb88ff'; ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#bb88ff66'; ctx.beginPath(); ctx.arc(px,py,qs.r*Math.min(sx,sy),0,Math.PI*2); ctx.stroke();
+  }
+  // 秘境
+  for (const rf of G.rifts){
+    const px = mx + rf.x*sx, py = my + rf.y*sy;
+    ctx.fillStyle = rf.used?'#444':rf.color; ctx.beginPath(); ctx.arc(px,py,6,0,Math.PI*2); ctx.fill();
+    if (!rf.used){ ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke(); }
+    ctx.fillStyle = rf.used?'#666':'#fff'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(rf.name, px, py - 10);
+  }
+  // 權柄
+  for (const a of G.authorities){
+    const px = mx + a.x*sx, py = my + a.y*sy;
+    ctx.fillStyle = a.color; ctx.fillRect(px-3,py-3,6,6);
+    ctx.fillStyle = a.color; ctx.font='9px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(a.icon, px, py + 14);
+  }
+  // 敵人
+  for (const e of G.enemies){
+    const px = mx + e.x*sx, py = my + e.y*sy;
+    ctx.fillStyle = e.rank>=5 ? '#ff80ff' : (e.rank>=3 ? '#ffaa44' : '#f55');
+    const sz = e.rank>=5 ? 3 : 2;
+    ctx.fillRect(px-sz/2, py-sz/2, sz, sz);
+  }
+  // 玩家
+  if (G.player){
+    const px = mx + G.player.x*sx, py = my + G.player.y*sy;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px,py,6,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = G.player.path.color; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = G.player.path.color; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('你', px, py - 10);
+  }
+  // 標題 + 提示
+  ctx.fillStyle = '#cc99ff'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('☄ 星圖 · 終焉之地 ☄', W/2, PAD/2 + 6);
+  ctx.fillStyle = '#888'; ctx.font='11px sans-serif';
+  ctx.fillText('按 M 或 Esc 關閉　|　白點=你　紫=靈氣泉　彩=秘境　紅紫=高階敵', W/2, H - PAD/2 + 6);
+}
+
 function drawMinimap(){
   const mw = 200, mh = 200, mx = window.innerWidth-mw-10, my = 10;
   ctx.fillStyle = '#000c'; ctx.fillRect(mx,my,mw,mh);
@@ -2268,22 +2398,22 @@ function updateHUD(){
       <div class="pathLine"><b style="color:${p.path.color}">${p.path.name}</b> · <span style="color:${p.path.color}">${tierName(p)}</span>（第 ${p.rank}/9 階）— <span style="color:#cccccc">${tierData(p)?tierData(p).pname:''}</span></div>
       <div>真元 ×${p.zhenyuan.toFixed(2)} · 道痕 ×${p.daohen.toFixed(2)}</div>
       <div class="cdrow">Q ${p.skillQT>0?p.skillQT.toFixed(1):'★'} ${p.sp.skillQ.name} | E ${p.skillET>0?p.skillET.toFixed(1):(p.rank>=(p.sp.skillE.unlockRank||1)?'★':'?')} ${p.sp.skillE.name} | R ${p.skillRT>0?p.skillRT.toFixed(1):(p.rank>=(p.sp.skillR.unlockRank||1)?'★':'?')} ${p.sp.skillR.name}</div>
-      ${q ? `<div class="quest">任務：${q.desc}　<span class="qprog">[${q.show(p)}]</span> ${q.req(p)?'<span class="qdone">✓</span>':''}</div>` : '<div class="quest qdone">★ 已達神位</div>'}
+      ${q ? `<div class="quest" style="${p.qi>=QI_THR[p.rank]&&!q.req(p)?'background:#ff446644;border-left-color:#ff4466;color:#ffccdd;':''}">${p.qi>=QI_THR[p.rank]&&!q.req(p)?'⚠ 修為已足！需完成任務或修為達 '+(QI_THR[p.rank]*1.8|0)+' 強行突破：':'任務：'}${q.desc}　<span class="qprog">[${q.show(p)}]</span> ${q.req(p)?'<span class="qdone">✓</span>':''}</div>` : '<div class="quest qdone">★ 已達神位</div>'}
     `;
   }
-  // 權柄槽
+  // 權柄槽（v0.8.0: 6 槽，按 1-6 釋放）
   const slotsEl = document.getElementById('fruitSlots');
   if (slotsEl){
     slotsEl.innerHTML = '';
-    for (let i=0;i<3;i++){
+    for (let i=0;i<6;i++){
       const div = document.createElement('div'); div.className='slot';
       const a = p.authoritySlots[i];
       if (a){
         div.style.background = a.color+'44'; div.style.borderColor = a.color;
-        div.innerHTML = `<div style="font-weight:700;color:${a.color}">${i+1} ${a.icon}</div><div style="font-size:9px">${a.name}</div>`;
+        div.innerHTML = `<div style="font-weight:700;color:${a.color};font-size:11px">${i+1} ${a.icon}</div><div style="font-size:8px">${a.name}</div>`;
         if (p.authCdT[i]>0) div.innerHTML += `<div class="cdnum">${p.authCdT[i].toFixed(1)}</div>`;
       } else {
-        div.innerHTML = `<div style="opacity:0.4">${i+1}</div>`;
+        div.innerHTML = `<div style="opacity:0.4;font-size:11px">${i+1}</div>`;
       }
       slotsEl.appendChild(div);
     }
@@ -2378,7 +2508,7 @@ function startGame(){
   G.started = true;
   logMsg(`你選擇了【${G.player.sp.name}】 · ${G.player.path.name}`, 'promote');
   logMsg('★ 出生保護 10 秒：先熟悉操作再進攻！', 'promote');
-  logMsg('操作：WASD 移動 / 左鍵近戰 / 右鍵防禦反擊 / F 遠程 / Q E R 技能 / X 衝刺 / 1 2 3 權柄', 'promote');
+  logMsg('操作：WASD 移動 / 左鍵近戰 / 右鍵防禦反擊 / F 遠程 / Q E R 技能 / X 衝刺 / 1-6 權柄 / M 星圖', 'promote');
   logMsg('★ 各途徑專屬晉階儀式，仔細看左下任務描述！', 'promote');
 }
 function restartGame(){

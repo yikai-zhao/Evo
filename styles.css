@@ -54,10 +54,11 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 #stats { background:#0008; border:1px solid #222; border-radius:6px; padding:6px 8px; font-size:11px; line-height:1.7; margin-top:6px; color:#ddd; }
 #stats b { color:#ffd66b; }
 
-#fruitSlots { margin-top:8px; display:flex; gap:6px; }
+#fruitSlots { margin-top:8px; display:flex; flex-wrap:wrap; gap:4px; }
 #fruitSlots .slot {
-  flex:1; min-height:54px; border:2px solid #333; border-radius:6px; background:#0009;
-  font-size:10px; color:#888; padding:4px; text-align:center; position:relative;
+  flex:1 1 calc(33.333% - 4px); min-width:0; min-height:46px; box-sizing:border-box;
+  border:2px solid #333; border-radius:6px; background:#0009;
+  font-size:9px; color:#888; padding:3px; text-align:center; position:relative;
 }
 #fruitSlots .slot.empty { color:#444; border-style:dashed; }
 #fruitSlots .slot span { display:block; font-size:11px; margin-top:2px; font-weight:700; }
