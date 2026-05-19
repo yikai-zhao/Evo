@@ -1,0 +1,24 @@
+{
+  "name": "evo",
+  "version": "1.0.0",
+  "description": "融合 **Deeeep.io 生態對抗** + **果實能力爭奪** + **蠱真人壽元換實力** 的多人生存進化遊戲原型。",
+  "main": "game.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yikai-zhao/Evo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/yikai-zhao/Evo/issues"
+  },
+  "homepage": "https://github.com/yikai-zhao/Evo#readme",
+  "dependencies": {
+    "ws": "^8.20.1"
+  }
+}

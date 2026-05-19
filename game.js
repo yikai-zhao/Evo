@@ -1400,6 +1400,14 @@ function fireProjectile(p, ang, dmg, spd, color, pierce=1){
   });
 }
 function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
+  // v1.2.0: PvP — 遠端玩家當作 target 時改派網路訊息
+  if (target && target._isRemotePeer && window.Net && Net.online){
+    const d = Math.max(1, Math.round(dmg));
+    Net.sendHit(target._remoteId, d, 'ranged');
+    target.hitT = 0.3;
+    addFloat(target.x, target.y - (target.r||14) - 10, '-'+d, color||'#fff', 12, 0.5);
+    return d;
+  }
   if (!target || target.hp<=0) return;
   // v1.0.0: 群星正確之時，所有非玩家攻擊者 +30%
   if (G.event && G.event.type==='aligned' && attacker && !attacker.isPlayer) dmg *= 1.3;
