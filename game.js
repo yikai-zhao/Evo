@@ -3231,25 +3231,129 @@ function playSound(type){
   if (!G.soundOn) return;
   const a = ac(); if (!a) return;
   const now = a.currentTime;
-  const o = a.createOscillator(), g = a.createGain();
-  o.connect(g); g.connect(a.destination);
-  let f=440, dur=0.08, vol=0.05, wave='sine';
-  switch(type){
-    case 'hit':   f=520; dur=0.06; vol=0.06; wave='square'; break;
-    case 'hurt':  f=180; dur=0.18; vol=0.10; wave='sawtooth'; break;
-    case 'kill':  f=720; dur=0.22; vol=0.10; wave='triangle'; break;
-    case 'block': f=900; dur=0.10; vol=0.08; wave='sine'; break;
-    case 'pickup':f=1100;dur=0.08; vol=0.05; wave='triangle'; break;
-    case 'promote': f=660; dur=0.5; vol=0.12; wave='triangle'; break;
-    case 'auth':  f=140; dur=0.6; vol=0.14; wave='sawtooth'; break;
-    case 'death': f=80;  dur=1.2; vol=0.15; wave='sawtooth'; break;
+  // layered oscillators [freq, wave, vol, dur, freqEnd?]
+  const SND = {
+    'hit':    [[520,'square',0.05,0.07],[260,'sine',0.02,0.05]],
+    'hurt':   [[180,'sawtooth',0.09,0.20],[90,'sine',0.04,0.14]],
+    'kill':   [[720,'triangle',0.08,0.25,1080],[360,'sine',0.05,0.20,540]],
+    'block':  [[900,'sine',0.07,0.10],[1350,'sine',0.03,0.07]],
+    'pickup': [[1100,'triangle',0.04,0.09],[1320,'triangle',0.03,0.14,1760]],
+    'promote':[[440,'triangle',0.10,0.70,880],[550,'sine',0.07,0.80,1100],[660,'triangle',0.05,0.90,1320]],
+    'auth':   [[140,'sawtooth',0.12,0.65,56],[70,'sine',0.06,0.85]],
+    'death':  [[80,'sawtooth',0.13,1.30,24],[120,'sine',0.07,1.10,40]],
+    'rankup': [[330,'triangle',0.11,0.85,990],[440,'sine',0.08,1.00,1320]],
+  };
+  const layers = SND[type] || [[440,'sine',0.05,0.10]];
+  for (const [f, wave, vol, dur, fEnd] of layers){
+    try {
+      const o=a.createOscillator(), g=a.createGain(), flt=a.createBiquadFilter();
+      flt.type='lowpass'; flt.frequency.value=Math.min(f*6,8000);
+      o.connect(flt); flt.connect(g); g.connect(a.destination);
+      o.type=wave; o.frequency.setValueAtTime(f, now);
+      if (fEnd) o.frequency.exponentialRampToValueAtTime(fEnd, now+dur);
+      g.gain.setValueAtTime(vol, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now+dur);
+      o.start(now); o.stop(now+dur);
+    } catch(e2) {}
   }
-  o.type = wave; o.frequency.setValueAtTime(f, now);
-  if (type==='promote'||type==='kill') o.frequency.exponentialRampToValueAtTime(f*1.5, now+dur);
-  if (type==='death'||type==='auth') o.frequency.exponentialRampToValueAtTime(f*0.4, now+dur);
-  g.gain.setValueAtTime(vol, now);
-  g.gain.exponentialRampToValueAtTime(0.0001, now+dur);
-  o.start(now); o.stop(now+dur);
+}
+
+// =====================================================================
+// 存檔系統 (v1.4.0)
+// =====================================================================
+const EVO_SAVE_KEY = 'evo_save_v140';
+function saveProgress(){
+  if (!G.player || G.dead || !G.started) return;
+  try {
+    const d = {
+      v:'1.4', name:G.player.name, species:G.selectedSpecies,
+      rank:G.player.rank, qi:G.player.qi,
+      kills:G.player.q ? G.player.q.kills : 0,
+      time:Math.floor(G.time), savedAt:Date.now()
+    };
+    localStorage.setItem(EVO_SAVE_KEY, JSON.stringify(d));
+  } catch(e) {}
+}
+function getSave(){
+  try { return JSON.parse(localStorage.getItem(EVO_SAVE_KEY)); } catch(e) { return null; }
+}
+
+// =====================================================================
+// 行動觸控 (v1.4.0)
+// =====================================================================
+function setupTouch(canvas){
+  const touchEl = document.getElementById('touch');
+  if (!touchEl) return;
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (!isTouch && window.innerWidth > 900) return;
+  touchEl.classList.remove('hidden');
+
+  const joystick = document.getElementById('joystick');
+  const stick    = document.getElementById('stick');
+  let jCX=0, jCY=0, jTid=-1;
+
+  function jApply(cx, cy){
+    const dx=cx-jCX, dy=cy-jCY, mag=Math.hypot(dx,dy), cap=46;
+    const nx=mag>cap?dx/mag*cap:dx, ny=mag>cap?dy/mag*cap:dy;
+    stick.style.transform = 'translate('+nx+'px,'+ny+'px)';
+    KEYS['w']=dy<-14; KEYS['s']=dy>14; KEYS['a']=dx<-14; KEYS['d']=dx>14;
+  }
+  function jClear(){
+    jTid=-1; stick.style.transform='translate(0,0)';
+    KEYS['w']=KEYS['s']=KEYS['a']=KEYS['d']=false;
+  }
+
+  joystick.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    const t=e.changedTouches[0], r=joystick.getBoundingClientRect();
+    jCX=r.left+r.width/2; jCY=r.top+r.height/2; jTid=t.identifier;
+    jApply(t.clientX, t.clientY);
+  }, {passive:false});
+
+  document.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    for (const t of e.changedTouches){
+      if (t.identifier===jTid){ jApply(t.clientX, t.clientY); }
+      else {
+        const r=canvas.getBoundingClientRect();
+        MOUSE.x=t.clientX-r.left; MOUSE.y=t.clientY-r.top;
+      }
+    }
+  }, {passive:false});
+
+  document.addEventListener('touchend', e=>{
+    for (const t of e.changedTouches){ if (t.identifier===jTid) jClear(); }
+  }, {passive:false});
+  document.addEventListener('touchcancel', e=>{
+    for (const t of e.changedTouches){ if (t.identifier===jTid) jClear(); }
+  }, {passive:false});
+
+  function tapBtn(id, fn){
+    const el=document.getElementById(id); if (!el) return;
+    el.addEventListener('touchstart', e=>{ e.preventDefault(); fn(true);  }, {passive:false});
+    el.addEventListener('touchend',   e=>{ e.preventDefault(); fn(false); }, {passive:false});
+    el.addEventListener('touchcancel',e=>{ e.preventDefault(); fn(false); }, {passive:false});
+  }
+  tapBtn('btnAtk', v=>{ MOUSE.ldown=v; });
+  tapBtn('btnDef', v=>{ MOUSE.rdown=v; });
+  tapBtn('btnSpr', v=>{ KEYS['x']=v; });
+  tapBtn('btnRng', v=>{ if(v&&G.player&&G.started) doRanged(G.player); });
+  tapBtn('btnQ',   v=>{ KEYS['q']=v; });
+  tapBtn('btnE',   v=>{ KEYS['e']=v; });
+  tapBtn('btnR',   v=>{ KEYS['r']=v; });
+  tapBtn('btnF1',  v=>{ KEYS['1']=v; });
+  tapBtn('btnF2',  v=>{ KEYS['2']=v; });
+  tapBtn('btnF3',  v=>{ KEYS['3']=v; });
+  tapBtn('btnMap', v=>{ if(v&&G.started){ G.mapOpen=!G.mapOpen; } });
+
+  canvas.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    for (const t of e.changedTouches){
+      if (t.identifier===jTid) continue;
+      const r=canvas.getBoundingClientRect();
+      MOUSE.x=t.clientX-r.left; MOUSE.y=t.clientY-r.top;
+    }
+  }, {passive:false});
 }
 
 // =====================================================================
@@ -3282,6 +3386,19 @@ function buildMenu(){
     }
     list.appendChild(grp);
   }
+  // show save info banner
+  const _sv = getSave();
+  let _siel = document.getElementById('saveInfo');
+  if (!_siel){
+    _siel = document.createElement('div'); _siel.id='saveInfo';
+    const _sb = document.getElementById('startBtn');
+    _sb.parentNode.insertBefore(_siel, _sb);
+  }
+  if (_sv){
+    const _sd = new Date(_sv.savedAt);
+    _siel.className='saveInfo';
+    _siel.innerHTML = '<div class="saveBox">存檔：<b>'+(_sv.name||'?')+'</b> &nbsp;R'+_sv.rank+'&nbsp;&middot;&nbsp;擊殺 '+_sv.kills+'&nbsp;&middot;&nbsp;'+Math.floor(_sv.time/60)+'m'+(_sv.time%60)+'s&nbsp;&middot;&nbsp;'+_sd.toLocaleDateString('zh-TW')+'</div>';
+  } else { _siel.innerHTML=''; }
 }
 
 // =====================================================================
@@ -3460,6 +3577,10 @@ function startGame(){
         pushKillFeed(killerName+' 击殺了 '+(isMe?'你':victimName),isMe?'#ff4466':'#ff8866');
       }
     };
+    Net.onEnemyKill = (nid)=>{
+      const _ee = G.enemies.find(x=>x.nid===nid);
+      if (_ee && _ee.hp>0){ _ee.hp=0; _ee._dead=true; }
+    };
     Net.connect();
   }
 }
@@ -3480,5 +3601,7 @@ window.addEventListener('load', ()=>{
   document.getElementById('startBtn').onclick = startGame;
   document.getElementById('restartBtn').onclick = restartGame;
   document.getElementById('winRestartBtn').onclick = restartGame;
+  setupTouch(document.getElementById('game'));
+  document.addEventListener('touchstart', ()=>{ try{ ac(); }catch(e){} }, {once:true});
   requestAnimationFrame(loop);
 });

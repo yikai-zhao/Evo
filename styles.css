@@ -93,14 +93,48 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 #log .line.spirit { border-color:#bb88ff; color:#dabbff; }
 #log .line.promote { border-color:#ffd66b; color:#ffe089; font-weight:700; }
 
-/* Touch */
-#touch { position: fixed; inset:auto 0 0 0; height:160px; z-index:20; pointer-events:none; }
-#touch.hidden { display:none; }
-#joystick { position:absolute; left:20px; bottom:20px; width:120px; height:120px; border-radius:50%; background: rgba(255,255,255,.07); border:2px solid rgba(255,255,255,.15); pointer-events:auto; }
-#stick { position:absolute; left:30px; top:30px; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,.25); }
-#touchButtons { position:absolute; right:14px; bottom:14px; display:flex; flex-direction:column; gap:6px; pointer-events:auto; }
-#touchButtons .row { display:flex; gap:6px; justify-content:flex-end; }
-#touchButtons button { width:64px; height:44px; border-radius:22px; border:none; background:rgba(255,214,107,.85); color:#222; font-weight:700; font-size:12px; }
-#touchButtons .row.fruits button { background:rgba(187,136,255,.85); color:#fff; }
-#touch { height: 220px; }
-@media (pointer:fine) { #touch { display:none !important; } }
+/* Touch UI (v1.4.0) */
+#touch { position:fixed; inset:auto 0 0 0; height:250px; z-index:20; pointer-events:none; }
+#touch.hidden { display:none !important; }
+#joystick {
+  position:absolute; left:16px; bottom:16px;
+  width:120px; height:120px; border-radius:50%;
+  background:rgba(255,255,255,.06); border:2.5px solid rgba(255,255,255,.20);
+  pointer-events:auto; touch-action:none;
+  display:flex; align-items:center; justify-content:center;
+}
+#stick {
+  width:52px; height:52px; border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.65), rgba(200,180,255,.35));
+  box-shadow:0 2px 8px rgba(0,0,0,.5);
+  transition:transform .05s;
+  will-change:transform;
+}
+#touchButtons {
+  position:absolute; right:10px; bottom:10px;
+  display:flex; flex-direction:column; gap:5px;
+  align-items:flex-end; pointer-events:auto;
+}
+#touchButtons .row { display:flex; gap:5px; justify-content:flex-end; }
+#touchButtons button {
+  width:54px; height:46px; border-radius:12px;
+  border:1.5px solid rgba(200,170,255,.45);
+  background:rgba(20,15,50,.78);
+  color:#e8e0ff; font:bold 12px/1 sans-serif;
+  cursor:pointer; touch-action:manipulation;
+  user-select:none; -webkit-user-select:none;
+  text-shadow:0 1px 3px rgba(0,0,0,.8);
+  box-shadow:0 2px 6px rgba(0,0,0,.5);
+}
+#touchButtons button:active, #touchButtons button.pressed {
+  background:rgba(90,60,200,.85);
+  border-color:rgba(180,150,255,.8);
+  transform:scale(.93);
+}
+#touchButtons .row.skills button { border-color:rgba(100,180,255,.5); background:rgba(10,30,60,.78); }
+#touchButtons .row.main button { height:56px; font-size:13px; }
+#touchButtons button.big { width:68px; background:rgba(80,20,20,.82); border-color:rgba(255,100,100,.6); }
+#touchButtons .row.fruits button { background:rgba(60,20,80,.78); border-color:rgba(200,130,255,.5); }
+.saveInfo { margin:8px 0 4px; text-align:center; }
+.saveBox { display:inline-block; background:rgba(60,40,100,.7); border:1px solid rgba(180,140,255,.4); border-radius:8px; padding:6px 14px; color:#d4c0ff; font-size:13px; }
+@media (pointer:fine) and (min-width:901px) { #touch { display:none !important; } }
