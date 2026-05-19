@@ -104,6 +104,9 @@
       case 'leave':
         Net.peers.delete(m.id);
         break;
+      case 'dead':
+        if(Net.onPvpKill)Net.onPvpKill(m.from,m.killerName||('玩家#'+m.from),m.victimId,m.victimName||'玩家');
+        break;
       case 'fx':
         // 之後可視覺化遠端玩家權柄釋放
         break;
@@ -119,6 +122,7 @@
     if (Net._sendT > 0) return;
     Net._sendT = 1 / Net.sendHz;
     try{
+      Net._myName=(player.name||'').slice(0,16);
       Net.ws.send(JSON.stringify({
         t:'state',
         x: player.x|0, y: player.y|0,
@@ -150,8 +154,14 @@
     try{ Net.ws.send(JSON.stringify({ t:'chat', text: String(text).slice(0,180) })); }catch(e){}
   };
 
+  Net.sendDead=function(killerId,killerName){
+    if(!Net.online||!Net.ws||Net.ws.readyState!==1)return;
+    try{Net.ws.send(JSON.stringify({t:'dead',killerId,killerName:String(killerName||'').slice(0,16),victimName:(Net._myName||'').slice(0,16)}));}catch(e){}
+  };
+  Net.onPvpKill=null;
   Net.sendFx = function(kind, data){
     if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return;
     try{ Net.ws.send(JSON.stringify(Object.assign({ t:'fx', kind }, data||{}))); }catch(e){}
   };
+  setInterval(()=>{if(!Net.online&&Net.url)Net.connect();},4000);
 })();

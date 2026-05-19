@@ -72,6 +72,11 @@ wss.on('connection', (ws, req) => {
       case 'fx':         // 視覺效果同步（權柄釋放、晉階等）
         broadcast(msg, id);
         break;
+      case 'dead':
+        msg.victimId=id;
+        broadcast(msg);
+        console.log('[PvP] kill '+msg.killerId+' -> '+id);
+        break;
       case 'ping':
         ws.send(JSON.stringify({ t:'pong', echo: msg.echo || 0, ts: Date.now() }));
         break;

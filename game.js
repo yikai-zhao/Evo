@@ -1,4 +1,4 @@
-// 終焉之地 The Land's End — Prototype v1.2.0
+// 終焉之地 The Land's End — Prototype v1.3.0
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、聊天 T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + 神戰紀 + 真神試煉
 'use strict';
@@ -2066,7 +2066,10 @@ function die(reason){
   G.dead = true;
   playSound('death');
   document.getElementById('death').classList.remove('hidden');
-  document.getElementById('deathReason').textContent = reason || G.deathBy || '不明原因';
+  document.getElementById('deathReason').textContent=reason||G.deathBy||'不明原因';
+  const _dEl=document.getElementById('deathStats');
+  if(_dEl){const _on=window.Net&&Net.online;
+    _dEl.textContent=`存活 ${(G.time/60)|0}m${(G.time%60)|0}s · 擊殺 ${G.player.q.kills} · R${G.player.rank}`+(_on?' · 線上'+(Net.peers.size+1)+'人':'');}
   document.getElementById('deathStats').textContent = `階位：${tierName(G.player)} | 擊殺：${G.player.q.kills} | 高階：${G.player.q.killHighTier} | 修為：${G.player.qi} | 生存 ${G.time.toFixed(0)}s`;
   // v1.0.0: 死亡時間軸
   try{
@@ -2286,9 +2289,15 @@ function update(dt){
   updateHUD();
 }
 function updateLeaderboard(){
-  const all = [G.player, ...G.enemies];
-  all.sort((a,b)=> (b.rank*1000 + b.qi) - (a.rank*1000 + a.qi));
-  G.leaderboard = all.slice(0,5);
+  const all=[G.player,...G.enemies];
+  if(window.Net&&Net.peers)for(const [id,peer] of Net.peers){
+    if(!peer||peer.x===undefined)continue;
+    all.push({name:peer.name||('玩家#'+id),rank:peer.rank||1,qi:0,
+      path:{color:peer.color||'#88ccff'},sp:{name:peer.name||'?'},
+      _isPeer:true,isPlayer:false});
+  }
+  all.sort((a,b)=>(b.rank*1000+b.qi)-(a.rank*1000+a.qi));
+  G.leaderboard=all.slice(0,8);
 }
 function pushKillFeed(text, color){
   G.killFeed.push({text, color: color||'#fff', life: 4, maxLife: 4});
@@ -2949,6 +2958,15 @@ function drawStarMap(){
     ctx.fillStyle = '#aaa'; ctx.font='10px sans-serif';
     ctx.fillText('HP '+(G.boss.hp|0)+'/'+G.boss.maxHp, bx, by + 18);
   }
+  // v1.3.0 線上玩家
+  if(window.Net&&Net.peers)for(const[id,peer] of Net.peers){
+    if(!peer||peer.x===undefined)continue;
+    const _ppx=mx+peer.x*sx,_ppy=my+peer.y*sy;
+    ctx.fillStyle=peer.color||'#88ccff';
+    ctx.beginPath();ctx.arc(_ppx,_ppy,5+Math.sin(G.time*3+id)*1,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#fff5';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle='#cce8ff';ctx.font='10px sans-serif';ctx.textAlign='center';
+    ctx.fillText((peer.name||('P'+id))+' R'+(peer.rank||1),_ppx,_ppy-10);}
   // v1.0.0: 小 Boss 古修殘魂
   if (G.miniboss && G.miniboss.hp>0){
     const bx = mx + G.miniboss.x*sx, by = my + G.miniboss.y*sy;
@@ -3108,8 +3126,12 @@ function drawMinimap(){
     ctx.fillRect(mx+e.x*sx-s/2,my+e.y*sy-s/2,s,s);
   }
   // 玩家
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(mx+G.player.x*sx,my+G.player.y*sy,4,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle = G.player.path.color; ctx.lineWidth=2; ctx.stroke();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(mx+G.player.x*sx,my+G.player.y*sy,4,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=G.player.path.color;ctx.lineWidth=2;ctx.stroke();
+  if(window.Net&&Net.peers)for(const[,p]of Net.peers){
+    if(!p||p.x===undefined)continue;
+    ctx.fillStyle=p.color||'#88ccff';ctx.beginPath();ctx.arc(mx+p.x*sx,my+p.y*sy,4,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#fff5';ctx.lineWidth=1.5;ctx.stroke();}
 }
 function drawKillFeed(){
   let y = 220;
@@ -3131,17 +3153,25 @@ function drawLeaderboard(){
   const lx = 12, ly = 12, lw = 240;
   ctx.fillStyle = '#000b'; ctx.fillRect(lx, ly, lw, 12 + G.leaderboard.length*22 + 6);
   ctx.strokeStyle = '#ffd66b88'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, 12 + G.leaderboard.length*22 + 6);
-  ctx.fillStyle = '#ffd66b'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
-  ctx.fillText('☘ 修為榜 TOP 5', lx+8, ly+18);
-  for (let i=0;i<G.leaderboard.length;i++){
-    const c = G.leaderboard[i];
-    const yy = ly + 38 + i*22;
-    ctx.fillStyle = c.isPlayer ? '#ffffff' : '#ddd';
-    ctx.font = c.isPlayer ? 'bold 12px sans-serif' : '12px sans-serif';
-    ctx.fillText(`${i+1}. ${c.name||c.sp.name}`, lx+8, yy);
-    ctx.fillStyle = c.path.color; ctx.textAlign = 'right';
-    ctx.fillText(`${tierName(c)} ${c.qi}`, lx+lw-8, yy);
-    ctx.textAlign = 'left';
+  const _oc=(window.Net&&Net.online)?Net.peers.size+1:0;
+  ctx.fillStyle='#ffd66b';ctx.font='bold 13px sans-serif';ctx.textAlign='left';
+  ctx.fillText('修為榜'+(_oc>0?' · 線上'+_oc+'人':''),lx+8,ly+18);
+  for(let i=0;i<G.leaderboard.length;i++){
+    const c=G.leaderboard[i];
+    const yy=ly+38+i*22;
+    if(c._isPeer){
+      ctx.fillStyle='#88ccff';ctx.font='12px sans-serif';
+      ctx.fillText(`${i+1}. ● ${c.name}`,lx+8,yy);
+      ctx.fillStyle=c.path.color;ctx.textAlign='right';
+      ctx.fillText('R'+c.rank,lx+lw-8,yy);
+    }else{
+      ctx.fillStyle=c.isPlayer?'#ffffff':'#ddd';
+      ctx.font=c.isPlayer?'bold 12px sans-serif':'12px sans-serif';
+      ctx.fillText(`${i+1}. ${c.name||c.sp.name}`,lx+8,yy);
+      ctx.fillStyle=c.path.color;ctx.textAlign='right';
+      ctx.fillText(`${tierName(c)} ${c.qi}`,lx+lw-8,yy);
+    }
+    ctx.textAlign='left';
   }
 }
 
@@ -3397,7 +3427,9 @@ function startGame(){
   logMsg('★ 成神試煉（第 8→9 階）：斬外神 + 開 4 秘境 + 心智 ≥ 60。', 'promote');
   logMsg('★ 各途徑專屬晉階儀式，仔細看左下任務描述！', 'promote');
   // v1.2.0 多人聯機
-  G.player.name = G.player.name || ('玩家#'+(Math.random()*9000|0+1000));
+  const _ni=document.getElementById('playerName');
+  const _nv=_ni?_ni.value.trim().slice(0,16):'';
+  G.player.name=_nv||('玩家#'+((Math.random()*9000|0)+1000));
   if (window.Net){
     Net.onWelcome = (m)=>{ logMsg('★ 已連線多人聯機伺服器（你的 ID: '+m.id+'，目前線上 '+((m.peers||[]).length+1)+' 人）','promote'); };
     Net.onHit = (fromId, dmg, kind)=>{
@@ -3405,6 +3437,10 @@ function startGame(){
       const peer = Net.peers.get(fromId);
       const fake = { isPlayer:false, isRemotePeerAttacker:true, name:(peer&&peer.name)||('玩家#'+fromId), x:(peer&&peer.x)||G.player.x, y:(peer&&peer.y)||G.player.y, hp:1, atk:dmg, perks:{} };
       dealDamage(fake, G.player, dmg, '#ff6688');
+      if(G.player.hp<=0&&window.Net&&Net.sendDead){
+        const _kp=Net.peers.get(fromId);
+        Net.sendDead(fromId,(_kp&&_kp.name)||('玩家#'+fromId));
+      }
     };
     Net.onChat = (fromId, text)=>{
       const peer = Net.peers.get(fromId);
@@ -3412,6 +3448,17 @@ function startGame(){
       pushKillFeed('💬 '+nm+': '+text, '#ffeb70');
       logMsg('💬 '+nm+'：'+text,'kill');
       if (peer){ peer.chatText=text; peer.chatT=5; }
+    };
+    Net.onPvpKill=(killerId,killerName,victimId,victimName)=>{
+      const iKilled=(killerId===Net.myId);
+      if(iKilled){
+        pushKillFeed('你 击殺了 '+victimName,'#ffd66b');
+        if(G.player){G.player.q.kills++;tryPromote(G.player);}
+        try{playSound('kill');}catch(e){}
+      }else{
+        const isMe=(victimId===Net.myId);
+        pushKillFeed(killerName+' 击殺了 '+(isMe?'你':victimName),isMe?'#ff4466':'#ff8866');
+      }
     };
     Net.connect();
   }

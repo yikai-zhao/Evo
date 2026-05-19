@@ -14,6 +14,10 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 .overlay h2 { font-size:18px; margin: 16px 0 8px; color:#9cdcfe; }
 .overlay .tag { color:#888; margin-bottom: 18px; font-size:13px; }
 .overlay .hint { margin-top:16px; color:#aaa; font-size:12px; max-width:560px; text-align:center; line-height:1.7; }
+.nameRow { display:flex; align-items:center; gap:10px; margin:14px auto 2px; justify-content:center; }
+.nameRow label { color:#88ccff; font-size:14px; font-weight:700; white-space:nowrap; }
+.nameRow input { background:#111827; color:#fff; border:1.5px solid #334466; border-radius:6px; padding:6px 12px; font-size:14px; outline:none; width:220px; transition:border-color .2s; }
+.nameRow input:focus { border-color:#88ccff; }
 .overlay button {
   margin-top: 22px; padding: 12px 28px; font-size: 16px;
   background: linear-gradient(180deg,#ffd66b,#e89d3b); color:#222; border: none; border-radius: 8px;
