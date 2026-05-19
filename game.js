@@ -1,4 +1,5 @@
-// 終焉之地 The Land's End — Prototype v1.1.0
+// 終焉之地 The Land's End — Prototype v1.2.0
+// v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、聊天 T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + 神戰紀 + 真神試煉
 'use strict';
 
@@ -1207,6 +1208,8 @@ function setupInput(canvas){
     if (k==='m' && G.started){ G.mapOpen = !G.mapOpen; }
     if (k==='escape' && G.mapOpen){ G.mapOpen = false; }
     if (k==='p' && G.started && G.player){ G.pingX = G.player.x; G.pingY = G.player.y; G.pingT = 8; try{ playSound('block'); }catch(e){} }
+    // v1.2.0 T 鍵開聊天
+    if (k==='t' && G.started && window.Net && Net.online && !G._chatOpen){ e.preventDefault(); openChatInput(); }
   });
   window.addEventListener('keyup', e=>{ KEYS[e.key.toLowerCase()]=false; });
   canvas.addEventListener('mousemove', e=>{
@@ -1380,6 +1383,22 @@ function doMelee(p){
     if (delta > Math.PI*0.5) continue;
     dealDamage(p, e, p.atk, '#fff', false);
     hitCount++;
+  }
+  // v1.2.0 PvP 近戰對遠端玩家
+  if (p===G.player && window.Net && Net.online){
+    for (const [id, peer] of Net.peers){
+      if (!peer || !peer.alive || peer.x===undefined) continue;
+      const dx=peer.x-p.x, dy=peer.y-p.y, dd=Math.hypot(dx,dy);
+      if (dd > r + (peer.r||14)) continue;
+      const ang = Math.atan2(dy,dx);
+      let delta = Math.abs(((ang - p.facing + Math.PI*3) % (Math.PI*2)) - Math.PI);
+      if (delta > Math.PI*0.5) continue;
+      const d = Math.max(1, Math.round(p.atk||10));
+      Net.sendHit(id, d, 'melee');
+      peer.hitT = 0.3; peer.hp = Math.max(0, (peer.hp||0)-d);
+      addFloat(peer.x, peer.y - (peer.r||14) - 10, '-'+d, '#ff8888', 13, 0.6);
+      hitCount++;
+    }
   }
   // 視覺
     G.shockwaves.push({x:p.x,y:p.y,r:r*0.4,max:r,life:0.18,lifeMax:0.18,color:p.color,arc:Math.PI,facing:p.facing,thin:true});
@@ -1986,6 +2005,13 @@ function updateProjectiles(dt){
     if (pr.owner && pr.owner.isPlayer){
       if (G.boss && G.boss.hp>0) targets = targets.concat([G.boss]);
       if (G.miniboss && G.miniboss.hp>0) targets = targets.concat([G.miniboss]);
+      // v1.2.0 PvP 彈道：遠端玩家可被命中
+      if (window.Net && Net.online){
+        for (const [pid, peer] of Net.peers){
+          if (!peer || !peer.alive || peer.x===undefined) continue;
+          targets.push({ x:peer.x, y:peer.y, r:peer.r||14, hp:1, _isRemotePeer:true, _remoteId:pid, _peerRef:peer });
+        }
+      }
     }
     for (const t of targets){
       if (!t || t.hp<=0 || pr.hit.has(t)) continue;
@@ -2249,6 +2275,11 @@ function update(dt){
   // 補充靈氣與道具
   if (G.spirits.length<100 && Math.random()<0.5) spawnSpirit();
   if (G.pickups.length<400 && Math.random()<0.4) spawnPickup();  // v1.0.0
+  // v1.2.0 多人聯機 tick
+  if (window.Net){
+    try{ Net.update(G.player, dt); }catch(e){}
+    for (const [,peer] of Net.peers){ if (peer.hitT>0) peer.hitT-=dt; if (peer.chatT>0) peer.chatT-=dt; }
+  }
   // 更新排行榜
   updateLeaderboard();
   // HUD
@@ -2295,6 +2326,7 @@ function render(){
     for (const m of G.minions) try{ drawCreature(m); }catch(e){}
     for (const e of G.enemies) try{ drawCreature(e); }catch(err){}
     try{ drawCreature(G.player); }catch(e){}
+    try{ drawRemotePeers(); }catch(e){}
     drawProjectiles();
     drawShockwaves();
     drawParticles();
@@ -2306,6 +2338,7 @@ function render(){
     // 再保底重設一次，確保 UI 層不被殘留 transform 影響
     ctx.setTransform(dpr,0,0,dpr,0,0);
   }
+  try{ drawOnlineBadge(); }catch(e){}
   // 螢幕閃光
   if (G.cam.flash>0){
     ctx.fillStyle = G.cam.flashColor;
@@ -3224,6 +3257,112 @@ function buildMenu(){
 // =====================================================================
 // 啟動
 // =====================================================================
+// =====================================================================
+// v1.2.0 多人聯機渲染與 UI
+// =====================================================================
+function drawRemotePeers(){
+  if (!window.Net || !Net.peers) return;
+  const now = performance.now();
+  for (const [id, peer] of Net.peers){
+    if (!peer || peer.x===undefined) continue;
+    // 插值平滑：用 px/py/pt → x/y
+    let drawX = peer.x, drawY = peer.y;
+    if (peer.px !== undefined && peer.pt){
+      const a = Math.min(1, (now - peer.pt) / (1000/Net.sendHz));
+      drawX = peer.px + (peer.x - peer.px) * a;
+      drawY = peer.py + (peer.y - peer.py) * a;
+    }
+    const r = peer.r || 14;
+    // 光環（受擊紅閃）
+    const flash = peer.hitT>0 ? Math.min(1, peer.hitT/0.3) : 0;
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = flash>0 ? '#ff5566' : (peer.color || '#88ccff');
+    ctx.beginPath(); ctx.arc(drawX, drawY, r+6, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    // 主體
+    ctx.fillStyle = peer.color || '#88ccff';
+    ctx.beginPath(); ctx.arc(drawX, drawY, r, 0, Math.PI*2); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    // 朝向
+    if (typeof peer.facing === 'number'){
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(drawX, drawY);
+      ctx.lineTo(drawX + Math.cos(peer.facing)*(r+8), drawY + Math.sin(peer.facing)*(r+8));
+      ctx.stroke();
+    }
+    // PvP 三角標記
+    ctx.fillStyle = '#ff4466';
+    ctx.beginPath();
+    ctx.moveTo(drawX, drawY - r - 14);
+    ctx.lineTo(drawX - 5, drawY - r - 4);
+    ctx.lineTo(drawX + 5, drawY - r - 4);
+    ctx.closePath(); ctx.fill();
+    // HP 條
+    if (peer.maxHp){
+      const bw = Math.max(36, r*2.2), bh = 5;
+      const bx = drawX - bw/2, by = drawY + r + 6;
+      ctx.fillStyle = '#000a'; ctx.fillRect(bx-1, by-1, bw+2, bh+2);
+      ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, bh);
+      const ratio = Math.max(0, Math.min(1, peer.hp/peer.maxHp));
+      ctx.fillStyle = ratio>0.5?'#5eea7a':(ratio>0.2?'#ffd166':'#ff5566');
+      ctx.fillRect(bx, by, bw*ratio, bh);
+    }
+    // 名牌
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    const label = (peer.name||('玩家#'+id)) + ' · ' + (peer.path||'?') + ' R' + (peer.rank||1);
+    ctx.strokeStyle = '#000a'; ctx.lineWidth = 3;
+    ctx.strokeText(label, drawX, drawY - r - 18);
+    ctx.fillText(label, drawX, drawY - r - 18);
+    // 聊天泡泡
+    if (peer.chatT>0 && peer.chatText){
+      ctx.font = '13px system-ui,sans-serif';
+      const tw = ctx.measureText(peer.chatText).width;
+      ctx.fillStyle = '#000c';
+      ctx.fillRect(drawX-tw/2-6, drawY - r - 50, tw+12, 22);
+      ctx.fillStyle = '#ffeb70';
+      ctx.fillText(peer.chatText, drawX, drawY - r - 34);
+    }
+    ctx.textAlign = 'left';
+  }
+}
+
+function openChatInput(){
+  if (G._chatOpen) return;
+  G._chatOpen = true;
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:50%;bottom:80px;transform:translateX(-50%);z-index:9999;background:#000c;border:1px solid #88ccff;padding:8px 12px;border-radius:6px;font:14px system-ui;';
+  wrap.innerHTML = '<span style="color:#88ccff;margin-right:6px">聊天</span><input id="_chatInput" maxlength="180" style="width:380px;background:#111;color:#fff;border:1px solid #444;padding:4px 8px;border-radius:4px;outline:none"/> <span style="color:#888;font-size:11px">Enter 送出 · Esc 取消</span>';
+  document.body.appendChild(wrap);
+  const inp = wrap.querySelector('#_chatInput');
+  inp.focus();
+  const close = ()=>{ G._chatOpen=false; wrap.remove(); };
+  inp.addEventListener('keydown', (ev)=>{
+    ev.stopPropagation();
+    if (ev.key==='Enter'){
+      const v = inp.value.trim();
+      if (v && window.Net){ Net.sendChat(v); pushKillFeed('💬 你: '+v, '#ffeb70'); }
+      close();
+    } else if (ev.key==='Escape'){ close(); }
+  });
+}
+
+function drawOnlineBadge(){
+  if (!window.Net) return;
+  ctx.save();
+  ctx.font = 'bold 13px system-ui,sans-serif';
+  const txt = Net.online ? ('● 線上 '+(Net.peers.size+1)+' 人 · ID '+(Net.myId||'?')+' · T 聊天') : '○ 連線中…';
+  const tw = ctx.measureText(txt).width;
+  ctx.fillStyle = '#000a';
+  ctx.fillRect(10, window.innerHeight-34, tw+18, 24);
+  ctx.fillStyle = Net.online ? '#5eea7a' : '#ff8866';
+  ctx.fillText(txt, 18, window.innerHeight-17);
+  ctx.restore();
+}
+
 function startGame(){
   if (!G.selectedSpecies) return;
   document.getElementById('menu').classList.add('hidden');
@@ -3257,6 +3396,25 @@ function startGame(){
   logMsg('★ 22 序列：rank 1-9 為凡途；rank 10-19 為神途序列 9→0（愚者真神為終點）。', 'promote');
   logMsg('★ 成神試煉（第 8→9 階）：斬外神 + 開 4 秘境 + 心智 ≥ 60。', 'promote');
   logMsg('★ 各途徑專屬晉階儀式，仔細看左下任務描述！', 'promote');
+  // v1.2.0 多人聯機
+  G.player.name = G.player.name || ('玩家#'+(Math.random()*9000|0+1000));
+  if (window.Net){
+    Net.onWelcome = (m)=>{ logMsg('★ 已連線多人聯機伺服器（你的 ID: '+m.id+'，目前線上 '+((m.peers||[]).length+1)+' 人）','promote'); };
+    Net.onHit = (fromId, dmg, kind)=>{
+      if (!G.player || G.player.hp<=0) return;
+      const peer = Net.peers.get(fromId);
+      const fake = { isPlayer:false, isRemotePeerAttacker:true, name:(peer&&peer.name)||('玩家#'+fromId), x:(peer&&peer.x)||G.player.x, y:(peer&&peer.y)||G.player.y, hp:1, atk:dmg, perks:{} };
+      dealDamage(fake, G.player, dmg, '#ff6688');
+    };
+    Net.onChat = (fromId, text)=>{
+      const peer = Net.peers.get(fromId);
+      const nm = (peer&&peer.name)||('玩家#'+fromId);
+      pushKillFeed('💬 '+nm+': '+text, '#ffeb70');
+      logMsg('💬 '+nm+'：'+text,'kill');
+      if (peer){ peer.chatText=text; peer.chatT=5; }
+    };
+    Net.connect();
+  }
 }
 function restartGame(){
   document.getElementById('death').classList.add('hidden');
