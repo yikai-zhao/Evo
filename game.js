@@ -1,11 +1,11 @@
-// 終焉之地 The Land's End — Prototype v1.0.1
-// v1.0.1 缺陷修補：玩家可斬小Boss + Boss/小Boss 攻擊走 dealDamage(尊重無敵與護甲) + safeDist 適配大地圖 + 小地圖 Ping 從玩家連線 + 生態快取重置 + 開機 Ping 短按 P 標記玩家位置
+// 終焉之地 The Land's End — Prototype v1.1.0
+// v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + 神戰紀 + 真神試煉
 'use strict';
 
 // =====================================================================
 // 常數
 // =====================================================================
-const WORLD = { w: 10000, h: 10000 };  // v1.0.0 大地圖（4× 面積）
+const WORLD = { w: 14000, h: 14000 };  // v1.1.0 群星海洋（更廣闊；中心 7000,7000）
 const TILE = 256;
 const KEYS = {};
 const MOUSE = { x:0, y:0, wx:0, wy:0, ldown:false, rdown:false };
@@ -119,15 +119,25 @@ const PATHS = {
     ],
   },
 };
-function tierName(p){ return (p.path.tiers[p.rank-1] && p.path.tiers[p.rank-1].name) || '凡人'; }
-function tierData(p){ return p.path.tiers[p.rank-1]; }
+function tierName(p){
+  if (p.rank>=10){ const sq=sequenceData(p); return sq?sq.sname:'真神'; }
+  return (p.path.tiers[p.rank-1] && p.path.tiers[p.rank-1].name) || '凡人';
+}
+function tierData(p){
+  if (p.rank>=10){ const sq=sequenceData(p); return sq?{name:sq.sname, pname:sq.pname, pdesc:sq.pdesc, p:sq.p}:null; }
+  return p.path.tiers[p.rank-1];
+}
 function aggregatePerks(p){
   const out = { atk:1, def:1, hp:1, spd:1, sta:1, size:1, range:1, vision:1,
                 crit:0, lifesteal:0, killheal:0, regen:0, dot:0, pierce:0,
                 knockRes:0, knockMul:1,
                 reflect:0, aoeOnHit:0, slowAura:0, dotAura:0, pushAura:0, revive:0 };
-  for (let i=0;i<p.rank;i++){
-    const t = p.path.tiers[i]; if (!t||!t.p) continue;
+  const accumTiers = [];
+  for (let i=0;i<Math.min(p.rank,9);i++) if (p.path.tiers[i]) accumTiers.push(p.path.tiers[i]);
+  // v1.1.0: 序列加成（rank 10 = SEQUENCES[0]、...、rank 19 = SEQUENCES[9]）
+  for (let i=10;i<=p.rank && i<=19;i++) accumTiers.push(SEQUENCES[i-10]);
+  for (const t of accumTiers){
+    if (!t||!t.p) continue;
     for (const k in t.p){
       if (k==='atk'||k==='def'||k==='hp'||k==='spd'||k==='sta'||k==='size'||k==='range'||k==='vision'||k==='knockMul') out[k]*=t.p[k];
       else if (k==='reflect'||k==='aoeOnHit'||k==='slowAura'||k==='dotAura'||k==='pushAura'||k==='revive') out[k] = Math.max(out[k], t.p[k]);
@@ -137,7 +147,7 @@ function aggregatePerks(p){
   return out;
 }
 
-// 每階加成（rank 1→2 用 index 0）
+// 每階加成（rank N→N+1 用 index N-1）— v1.1.0 擴張到 18 階（rank 1→19 = 18 次晉階）
 const RANK_BONUS = [
   { hp:30, atk:5,  def:2, spd:4,  sta:8,  life:30, zy:0.10, dh:0.10 },
   { hp:40, atk:7,  def:3, spd:5,  sta:10, life:35, zy:0.12, dh:0.12 },
@@ -147,9 +157,37 @@ const RANK_BONUS = [
   { hp:140,atk:30, def:13,spd:10, sta:20, life:90, zy:0.28, dh:0.28 },
   { hp:200,atk:45, def:18,spd:12, sta:24, life:120,zy:0.35, dh:0.35 },
   { hp:300,atk:70, def:25,spd:15, sta:30, life:180,zy:0.50, dh:0.50 },
+  // v1.1.0: 神途序列（rank 9→10 起）— 屬性加幅遞增
+  { hp:450, atk:100,def:35, spd:18, sta:36, life:240, zy:0.65, dh:0.65 },
+  { hp:650, atk:140,def:50, spd:22, sta:42, life:320, zy:0.80, dh:0.80 },
+  { hp:900, atk:190,def:65, spd:26, sta:48, life:420, zy:1.00, dh:1.00 },
+  { hp:1250,atk:250,def:85, spd:30, sta:56, life:560, zy:1.25, dh:1.25 },
+  { hp:1700,atk:320,def:110,spd:34, sta:64, life:740, zy:1.55, dh:1.55 },
+  { hp:2300,atk:420,def:140,spd:38, sta:72, life:960, zy:1.90, dh:1.90 },
+  { hp:3100,atk:550,def:180,spd:42, sta:80, life:1240,zy:2.40, dh:2.40 },
+  { hp:4200,atk:720,def:230,spd:46, sta:90, life:1600,zy:3.00, dh:3.00 },
+  { hp:5800,atk:950,def:300,spd:50, sta:100,life:2100,zy:3.80, dh:3.80 },
+  { hp:8500,atk:1400,def:420,spd:55,sta:120,life:2800,zy:5.00, dh:5.00 },
 ];
 // 修為門檻（rank N 需要 QI_THR[N]）— v0.7.0 再次收斂，玩起來更爽
-const QI_THR = [0, 15, 40, 90, 160, 270, 430, 650, 950, 4000];
+// v1.1.0: 擴張到 19 階（rank 1-9 凡途；10-19 = 序列 9→0 神途）
+const QI_THR = [0, 15, 40, 90, 160, 270, 430, 650, 950, 4000,
+                8000, 14000, 22000, 32000, 45000, 62000, 85000, 115000, 280000];
+
+// v1.1.0: 22 序列風格神途（rank 10-19 對應 序列 9 → 序列 0；參考《詭秘之主》序列觀）
+const SEQUENCES = [
+  { sname:'序列 9 · 半神初臨', pname:'神格初凝', pdesc:'生命+30% 攻擊+30% 防禦+20% 範圍+15%', p:{hp:1.30, atk:1.30, def:1.20, range:1.15} },
+  { sname:'序列 8 · 神格學徒', pname:'魔藥淬體', pdesc:'吸血+15% 攻擊+25%',                  p:{lifesteal:0.15, atk:1.25} },
+  { sname:'序列 7 · 神格使徒', pname:'神諭加持', pdesc:'生命+45% 回血+3/s 暴擊+15%',          p:{hp:1.45, regen:3, crit:0.15} },
+  { sname:'序列 6 · 神格大祭司', pname:'神威普照', pdesc:'攻擊+35% 暴擊+25% 速度+15%',         p:{atk:1.35, crit:0.25, spd:1.15} },
+  { sname:'序列 5 · 序列之主', pname:'序列權能', pdesc:'屬性+30% 毒霧+減速雙光環',           p:{atk:1.30, hp:1.30, dotAura:1, slowAura:1} },
+  { sname:'序列 4 · 上位神侍', pname:'神侍庇佑', pdesc:'防禦+55% 無視 30% 護甲 抗擊退+80%',   p:{def:1.55, pierce:0.30, knockRes:0.8} },
+  { sname:'序列 3 · 半神王者', pname:'王者氣場', pdesc:'攻擊+45% 體型+15% 範圍+25%',          p:{atk:1.45, size:1.15, range:1.25} },
+  { sname:'序列 2 · 古神近侍', pname:'古神契約', pdesc:'生命+55% 攻擊+50% 毒霧光環',          p:{hp:1.55, atk:1.50, dotAura:1} },
+  { sname:'序列 1 · 真神之影', pname:'神性顯化', pdesc:'攻擊+60% 反震 + 死亡一次復活',         p:{atk:1.60, reflect:1, revive:1} },
+  { sname:'序列 0 · 愚者真神', pname:'命運織造', pdesc:'萬物臣服：屬性 ×2、全光環、無視 50% 護甲', p:{atk:2.0, hp:2.0, def:1.50, slowAura:1, dotAura:1, pushAura:1, pierce:0.50, killheal:0.50} },
+];
+function sequenceData(p){ return p.rank>=10 ? SEQUENCES[p.rank-10] : null; }
 
 // =====================================================================
 // 物種
@@ -332,6 +370,7 @@ const BIOMES = {
   mtn:    { name:'山地', color:'#555560' },
   snow:   { name:'雪原', color:'#aac0d0' },
   end:    { name:'終焉之地', color:'#1a0a28' },
+  starsea:{ name:'群星之海', color:'#0c1838' },  // v1.1.0 環帶生態：星辰外洋
 };
 
 // =====================================================================
@@ -406,7 +445,8 @@ function generateTerrain(){
       const dxc=cx-WORLD.w/2, dyc=cy-WORLD.h/2;
       const dc=Math.hypot(dxc,dyc);
       let b;
-      if (dc < 400) b='end';
+      if (dc < 600) b='end';
+      else if (dc > 5500 && dc < 6800) b='starsea';  // v1.1.0 星海環帶（環繞外洋）
       else {
         // 區域偏好
         const ang = Math.atan2(dyc,dxc);
@@ -454,6 +494,21 @@ function generateTerrain(){
         }
       }
       // v0.8.0: 終焉之地額外灑星，避免一整片黑屏
+      // v1.1.0: 群星之海也灑滿星（更多更亮）
+      if (bk==='starsea'){
+        for (let i=0;i<60;i++){
+          seed = (seed*1664525 + 1013904223) >>> 0;
+          const px = (seed>>>0) % TILE;
+          seed = (seed*1664525 + 1013904223) >>> 0;
+          const py = (seed>>>0) % TILE;
+          seed = (seed*1664525 + 1013904223) >>> 0;
+          const rr = 0.6 + ((seed>>>16) & 0x7) * 0.4;
+          tctx.fillStyle = ['#ffd0ff','#80c8ff','#ffffff','#bba0ff','#80ffe0'][(seed>>>4)%5];
+          tctx.globalAlpha = 0.55 + ((seed>>>8)&0x7)/14;
+          tctx.beginPath(); tctx.arc(px, py, rr, 0, Math.PI*2); tctx.fill();
+        }
+        tctx.globalAlpha = 1;
+      }
       if (bk==='end'){
         for (let i=0;i<24;i++){
           seed = (seed*1664525 + 1013904223) >>> 0;
@@ -966,7 +1021,8 @@ function makeCreature(speciesKey, x, y, isPlayer=false){
 }
 function recalcStats(p){
   let hp=p.base.hp, atk=p.base.atk, def=p.base.def, spd=p.base.spd, sta=p.base.sta, life=p.base.life;
-  for (let i=0;i<p.rank-1;i++){
+  const top = Math.min(p.rank-1, RANK_BONUS.length);
+  for (let i=0;i<top;i++){
     const b=RANK_BONUS[i]; hp+=b.hp; atk+=b.atk; def+=b.def; spd+=b.spd; sta+=b.sta; life+=b.life;
   }
   const zy=p.zhenyuan;
@@ -991,17 +1047,18 @@ function recalcStats(p){
 // =====================================================================
 // 修為晉階
 // =====================================================================
-function currentQuest(p){ if (p.rank>=9) return null; const list = PATH_QUESTS[p.pathKey] || PATH_QUESTS.human; return list[p.rank-1]; }
+function currentQuest(p){ if (p.rank>=9) return null; /* v1.1.0: 序列升級無任務需求，只看修為與真神試煉 */ const list = PATH_QUESTS[p.pathKey] || PATH_QUESTS.human; return list[p.rank-1]; }
 function tryPromote(p){
   let promoted = false;
   let safety = 12;
-  while (p.rank < 9 && safety-->0){
-    if (p.qi < QI_THR[p.rank]) break; // 注意：rank=1 想升 2 需要 QI_THR[1]
+  // v1.1.0: 上限 19 階（含 10 序列）
+  while (p.rank < 19 && safety-->0){
+    if (!QI_THR[p.rank] || p.qi < QI_THR[p.rank]) break;
     const q = currentQuest(p);
     // v0.8.0: 修為溢出寬限 — 達到 1.8 倍門檻則無視任務直接突破
     const grace = p.qi >= QI_THR[p.rank] * 1.8;
     if (q && !q.req(p) && !grace) break;
-    // v0.9.0: 成神試煉 — 第 8→9 階需擊敗外神 + 開啟 4 秘境 + 心智 ≥ 60，無寬限
+    // v0.9.0: 成神試煉（rank 8→9）
     if (p.rank===8){
       if (p.q.bossKilled<1 || p.q.riftsUsed<4 || p.sanity<60){
         if (p.isPlayer && (!p._godTipT || G.time - p._godTipT > 8)){
@@ -1010,6 +1067,19 @@ function tryPromote(p){
           if (p.q.riftsUsed<4) need.push(`開秘境 ${p.q.riftsUsed}/4`);
           if (p.sanity<60) need.push(`心智 ${p.sanity|0}/60`);
           pushKillFeed('★ 成神試煉未完成：'+need.join(' / '),'#ff88cc');
+        }
+        break;
+      }
+    }
+    // v1.1.0: 真神試煉（rank 18→19，序列 0 愚者真神）
+    if (p.rank===18){
+      if (p.q.bossKilled<5 || p.q.riftsUsed<8 || p.sanity<80){
+        if (p.isPlayer && (!p._trueGodTipT || G.time - p._trueGodTipT > 10)){
+          p._trueGodTipT = G.time;
+          const need=[]; if (p.q.bossKilled<5) need.push(`斬外神 ${p.q.bossKilled}/5`);
+          if (p.q.riftsUsed<8) need.push(`開秘境 ${p.q.riftsUsed}/8`);
+          if (p.sanity<80) need.push(`心智 ${p.sanity|0}/80`);
+          pushKillFeed('★ 真神試煉未完成（序列 0）：'+need.join(' / '),'#ffd66b');
         }
         break;
       }
@@ -1035,7 +1105,7 @@ function tryPromote(p){
       addFloat(p.x, p.y-30, `晉階！${title}`, p.path.color, 24, 2);
     }
   }
-  if (promoted && p.isPlayer && p.rank>=9){ winGame(); }
+  if (promoted && p.isPlayer && p.rank>=19){ winGame(); }
 }
 
 // =====================================================================
@@ -1102,8 +1172,8 @@ function spawnSpirit(){
 function spawnEnemy(initial=false){
   const keys = Object.keys(SPECIES);
   const sp = keys[(Math.random()*keys.length)|0];
-  // v1.0.1: 大地圖適配（10000² ≈ 1.56× linear）
-  const safeDist = initial ? 3000 : 1600;
+  // v1.1.0: 14000² 群星地圖適配
+  const safeDist = initial ? 4200 : 2200;
   let x,y, tries=0;
   do { x=rand(100,WORLD.w-100); y=rand(100,WORLD.h-100); tries++; }
   while (G.player && dist({x,y},G.player) < safeDist && tries<20);
@@ -1978,7 +2048,8 @@ function winGame(){
   if (G.won) return;
   G.won = true;
   document.getElementById('win').classList.remove('hidden');
-  document.getElementById('winStats').textContent = `${G.player.path.name} — 達成神位【${G.player.path.tiers[8].name}】！`;
+  // v1.1.0: 序列 0 愚者真神
+  document.getElementById('winStats').textContent = `${G.player.path.name} · 序列 0【愚者真神】登位！從凡塵生靈到統御萬星之主，路徑完成。`;
 }
 
 // =====================================================================
@@ -2104,7 +2175,7 @@ function update(dt){
   G.enemies = G.enemies.filter(e=>e.hp>0 && isFinite(e.x) && isFinite(e.y));
   G.minions = G.minions.filter(m=>m.hp>0);
   // v1.0.0: 大地圖敵人數量隨階段提升
-  const enemyCap = [120, 160, 200, 240][G.stage-1] || 120;
+  const enemyCap = [120, 160, 200, 240, 320][G.stage-1] || 120;
   while (G.enemies.length < enemyCap) spawnEnemy();
   // v0.9.0: 秘境復活
   for (const rf of G.rifts){ if (rf.used && rf.respawnT){ rf.respawnT -= dt; if (rf.respawnT<=0){ rf.used=false; rf.respawnT=0; pushKillFeed("★ 秘境復甦："+rf.name, rf.color); } } }
@@ -2113,13 +2184,15 @@ function update(dt){
   if (!G.boss){ G.bossSpawnT -= dt; if (G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=300; } }
   if (G.boss) updateBoss(G.boss, dt);
   // v1.0.0: 階段進程
-  const stageThresholds = [180, 480, 900];  // 生物紀 / 修煉紀 / 星辰紀 / 詭異紀
-  const stageNames = ['生物紀','修煉紀','星辰紀','詭異紀'];
+  // v1.1.0: 5 紀元（神戰紀加入）
+  const stageThresholds = [180, 480, 900, 1500];
+  const stageNames = ['生物紀','修煉紀','星辰紀','詭異紀','神戰紀'];
   const stageSubs  = [
     '萬靈萌生 · 熟悉生態與獵食',
     '秘境綻放 · 權柄降世，群魔復甦',
     '星辰震動 · 觸手肆虐，心智動搖',
-    '詭異橫流 · 外神循環，登神試煉'
+    '詭異橫流 · 外神循環，登神試煉',
+    '神戰再臨 · 序列傾頹，真神對決'
   ];
   let newStage = 1;
   for (let i=0;i<stageThresholds.length;i++) if (G.time >= stageThresholds[i]) newStage = i+2;
@@ -2132,6 +2205,7 @@ function update(dt){
     logMsg('★★★ '+G.stageBannerText+' — '+G.stageBannerSub,'promote');
     G.timeline.push({t:G.time, text:'進入 '+stageNames[newStage-1]});
     if (newStage===4){ G.bossSpawnT = Math.min(G.bossSpawnT, 60); }
+    if (newStage===5){ G.bossSpawnT = Math.min(G.bossSpawnT, 30); G.minibossSpawnT = Math.min(G.minibossSpawnT, 20); G.eventCdT = Math.min(G.eventCdT, 30); }
   }
   if (G.stageBannerT>0) G.stageBannerT -= dt;
   if (G.revealT>0) G.revealT -= dt;
@@ -3172,6 +3246,7 @@ function startGame(){
   logMsg('★ 修煉紀後：每 180s 小 Boss 殘魂出現；每 120s 群星正確之時。', 'promote');
   logMsg('★ 星圖 M 鍵：左鍵設 Ping 標記、霧戰探索、9 大權柄全圖位置。', 'promote');
   logMsg('★ 快捷鍵 P：直接在玩家位置設 Ping（不必開星圖）。', 'promote');
+  logMsg('★ 22 序列：rank 1-9 為凡途；rank 10-19 為神途序列 9→0（愚者真神為終點）。', 'promote');
   logMsg('★ 成神試煉（第 8→9 階）：斬外神 + 開 4 秘境 + 心智 ≥ 60。', 'promote');
   logMsg('★ 各途徑專屬晉階儀式，仔細看左下任務描述！', 'promote');
 }
