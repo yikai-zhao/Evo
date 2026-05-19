@@ -165,3 +165,118 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 }
 #muteBtn:hover { background:rgba(60,40,100,.88); }
 @media (max-width: 600px) { #muteBtn { width:38px; height:38px; font-size:17px; line-height:36px; top:8px; right:8px; } }
+
+/* ============================================================
+   v1.6.0 — English release: Quick Start, Tutorial, Legal,
+   art polish (glow cards, gradient buttons, modern title)
+   ============================================================ */
+
+/* Title glow upgrade */
+.overlay h1 {
+  background: linear-gradient(135deg, #ffd9b8 0%, #ffb56b 40%, #bb88ff 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  filter: drop-shadow(0 0 22px rgba(187,136,255,.45));
+}
+.overlay h1 .sub {
+  -webkit-text-fill-color: #b8a8d8; color:#b8a8d8;
+  background:none; filter:none;
+}
+
+/* Quick / Tutorial row */
+.quickRow {
+  display:flex; gap:14px; justify-content:center;
+  margin: 18px 0 8px; flex-wrap:wrap;
+}
+.quickRow button { margin-top:0; }
+
+.overlay button.primary {
+  background: linear-gradient(135deg, #b366ff 0%, #7a2bd9 100%);
+  color:#fff; border:none;
+  box-shadow: 0 4px 18px rgba(140, 70, 240, .45), 0 0 0 1px rgba(220,180,255,.25) inset;
+  letter-spacing:1.5px;
+  transition: transform .12s, box-shadow .2s;
+}
+.overlay button.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(160, 90, 255, .65), 0 0 0 1px rgba(230,200,255,.4) inset;
+}
+.overlay button.secondary {
+  background: rgba(30,20,60,.7);
+  color:#d4c0ff;
+  border: 1.5px solid rgba(180,140,255,.45);
+  letter-spacing:1.5px;
+  transition: background .15s, border-color .15s;
+}
+.overlay button.secondary:hover {
+  background: rgba(60,40,100,.85);
+  border-color: rgba(220,180,255,.7);
+}
+
+/* Tutorial */
+#tutorial h1 { font-size:34px; letter-spacing:4px; }
+.tutSteps {
+  display:grid; grid-template-columns: 1fr 1fr; gap:16px;
+  max-width:720px; width:100%; margin: 18px 0 6px;
+}
+@media (max-width:640px) { .tutSteps { grid-template-columns:1fr; } }
+.tutStep {
+  background: linear-gradient(180deg, rgba(40,25,80,.78), rgba(20,15,45,.78));
+  padding:16px 18px; border-radius:12px;
+  border-left:3px solid #b366ff;
+  font-size:14px; line-height:1.6; color:#e2d4ff;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.tutStep b { color:#ffd9b8; font-size:15px; }
+
+/* Legal overlays (Privacy / Terms) */
+#legal h1 { font-size:30px; letter-spacing:3px; }
+.legalBody {
+  max-width: 640px; width: 100%;
+  max-height: 58vh; overflow-y: auto;
+  text-align: left; line-height: 1.7;
+  font-size: 14px; color:#d4c4f0;
+  background: rgba(15,10,35,.7);
+  border:1px solid rgba(180,140,255,.25);
+  border-radius:10px;
+  padding: 18px 22px; margin-top: 12px;
+}
+.legalBody p { margin-bottom: 10px; }
+.legalBody a { color:#bb88ff; }
+.legalBody code {
+  background: rgba(255,255,255,.08); padding: 1px 6px;
+  border-radius: 4px; font-size: 12px;
+}
+
+/* Privacy / Terms inline links */
+.hint .legal { font-size:12px; opacity:.75; margin-top:14px; }
+.hint .legal a { color:#bb88ff; text-decoration:none; }
+.hint .legal a:hover { text-decoration:underline; }
+
+/* Species card polish (better contrast, hover glow) */
+.species {
+  background: linear-gradient(180deg, #1c2240 0%, #12162a 100%);
+  border: 2px solid #2a3055;
+  transition: all .18s ease;
+}
+.species:hover {
+  border-color: #6b8acc;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(80, 110, 200, .35);
+}
+.species.sel {
+  border-color: #ffd66b;
+  background: linear-gradient(180deg, #3a2a15 0%, #1f1810 100%);
+  box-shadow: 0 0 22px rgba(255,200,80,.45), 0 0 0 1px rgba(255,220,140,.35) inset;
+}
+
+/* Path group header polish */
+.pathHeader {
+  text-shadow: 0 0 12px currentColor;
+  opacity: .95;
+}
+
+/* Death / win overlay polish */
+#death h1, #win h1 { font-size:48px; letter-spacing:8px; }
+#deathReason { white-space:pre-line; max-width:560px; text-align:center; color:#c8b8d8; font-size:13px; line-height:1.6; margin: 10px 0; }
+#deathStats  { color:#bb88ff; font-size:14px; font-weight:600; }

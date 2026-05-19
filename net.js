@@ -105,7 +105,7 @@
         Net.peers.delete(m.id);
         break;
       case 'dead':
-        if(Net.onPvpKill)Net.onPvpKill(m.from,m.killerName||('玩家#'+m.from),m.victimId,m.victimName||'玩家');
+        if(Net.onPvpKill)Net.onPvpKill(m.from,m.killerName||('Player#'+m.from),m.victimId,m.victimName||'Player');
         break;
       case 'fx':
         // 之後可視覺化遠端玩家權柄釋放

@@ -1,6 +1,6 @@
-// Lands End — Prototype v1.6.0 (English · Poki/CrazyGames ready)
-// v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
-// v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
+// 終焉之地 The Land's End — Prototype v1.3.0
+// v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、聊天 T 鍵、線上人數 HUD
+// v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + 神戰紀 + 真神試煉
 'use strict';
 
 // =====================================================================
@@ -29,100 +29,100 @@ const MOUSE = { x:0, y:0, wx:0, wy:0, ldown:false, rdown:false };
 //   range      : 攻擊距離倍率
 //   size       : 體型倍率
 //   slowAura   : 周圍 220px 持續減速 30%
-//   dotAura    : 周圍 220px 持續Venom Mist 8 dmg/s
+//   dotAura    : 周圍 220px 持續毒霧 8 dmg/s
 //   pushAura   : 周圍 200px 持續擊退
 //   revive     : 死亡時自動復活一次
 //   vision     : 視野倍率（用於小地圖偵測）
 // =====================================================================
 const PATHS = {
   human: {
-    name:'Path of Humanity', color:'#ffd66b', icon:'H',
+    name:'人之道', color:'#ffd66b', icon:'人',
     tiers:[
-      { name:'Qi Apprentice', pname:'Vital Flow', pdesc:'AS +15%',                 p:{spd:1.15} },
-      { name:'Forged Fist', pname:'Inner Burst', pdesc:'ATK +10%, Crit +10%',       p:{atk:1.10, crit:0.10} },
-      { name:'Meridian Swordsman', pname:'Open Meridians', pdesc:'ATK +15%, Range +10%',   p:{atk:1.15, range:1.10} },
-      { name:'Subtle Master', pname:'Refined Strikes', pdesc:'Crit +15%, Lifesteal 5%',         p:{crit:0.15, lifesteal:0.05} },
-      { name:'Mystic Saint', pname:'Profound Truth', pdesc:'ATK +25%, DEF +15%',       p:{atk:1.25, def:1.15} },
-      { name:'True Arhat', pname:'Golden Body', pdesc:'HP +40%, DEF +30%',       p:{hp:1.40, def:1.30} },
-      { name:'Divine Weapon Lord', pname:'Blade Apotheosis', pdesc:'Range +40%, ATK +20%',    p:{range:1.40, atk:1.20} },
-      { name:'Warrior God', pname:'Divine Backlash', pdesc:'Releases shockwave when hit',         p:{reflect:1, atk:1.30} },
-      { name:'Grand Martial Patriarch', pname:'Way Perfected', pdesc:'ATK +50%, Kill Heal 40% HP',    p:{atk:1.50, killheal:0.40} },
+      { name:'練氣武徒', pname:'氣血暢通', pdesc:'攻速 +15%',                 p:{spd:1.15} },
+      { name:'凝勁拳師', pname:'內勁外發', pdesc:'攻擊 +10%、暴擊 +10%',       p:{atk:1.10, crit:0.10} },
+      { name:'開脈劍客', pname:'經脈洞開', pdesc:'攻擊 +15%、攻擊範圍 +10%',   p:{atk:1.15, range:1.10} },
+      { name:'入微宗師', pname:'招式入微', pdesc:'暴擊 +15%、吸血 5%',         p:{crit:0.15, lifesteal:0.05} },
+      { name:'通玄武聖', pname:'通玄至理', pdesc:'攻擊 +25%、防禦 +15%',       p:{atk:1.25, def:1.15} },
+      { name:'真武羅漢', pname:'金身不壞', pdesc:'生命 +40%、防禦 +30%',       p:{hp:1.40, def:1.30} },
+      { name:'神兵武尊', pname:'兵刃化神', pdesc:'攻擊範圍 +40%、攻擊 +20%',    p:{range:1.40, atk:1.20} },
+      { name:'武神臨世', pname:'神威反震', pdesc:'受擊時釋放反震衝擊波',         p:{reflect:1, atk:1.30} },
+      { name:'太上武祖', pname:'武道圓滿', pdesc:'攻擊 +50%、擊殺回 40% HP',    p:{atk:1.50, killheal:0.40} },
     ],
   },
   dragon: {
-    name:'Path of Dragons', color:'#88e0ff', icon:'D',
+    name:'龍之道', color:'#88e0ff', icon:'龍',
     tiers:[
-      { name:'Hatchling Jiao',   pname:'First Scales', pdesc:'DEF +20%',                  p:{def:1.20} },
-      { name:'Twin-Horned Hui',   pname:'Towering Horns', pdesc:'KB Res +50%, HP +10%',     p:{knockRes:0.5, hp:1.10} },
-      { name:'Essence-Devouring Chi',   pname:'Essence Feast', pdesc:'Lifesteal +8%, ATK +10%',         p:{lifesteal:0.08, atk:1.10} },
-      { name:'Coiled Dragon King',   pname:'Dragon Aura', pdesc:'HP +30%, DEF +15%',        p:{hp:1.30, def:1.15} },
-      { name:'Storm-Drawing Ying Long', pname:'Lightning Pierce', pdesc:'ATK +20%, +5/s lightning on hit', p:{atk:1.20, dot:5} },
-      { name:'All-Seeing Zhu Long', pname:'Daylit Eyes', pdesc:'Crit +20%, Vision +30%',        p:{crit:0.20, vision:1.30} },
-      { name:'Primordial Dragon Lord', pname:'Dragon Patriarch', pdesc:'ATK +40%, Size +10%',        p:{atk:1.40, size:1.10} },
-      { name:'True Dragon Sovereign', pname:'True Dragon Roar', pdesc:'Basic adds AoE, HP +30%',   p:{aoeOnHit:1, hp:1.30} },
-      { name:'Primal Divine Dragon', pname:'Sky-Cleaving Form', pdesc:'ATK+50%, HP+50%, Slow Aura', p:{atk:1.50, hp:1.50, slowAura:1} },
+      { name:'初鱗蛟',   pname:'鱗甲初生', pdesc:'防禦 +20%',                  p:{def:1.20} },
+      { name:'雙角虺',   pname:'額角崢嶸', pdesc:'抗擊退 +50%、生命 +10%',     p:{knockRes:0.5, hp:1.10} },
+      { name:'吞精螭',   pname:'吞食精氣', pdesc:'吸血 +8%、攻擊 +10%',         p:{lifesteal:0.08, atk:1.10} },
+      { name:'蟠龍王',   pname:'龍威盤踞', pdesc:'生命 +30%、防禦 +15%',        p:{hp:1.30, def:1.15} },
+      { name:'引雷應龍', pname:'引雷貫穿', pdesc:'攻擊 +20%、命中附加 5/s 雷傷', p:{atk:1.20, dot:5} },
+      { name:'開目燭龍', pname:'開目晝明', pdesc:'暴擊 +20%、視野 +30%',        p:{crit:0.20, vision:1.30} },
+      { name:'祖龍真君', pname:'龍祖威儀', pdesc:'攻擊 +40%、體型 +10%',        p:{atk:1.40, size:1.10} },
+      { name:'真龍天君', pname:'真龍咆哮', pdesc:'普攻附加範圍 AoE、生命 +30%',   p:{aoeOnHit:1, hp:1.30} },
+      { name:'太初神龍', pname:'開天之姿', pdesc:'攻擊+50%、生命+50%、減速光環', p:{atk:1.50, hp:1.50, slowAura:1} },
     ],
   },
   beast: {
-    name:'Path of Beasts', color:'#e0a060', icon:'B',
+    name:'獸之道', color:'#e0a060', icon:'獸',
     tiers:[
-      { name:'Bloodthirsty Cub', pname:'Bloody Fangs', pdesc:'ATK +10%, Lifesteal 3%',          p:{atk:1.10, lifesteal:0.03} },
-      { name:'Wild Predator', pname:'Feral Fury', pdesc:'ATK +15%, SPD +5%',          p:{atk:1.15, spd:1.05} },
-      { name:'Spirit Beast', pname:'Spirit Instinct', pdesc:'SPD +15%, Crit +5%',          p:{spd:1.15, crit:0.05} },
-      { name:'Awakened Beast', pname:'Mind Awakening', pdesc:'Crit +15%, Lifesteal 5%',           p:{crit:0.15, lifesteal:0.05} },
-      { name:'Manifest Divine Beast', pname:'Battle Tide', pdesc:'Kill Heal 25%, ATK +15%',     p:{killheal:0.25, atk:1.15} },
-      { name:'Thunder Saint Beast', pname:'Thunder Ward', pdesc:'Basic adds AoE, ATK +20%',   p:{aoeOnHit:1, atk:1.20} },
-      { name:'Realm-Breaking Demon', pname:'Demonic Growth', pdesc:'Size +20%, HP +30%',          p:{size:1.20, hp:1.30} },
-      { name:'Primal Beast Lord', pname:'Primal Might', pdesc:'ATK +40%, HP +40%',          p:{atk:1.40, hp:1.40} },
-      { name:'Primordial Beast Patriarch', pname:'Patriarch Awakens', pdesc:'ATK +50%, Slow Aura',           p:{atk:1.50, slowAura:1} },
+      { name:'噬血幼獸', pname:'嗜血爪牙', pdesc:'攻擊 +10%、吸血 3%',          p:{atk:1.10, lifesteal:0.03} },
+      { name:'山林凶獸', pname:'兇性大發', pdesc:'攻擊 +15%、速度 +5%',          p:{atk:1.15, spd:1.05} },
+      { name:'通靈妖獸', pname:'通靈本能', pdesc:'速度 +15%、暴擊 +5%',          p:{spd:1.15, crit:0.05} },
+      { name:'啟智靈獸', pname:'妖識初啟', pdesc:'暴擊 +15%、吸血 5%',           p:{crit:0.15, lifesteal:0.05} },
+      { name:'顯威神獸', pname:'戰意如潮', pdesc:'擊殺回 25% HP、攻擊 +15%',     p:{killheal:0.25, atk:1.15} },
+      { name:'雷霆聖獸', pname:'雷霆鎮魂', pdesc:'普攻附加範圍 AoE、攻擊 +20%',   p:{aoeOnHit:1, atk:1.20} },
+      { name:'過界大妖', pname:'妖體膨脹', pdesc:'體型 +20%、生命 +30%',          p:{size:1.20, hp:1.30} },
+      { name:'蠻荒獸君', pname:'蠻荒之力', pdesc:'攻擊 +40%、生命 +40%',          p:{atk:1.40, hp:1.40} },
+      { name:'鴻荒獸祖', pname:'獸祖出世', pdesc:'攻擊 +50%、減速光環',           p:{atk:1.50, slowAura:1} },
     ],
   },
   bird: {
-    name:'Path of Feathers', color:'#cce0ff', icon:'F',
+    name:'羽之道', color:'#cce0ff', icon:'羽',
     tiers:[
-      { name:'Fledgling', pname:'Light Feathers', pdesc:'SPD +20%',                    p:{spd:1.20} },
-      { name:'Wind Rider', pname:'Riding Cry', pdesc:'STA +30%, SPD +10%',          p:{sta:1.30, spd:1.10} },
-      { name:'Venom Plume', pname:'Toxic Quill', pdesc:'+4/s poison on hit',             p:{dot:4} },
-      { name:'Cloud-Piercer', pname:'Armor Pierce', pdesc:'Ignore 30% DEF',             p:{pierce:0.30} },
-      { name:'Storm Feather Prodigy', pname:'Chain Lightning Quill', pdesc:'ATK +20%, Basic adds AoE',       p:{atk:1.20, aoeOnHit:1} },
-      { name:'Wind God Roar', pname:'Roar of Winds', pdesc:'KB +50%, ATK +20%',          p:{knockMul:1.5, atk:1.20} },
-      { name:'Roc Spread Wings', pname:'Roc Wings', pdesc:'SPD +30%, Range +20%',      p:{spd:1.30, range:1.20} },
-      { name:'Thunder Emperor Bird', pname:'Thunder Descent', pdesc:'ATK +30%, Poison Aura',            p:{atk:1.30, dotAura:1} },
-      { name:'Immortal Phoenix', pname:'Nirvana Rebirth', pdesc:'Auto-revive once, ATK +40%',   p:{revive:1, atk:1.40} },
+      { name:'初羽雛鳥', pname:'羽輕風起', pdesc:'速度 +20%',                    p:{spd:1.20} },
+      { name:'御風飛羽', pname:'御風長嘯', pdesc:'體力 +30%、速度 +10%',          p:{sta:1.30, spd:1.10} },
+      { name:'劇毒妖羽', pname:'妖羽淬毒', pdesc:'命中附加 4/s 毒傷',             p:{dot:4} },
+      { name:'金翅破雲', pname:'金翅穿甲', pdesc:'攻擊無視 30% 防禦',             p:{pierce:0.30} },
+      { name:'雷羽天驕', pname:'雷羽鏈電', pdesc:'攻擊 +20%、普攻附加 AoE',       p:{atk:1.20, aoeOnHit:1} },
+      { name:'風神鳥嘯', pname:'風嘯擊退', pdesc:'擊退 +50%、攻擊 +20%',          p:{knockMul:1.5, atk:1.20} },
+      { name:'大鵬展翼', pname:'大鵬羽動', pdesc:'速度 +30%、攻擊範圍 +20%',      p:{spd:1.30, range:1.20} },
+      { name:'雷帝神鳥', pname:'雷帝降臨', pdesc:'攻擊 +30%、毒霧光環',            p:{atk:1.30, dotAura:1} },
+      { name:'不死鳳凰', pname:'涅槃復生', pdesc:'死亡時自動復活一次、攻擊 +40%',   p:{revive:1, atk:1.40} },
     ],
   },
   fish: {
-    name:'Path of Scales', color:'#88c0ff', icon:'S',
+    name:'鱗之道', color:'#88c0ff', icon:'鱗',
     tiers:[
-      { name:'Drifting Fry', pname:'Slick Glide', pdesc:'SPD +15%',                    p:{spd:1.15} },
-      { name:'River Carp', pname:'Carp Qi', pdesc:'Regen +1.5/s',                p:{regen:1.5} },
-      { name:'Becoming-Jiao Lord', pname:'Jiao Bite', pdesc:'ATK +20%',                     p:{atk:1.20} },
-      { name:'Dragon Fish', pname:'Dragon Fish', pdesc:'HP +25%, ATK +15%',           p:{hp:1.25, atk:1.15} },
-      { name:'Abyssal Water Spirit', pname:'Water Quake', pdesc:'Push Aura',                    p:{pushAura:1} },
-      { name:'Ocean Emperor', pname:'Emperor Aura', pdesc:'ATK +30%, DEF +20%',            p:{atk:1.30, def:1.20} },
-      { name:'Abyssal Titan', pname:'Titanic Body', pdesc:'HP +50%, Size +15%',            p:{hp:1.50, size:1.15} },
-      { name:'Dragon King of the Sea', pname:'Dragon Wave', pdesc:'Range +40%, ATK +20%',         p:{range:1.40, atk:1.20} },
-      { name:'Primordial Sea God', pname:'Sea God Wrath', pdesc:'ATK+30%, HP+30%, Slow Aura',     p:{atk:1.30, hp:1.30, slowAura:1} },
+      { name:'浮游幼魚', pname:'滑鱗游動', pdesc:'速度 +15%',                    p:{spd:1.15} },
+      { name:'過溪河鯉', pname:'河鯉化氣', pdesc:'生命再生 +1.5/s',                p:{regen:1.5} },
+      { name:'化蛟魚君', pname:'蛟首咬合', pdesc:'攻擊 +20%',                     p:{atk:1.20} },
+      { name:'龍魚翻江', pname:'龍魚翻江', pdesc:'生命 +25%、攻擊 +15%',           p:{hp:1.25, atk:1.15} },
+      { name:'水靈震淵', pname:'水靈震懾', pdesc:'周圍擊退光環',                    p:{pushAura:1} },
+      { name:'海皇臨世', pname:'海皇威儀', pdesc:'攻擊 +30%、防禦 +20%',            p:{atk:1.30, def:1.20} },
+      { name:'深淵巨君', pname:'深淵巨體', pdesc:'生命 +50%、體型 +15%',            p:{hp:1.50, size:1.15} },
+      { name:'滄海龍王', pname:'龍王噬浪', pdesc:'攻擊範圍 +40%、攻擊 +20%',         p:{range:1.40, atk:1.20} },
+      { name:'太古海神', pname:'海神之怒', pdesc:'攻擊+30%、生命+30%、減速光環',     p:{atk:1.30, hp:1.30, slowAura:1} },
     ],
   },
   insect: {
-    name:'Path of Insects', color:'#c0ff60', icon:'I',
+    name:'蟲之道', color:'#c0ff60', icon:'蟲',
     tiers:[
-      { name:'Devouring Larva', pname:'Devour Heal', pdesc:'Lifesteal 5%',                       p:{lifesteal:0.05} },
-      { name:'Molting Mantid', pname:'Shed Carapace', pdesc:'DEF +20%, HP +10%',           p:{def:1.20, hp:1.10} },
-      { name:'Blood Wing Drinker', pname:'Marrow Drain', pdesc:'Lifesteal +15%, ATK +10%',           p:{lifesteal:0.15, atk:1.10} },
-      { name:'Nesting Queen', pname:'Swarm Aura', pdesc:'ATK +15%, HP +20%',           p:{atk:1.15, hp:1.20} },
-      { name:'Queen Expanding', pname:'Queen Growth', pdesc:'HP +40%, Size +10%',           p:{hp:1.40, size:1.10} },
-      { name:'Devouring Insect Emperor', pname:'Imperial Venom', pdesc:'+6/s poison on hit',               p:{dot:6} },
-      { name:'Swarm Emperor', pname:'Emperor Pressure', pdesc:'ATK +30%, Range +20%',        p:{atk:1.30, range:1.20} },
-      { name:'Dreaming Insect Patriarch', pname:'Soul Feast', pdesc:'ATK +20%, Poison Aura',              p:{atk:1.20, dotAura:1} },
-      { name:'Primal Insect God', pname:'Insect God Crown', pdesc:'ATK+40%, Slow+Poison Auras',     p:{atk:1.40, slowAura:1, dotAura:1} },
+      { name:'蠶食幼蟲', pname:'蠶食回復', pdesc:'吸血 5%',                       p:{lifesteal:0.05} },
+      { name:'蛻變妖蟲', pname:'蛻甲化形', pdesc:'防禦 +20%、生命 +10%',           p:{def:1.20, hp:1.10} },
+      { name:'血蝠飲血', pname:'血蝠吸髓', pdesc:'吸血 +15%、攻擊 +10%',           p:{lifesteal:0.15, atk:1.10} },
+      { name:'立巢蟲后', pname:'蟲群環繞', pdesc:'攻擊 +15%、生命 +20%',           p:{atk:1.15, hp:1.20} },
+      { name:'王蟲擴疆', pname:'蟲后膨脹', pdesc:'生命 +40%、體型 +10%',           p:{hp:1.40, size:1.10} },
+      { name:'蠶食蟲皇', pname:'蟲皇劇毒', pdesc:'命中附加 6/s 毒傷',               p:{dot:6} },
+      { name:'橫掃蟲帝', pname:'蟲帝威壓', pdesc:'攻擊 +30%、攻擊範圍 +20%',        p:{atk:1.30, range:1.20} },
+      { name:'入夢蟲祖', pname:'蟲祖噬魂', pdesc:'攻擊 +20%、毒霧光環',              p:{atk:1.20, dotAura:1} },
+      { name:'太古蟲神', pname:'蟲神冠首', pdesc:'攻擊+40%、減速光環、毒霧光環',     p:{atk:1.40, slowAura:1, dotAura:1} },
     ],
   },
 };
 function tierName(p){
-  if (p.rank>=10){ const sq=sequenceData(p); return sq?sq.sname:'True God'; }
-  return (p.path.tiers[p.rank-1] && p.path.tiers[p.rank-1].name) || 'Mortal';
+  if (p.rank>=10){ const sq=sequenceData(p); return sq?sq.sname:'真神'; }
+  return (p.path.tiers[p.rank-1] && p.path.tiers[p.rank-1].name) || '凡人';
 }
 function tierData(p){
   if (p.rank>=10){ const sq=sequenceData(p); return sq?{name:sq.sname, pname:sq.pname, pdesc:sq.pdesc, p:sq.p}:null; }
@@ -177,16 +177,16 @@ const QI_THR = [0, 15, 40, 90, 160, 270, 430, 650, 950, 4000,
 
 // v1.1.0: 22 序列風格神途（rank 10-19 對應 序列 9 → 序列 0；參考《詭秘之主》序列觀）
 const SEQUENCES = [
-  { sname:'Seq 9 · Demigod Arrival', pname:'Nascent Divinity', pdesc:'HP+30% ATK+30% DEF+20% Range+15%', p:{hp:1.30, atk:1.30, def:1.20, range:1.15} },
-  { sname:'Seq 8 · Divinity Apprentice', pname:'Potion Refinement', pdesc:'Lifesteal+15%, ATK+25%',                  p:{lifesteal:0.15, atk:1.25} },
-  { sname:'Seq 7 · Divine Apostle', pname:'Divine Oracle', pdesc:'HP+45% Regen+3/s Crit+15%',          p:{hp:1.45, regen:3, crit:0.15} },
-  { sname:'Seq 6 · High Priest', pname:'Divine Radiance', pdesc:'ATK+35% Crit+25% SPD+15%',         p:{atk:1.35, crit:0.25, spd:1.15} },
-  { sname:'Seq 5 · Sequence Lord', pname:'Sequence Authority', pdesc:'Stats+30%, Poison + Slow Auras',           p:{atk:1.30, hp:1.30, dotAura:1, slowAura:1} },
-  { sname:'Seq 4 · Higher Servant', pname:'Servant Blessing', pdesc:'DEF+55%, Pierce 30%, KB Res +80%',   p:{def:1.55, pierce:0.30, knockRes:0.8} },
-  { sname:'Seq 3 · Demigod King', pname:'King Aura', pdesc:'ATK+45% Size+15% Range+25%',          p:{atk:1.45, size:1.15, range:1.25} },
-  { sname:'Seq 2 · Ancient God Acolyte', pname:'Ancient Covenant', pdesc:'HP+55% ATK+50%, Poison Aura',          p:{hp:1.55, atk:1.50, dotAura:1} },
-  { sname:'Seq 1 · Shadow of True God', pname:'Divine Manifestation', pdesc:'ATK+60%, Reflect, Revive Once',         p:{atk:1.60, reflect:1, revive:1} },
-  { sname:'Seq 0 · Fool, the True God', pname:'Weaver of Fate', pdesc:'All Submit: Stats x2, All Auras, Pierce 50%', p:{atk:2.0, hp:2.0, def:1.50, slowAura:1, dotAura:1, pushAura:1, pierce:0.50, killheal:0.50} },
+  { sname:'序列 9 · 半神初臨', pname:'神格初凝', pdesc:'生命+30% 攻擊+30% 防禦+20% 範圍+15%', p:{hp:1.30, atk:1.30, def:1.20, range:1.15} },
+  { sname:'序列 8 · 神格學徒', pname:'魔藥淬體', pdesc:'吸血+15% 攻擊+25%',                  p:{lifesteal:0.15, atk:1.25} },
+  { sname:'序列 7 · 神格使徒', pname:'神諭加持', pdesc:'生命+45% 回血+3/s 暴擊+15%',          p:{hp:1.45, regen:3, crit:0.15} },
+  { sname:'序列 6 · 神格大祭司', pname:'神威普照', pdesc:'攻擊+35% 暴擊+25% 速度+15%',         p:{atk:1.35, crit:0.25, spd:1.15} },
+  { sname:'序列 5 · 序列之主', pname:'序列權能', pdesc:'屬性+30% 毒霧+減速雙光環',           p:{atk:1.30, hp:1.30, dotAura:1, slowAura:1} },
+  { sname:'序列 4 · 上位神侍', pname:'神侍庇佑', pdesc:'防禦+55% 無視 30% 護甲 抗擊退+80%',   p:{def:1.55, pierce:0.30, knockRes:0.8} },
+  { sname:'序列 3 · 半神王者', pname:'王者氣場', pdesc:'攻擊+45% 體型+15% 範圍+25%',          p:{atk:1.45, size:1.15, range:1.25} },
+  { sname:'序列 2 · 古神近侍', pname:'古神契約', pdesc:'生命+55% 攻擊+50% 毒霧光環',          p:{hp:1.55, atk:1.50, dotAura:1} },
+  { sname:'序列 1 · 真神之影', pname:'神性顯化', pdesc:'攻擊+60% 反震 + 死亡一次復活',         p:{atk:1.60, reflect:1, revive:1} },
+  { sname:'序列 0 · 愚者真神', pname:'命運織造', pdesc:'萬物臣服：屬性 ×2、全光環、無視 50% 護甲', p:{atk:2.0, hp:2.0, def:1.50, slowAura:1, dotAura:1, pushAura:1, pierce:0.50, killheal:0.50} },
 ];
 function sequenceData(p){ return p.rank>=10 ? SEQUENCES[p.rank-10] : null; }
 
@@ -194,76 +194,76 @@ function sequenceData(p){ return p.rank>=10 ? SEQUENCES[p.rank-10] : null; }
 // 物種
 // =====================================================================
 const SPECIES = {
-  // Path of Humanity
-  swordsman: { path:'human', name:'Swordsman', icon:'Sw', color:'#ffd66b', shape:'humanoid',
+  // 人之道
+  swordsman: { path:'human', name:'劍客', icon:'劍', color:'#ffd66b', shape:'humanoid',
     base:{hp:130,atk:15,def:5,spd:185,sta:90,life:240, r:18, atkR:55, atkCd:0.4, rngR:480, rngCd:0.8, rngDmg:12, rngSpd:540},
-    skillQ:{name:'Triple Arrow', cd:3.5, type:'arrow3', desc:'Fan 3 arrows, x0.7 dmg each'},
-    skillE:{name:'Sword Will Slash', cd:6,  type:'cleave',  desc:'Forward 180 deg fan slash, x3 dmg', unlockRank:3},
-    skillR:{name:'Myriad Swords', cd:18, type:'sword_rain', desc:'24 swords orbit and fire at nearest', unlockRank:6},
+    skillQ:{name:'三連箭', cd:3.5, type:'arrow3', desc:'扇形射出 3 箭，每箭 ×0.7 傷害'},
+    skillE:{name:'劍意斬', cd:6,  type:'cleave',  desc:'前方扇形 180° 大範圍斬擊，×3 傷害', unlockRank:3},
+    skillR:{name:'萬劍訣', cd:18, type:'sword_rain', desc:'環繞 24 把劍同時射向最近敵人', unlockRank:6},
   },
-  lizard: { path:'beast', name:'Lizard', icon:'Lz', color:'#7fd07f', shape:'reptile',
+  lizard: { path:'beast', name:'蜥蜴', icon:'蜥', color:'#7fd07f', shape:'reptile',
     base:{hp:150,atk:16,def:6,spd:170,sta:80,life:200, r:20, atkR:58, atkCd:0.42},
-    skillQ:{name:'Whirlwind Slash', cd:3, type:'spin', desc:'360 deg spin slash, x2 + KB'},
-    skillE:{name:'Tail Sweep', cd:5,  type:'tail',  desc:'280 deg tail sweep knockup', unlockRank:3},
-    skillR:{name:'Berserk Form', cd:18, type:'rage', desc:'10s AS x2 DEF x2', unlockRank:6},
+    skillQ:{name:'旋風斬', cd:3, type:'spin', desc:'360° 旋轉斬擊，×2 傷害 + 擊退'},
+    skillE:{name:'尾甩', cd:5,  type:'tail',  desc:'掃尾 280° 範圍擊飛敵人', unlockRank:3},
+    skillR:{name:'狂暴形態', cd:18, type:'rage', desc:'10s 攻速 ×2 護甲 ×2', unlockRank:6},
   },
-  croc: { path:'beast', name:'Crocodile', icon:'Cr', color:'#6aa86a', shape:'reptile',
+  croc: { path:'beast', name:'鱷魚', icon:'鱷', color:'#6aa86a', shape:'reptile',
     base:{hp:170,atk:18,def:8,spd:155,sta:80,life:240, r:22, atkR:55, atkCd:0.5},
-    skillQ:{name:'Death Roll', cd:3.5, type:'roll', desc:'Charge bite, x2 dmg + bleed'},
-    skillE:{name:'Lockjaw', cd:6, type:'grab', desc:'Grab nearest 2s, bite every 0.3s', unlockRank:3},
-    skillR:{name:'Blood River', cd:22, type:'bloodpool', desc:'Blood pool, enemies bleed', unlockRank:6},
+    skillQ:{name:'死亡翻滾', cd:3.5, type:'roll', desc:'前衝撕咬，路徑上敵人受 ×2 傷害 + 流血'},
+    skillE:{name:'鎖頷', cd:6, type:'grab', desc:'抓住最近敵人 2s，每 0.3s 撕咬一次', unlockRank:3},
+    skillR:{name:'血河', cd:22, type:'bloodpool', desc:'吐血池，敵人踩到流血', unlockRank:6},
   },
-  dino: { path:'dragon', name:'Dinosaur', icon:'Dn', color:'#7a8a3a', shape:'beast',
+  dino: { path:'dragon', name:'恐龍', icon:'恐', color:'#7a8a3a', shape:'beast',
     base:{hp:180,atk:20,def:10,spd:150,sta:80,life:260, r:26, atkR:65, atkCd:0.5},
-    skillQ:{name:'Stomp', cd:3, type:'stomp', desc:'250r AoE wave + stun 1s'},
-    skillE:{name:'Tail Slam', cd:6, type:'tail',  desc:'Huge 320 deg tail slam x3 dmg', unlockRank:3},
-    skillR:{name:'Tyrant Roar', cd:20, type:'roar', desc:'Push all + stun 3s', unlockRank:6},
+    skillQ:{name:'踏擊', cd:3, type:'stomp', desc:'250 半徑 AoE 震波 + 暈眩 1s'},
+    skillE:{name:'尾砸', cd:6, type:'tail',  desc:'巨型尾砸 320° 範圍 ×3 傷害', unlockRank:3},
+    skillR:{name:'霸王咆哮', cd:20, type:'roar', desc:'全螢幕敵人後退 + 暈眩 3s', unlockRank:6},
   },
-  wolf: { path:'beast', name:'Wolf', icon:'Wo', color:'#a0a0a0', shape:'beast',
+  wolf: { path:'beast', name:'狼', icon:'狼', color:'#a0a0a0', shape:'beast',
     base:{hp:130,atk:15,def:5,spd:195,sta:100,life:200, r:18, atkR:55, atkCd:0.388},
-    skillQ:{name:'Pounce', cd:2.5, type:'pounce', desc:'Lunge + bite x2 dmg'},
-    skillE:{name:'Wolf Pack', cd:8, type:'summon_wolf', desc:'Summon 3 phantom wolves 15s', unlockRank:3},
-    skillR:{name:'Bloodlust', cd:20, type:'frenzy', desc:'12s AS x2 + full heal on kill', unlockRank:6},
+    skillQ:{name:'撲擊', cd:2.5, type:'pounce', desc:'快速撲向目標 + 撕咬 ×2 傷害'},
+    skillE:{name:'群狼召喚', cd:8, type:'summon_wolf', desc:'召喚 3 隻幻影狼 15s', unlockRank:3},
+    skillR:{name:'狂血嗜殺', cd:20, type:'frenzy', desc:'12s 攻速 ×2 + 擊殺回滿血', unlockRank:6},
   },
   // 龍
-  longSnake: { path:'dragon', name:'Jiao Serpent', icon:'Js', color:'#88e0ff', shape:'dragon',
+  longSnake: { path:'dragon', name:'蛟蛇', icon:'蛟', color:'#88e0ff', shape:'dragon',
     base:{hp:160,atk:17,def:7,spd:170,sta:90,life:260, r:22, atkR:60, atkCd:0.45, rngR:460, rngCd:1.1, rngDmg:18, rngSpd:520},
-    skillQ:{name:'Dragon Breath', cd:3, type:'breath', desc:'400px flame cone x0.6/tick'},
-    skillE:{name:'Coil', cd:6, type:'whirl', desc:'Energy ribbon 3s', unlockRank:3},
-    skillR:{name:'True Dragon Descend', cd:25, type:'dragon_form', desc:'15s Size x1.5 ATK +100%', unlockRank:6},
+    skillQ:{name:'龍息', cd:3, type:'breath', desc:'前方 400px 火焰錐 ×0.6/tick'},
+    skillE:{name:'纏繞', cd:6, type:'whirl', desc:'環繞自身的能量帶持續 3s', unlockRank:3},
+    skillR:{name:'真龍降世', cd:25, type:'dragon_form', desc:'15s 體型 ×1.5，攻 +100%', unlockRank:6},
   },
   // 羽
-  eagle: { path:'bird', name:'Eagle', icon:'Eg', color:'#cce0ff', shape:'bird',
+  eagle: { path:'bird', name:'雄鷹', icon:'鷹', color:'#cce0ff', shape:'bird',
     base:{hp:110,atk:13,def:4,spd:200,sta:120,life:200, r:16, atkR:50, atkCd:0.38, rngR:540, rngCd:0.6, rngDmg:10, rngSpd:640},
-    skillQ:{name:'Dive', cd:3, type:'dive', desc:'Dash to cursor, x3 dmg'},
-    skillE:{name:'Storm Feather Tempest', cd:6, type:'feather_storm', desc:'Fire 12 quills x0.5', unlockRank:3},
-    skillR:{name:'Thunder Pierce', cd:20, type:'thunder_dive', desc:'Sky lightning pierces all', unlockRank:6},
+    skillQ:{name:'俯衝', cd:3, type:'dive', desc:'快速衝向滑鼠位置，撞擊 ×3 傷害'},
+    skillE:{name:'雷羽風暴', cd:6, type:'feather_storm', desc:'發射 12 道羽刃 ×0.5 傷害', unlockRank:3},
+    skillR:{name:'雷霆貫穿', cd:20, type:'thunder_dive', desc:'天降閃電貫穿全螢幕', unlockRank:6},
   },
-  owl: { path:'bird', name:'Night Owl', icon:'Ow', color:'#aabbcc', shape:'bird',
+  owl: { path:'bird', name:'夜梟', icon:'梟', color:'#aabbcc', shape:'bird',
     base:{hp:115,atk:14,def:4,spd:190,sta:100,life:220, r:16, atkR:52, atkCd:0.4, rngR:520, rngCd:0.7, rngDmg:14, rngSpd:580},
-    skillQ:{name:'Shadow Arrow', cd:3, type:'shadow_arrow', desc:'Piercing arrow x2 dmg'},
-    skillE:{name:'Veil of Night', cd:8, type:'darkness', desc:'8s stealth + 50% crit', unlockRank:3},
-    skillR:{name:'Death Gaze', cd:20, type:'death_gaze', desc:'Lock 1.5s, then 999 true dmg', unlockRank:6},
+    skillQ:{name:'幽影箭', cd:3, type:'shadow_arrow', desc:'穿透箭 ×2 傷害'},
+    skillE:{name:'夜幕', cd:8, type:'darkness', desc:'8s 隱身 + 攻擊有 50% 暴擊', unlockRank:3},
+    skillR:{name:'死亡之眼', cd:20, type:'death_gaze', desc:'瞄準目標 1.5s 後造成 999 真傷', unlockRank:6},
   },
   // 鱗
-  shark: { path:'fish', name:'Shark', icon:'Sh', color:'#88c0ff', shape:'fish',
+  shark: { path:'fish', name:'鯊魚', icon:'鯊', color:'#88c0ff', shape:'fish',
     base:{hp:220,atk:24,def:8,spd:170,sta:100,life:220, r:24, atkR:60, atkCd:0.4},
-    skillQ:{name:'Triple Bite', cd:3, type:'combo3', desc:'3 bites x0.8 + bleed'},
-    skillE:{name:'Blood Frenzy', cd:6, type:'bloodrage', desc:'Sense low-HP 6s + AS x1.5', unlockRank:3},
-    skillR:{name:'Abyss Call', cd:22, type:'abyss', desc:'Summon 5 phantom sharks', unlockRank:6},
+    skillQ:{name:'三連咬', cd:3, type:'combo3', desc:'三次連咬 ×0.8 傷害 + 流血'},
+    skillE:{name:'血腥狂暴', cd:6, type:'bloodrage', desc:'感知低血敵人 6s + 攻速 ×1.5', unlockRank:3},
+    skillR:{name:'深淵召喚', cd:22, type:'abyss', desc:'召喚 5 隻幻影鯊圍攻', unlockRank:6},
   },
-  electroEel: { path:'fish', name:'Eel', icon:'El', color:'#aaffe0', shape:'fish',
+  electroEel: { path:'fish', name:'電鰻', icon:'鰻', color:'#aaffe0', shape:'fish',
     base:{hp:120,atk:13,def:4,spd:170,sta:120,life:200, r:18, atkR:50, atkCd:0.4, rngR:480, rngCd:0.5, rngDmg:9, rngSpd:660},
-    skillQ:{name:'Discharge', cd:3, type:'shock', desc:'250r shock + stun 0.5s'},
-    skillE:{name:'Lightning Chain', cd:6, type:'chain', desc:'8-jump chain x0.6 each', unlockRank:3},
-    skillR:{name:'Heavenly Thunder', cd:20, type:'sky_lightning', desc:'15 random bolts', unlockRank:6},
+    skillQ:{name:'放電', cd:3, type:'shock', desc:'250 半徑電擊 + 暈眩 0.5s'},
+    skillE:{name:'雷電鏈', cd:6, type:'chain', desc:'8 跳鏈電每跳 ×0.6 傷害', unlockRank:3},
+    skillR:{name:'天雷', cd:20, type:'sky_lightning', desc:'天降 15 道閃電隨機落點', unlockRank:6},
   },
   // 蟲
-  scorpion: { path:'insect', name:'Scorpion', icon:'Sc', color:'#c0ff60', shape:'insect',
+  scorpion: { path:'insect', name:'蠍', icon:'蠍', color:'#c0ff60', shape:'insect',
     base:{hp:140,atk:15,def:7,spd:160,sta:90,life:220, r:18, atkR:55, atkCd:0.42, rngR:430, rngCd:0.9, rngDmg:12, rngSpd:500},
-    skillQ:{name:'Venom Tail', cd:3, type:'poison_sting', desc:'Spear lunge, 6s DOT 5/s'},
-    skillE:{name:'Venom Mist', cd:7, type:'poison_cloud', desc:'200r venom cloud 6s DOT', unlockRank:3},
-    skillR:{name:'Imperial Venom', cd:22, type:'plague', desc:'All poisoned 10s, 30/s', unlockRank:6},
+    skillQ:{name:'毒尾', cd:3, type:'poison_sting', desc:'長矛突刺，命中敵人 6s DOT 5/s'},
+    skillE:{name:'毒霧', cd:7, type:'poison_cloud', desc:'200 半徑毒雲 6s 持續傷害', unlockRank:3},
+    skillR:{name:'蟲皇之毒', cd:22, type:'plague', desc:'全圖敵人中毒 10s，每秒 30 傷', unlockRank:6},
   },
 };
 
@@ -271,67 +271,67 @@ const SPECIES = {
 // 各途徑專屬晉階儀式（每途徑 8 條，呼應種族特色）
 // =====================================================================
 function qK(n){ return p=>p.q.kills>=n; }
-function qKShow(n){ return p=>`Kills ${Math.min(p.q.kills,n)}/${n}`; }
+function qKShow(n){ return p=>`擊殺 ${Math.min(p.q.kills,n)}/${n}`; }
 const PATH_QUESTS = {
   human: [
-    { desc:'First Steps: Kill 3 creatures',  req:qK(3),  show:qKShow(3) },
-    { desc:'Wander the World: Explore 3 biomes',                  req:p=>p.q.terrains.size>=3, show:p=>`Biomes ${p.q.terrains.size}/3` },
-    { desc:'Master Eye: Kill 1 tier-3+ enemy',          req:p=>p.q.killHighTier>=1, show:p=>`High-tier ${p.q.killHighTier}/1` },
-    { desc:'Grand Master: 12 total kills',                req:qK(12), show:qKShow(12) },
-    { desc:'Seek Power: Pick up 1 Authority',                  req:p=>p.q.authorities>=1, show:p=>`Authorities ${p.q.authorities}/1` },
-    { desc:'Saint Might: Use Authority 4 times',                  req:p=>p.q.casts>=4, show:p=>`Casts ${Math.min(p.q.casts,4)}/4` },
-    { desc:'War God Trial: Enter Lands End',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'Reached':'Not yet' },
-    { desc:'Earthly Immortal: Collect 3 Authorities',                  req:p=>p.q.authorities>=3, show:p=>`Authorities ${p.q.authorities}/3` },
+    { desc:'初試身手：擊殺 3 名生物（武者要證明自己）',  req:qK(3),  show:qKShow(3) },
+    { desc:'行走江湖：探索 3 種地形',                  req:p=>p.q.terrains.size>=3, show:p=>`地形 ${p.q.terrains.size}/3` },
+    { desc:'宗師之眼：擊殺 1 隻 3 階以上敵人',          req:p=>p.q.killHighTier>=1, show:p=>`高階 ${p.q.killHighTier}/1` },
+    { desc:'大宗師：累計擊殺 12 名生物',                req:qK(12), show:qKShow(12) },
+    { desc:'尋訪權柄：拾取 1 個權柄',                  req:p=>p.q.authorities>=1, show:p=>`權柄 ${p.q.authorities}/1` },
+    { desc:'武聖之威：釋放權柄 4 次',                  req:p=>p.q.casts>=4, show:p=>`釋放 ${Math.min(p.q.casts,4)}/4` },
+    { desc:'武神試煉：進入終焉之地',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'已抵達':'未抵達' },
+    { desc:'地仙圓滿：集齊 3 個權柄',                  req:p=>p.q.authorities>=3, show:p=>`權柄 ${p.q.authorities}/3` },
   ],
   dragon: [
-    { desc:'Jiao Appears: Kill 3 creatures',                   req:qK(3),  show:qKShow(3) },
-    { desc:'Hui Wanders: Explore 4 biomes',                  req:p=>p.q.terrains.size>=4, show:p=>`Biomes ${p.q.terrains.size}/4` },
-    { desc:'Chi Devours: Kill 1 tier-3+ enemy',          req:p=>p.q.killHighTier>=1, show:p=>`High-tier ${p.q.killHighTier}/1` },
-    { desc:'Coiled Dragon: 15 total kills',                  req:qK(15), show:qKShow(15) },
-    { desc:'Ying Long Rides Clouds: Pick up 1 Authority',                  req:p=>p.q.authorities>=1, show:p=>`Authorities ${p.q.authorities}/1` },
-    { desc:'Zhu Long Opens Eyes: Kill 1 tier-5+ enemy',          req:p=>p.q.killEpic>=1, show:p=>`Epic ${p.q.killEpic}/1` },
-    { desc:'Primordial Dragon Descend: Enter Lands End',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'Reached':'Not yet' },
-    { desc:'Divine Dragon Awakens: Collect 4 Authorities',                  req:p=>p.q.authorities>=4, show:p=>`Authorities ${p.q.authorities}/4` },
+    { desc:'蛟現於野：擊殺 3 隻生靈',                   req:qK(3),  show:qKShow(3) },
+    { desc:'虺行四方：探索 4 種地形',                  req:p=>p.q.terrains.size>=4, show:p=>`地形 ${p.q.terrains.size}/4` },
+    { desc:'螭吻吞噬：擊殺 1 隻 3 階以上敵人',          req:p=>p.q.killHighTier>=1, show:p=>`高階 ${p.q.killHighTier}/1` },
+    { desc:'蟠龍盤踞：累計擊殺 15 隻',                  req:qK(15), show:qKShow(15) },
+    { desc:'應龍承雲：拾取 1 個權柄',                  req:p=>p.q.authorities>=1, show:p=>`權柄 ${p.q.authorities}/1` },
+    { desc:'燭龍開目：擊殺 1 隻 5 階以上敵人',          req:p=>p.q.killEpic>=1, show:p=>`王階 ${p.q.killEpic}/1` },
+    { desc:'祖龍降世：進入終焉之地',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'已抵達':'未抵達' },
+    { desc:'神龍醒世：集齊 4 個權柄',                  req:p=>p.q.authorities>=4, show:p=>`權柄 ${p.q.authorities}/4` },
   ],
   beast: [
-    { desc:'Cub Forage: Near fruit + kill 2',            req:qK(2),  show:qKShow(2) },
-    { desc:'Predator Appears: 8 total kills',                   req:qK(8),  show:qKShow(8) },
-    { desc:'Demon Beast Roams: Explore 3 biomes',                  req:p=>p.q.terrains.size>=3, show:p=>`Biomes ${p.q.terrains.size}/3` },
-    { desc:'Spirit Beast Awakens: Pick up 1 Authority',                  req:p=>p.q.authorities>=1, show:p=>`Authorities ${p.q.authorities}/1` },
-    { desc:'Divine Beast: Kill 2 tier-3+ enemies',          req:p=>p.q.killHighTier>=2, show:p=>`High-tier ${p.q.killHighTier}/2` },
-    { desc:'Saint Beast Thunder: Use Authority 4 times',                  req:p=>p.q.casts>=4, show:p=>`Casts ${Math.min(p.q.casts,4)}/4` },
-    { desc:'Great Demon Breaks Realm: Enter Lands End',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'Reached':'Not yet' },
-    { desc:'Beast God Crowned: 30 total kills',                  req:qK(30), show:qKShow(30) },
+    { desc:'幼獸覓食：靠近果實 + 擊殺 2 隻',            req:qK(2),  show:qKShow(2) },
+    { desc:'凶獸現世：累計擊殺 8 隻',                   req:qK(8),  show:qKShow(8) },
+    { desc:'妖獸縱橫：探索 3 種地形',                  req:p=>p.q.terrains.size>=3, show:p=>`地形 ${p.q.terrains.size}/3` },
+    { desc:'靈獸通玄：拾取 1 個權柄',                  req:p=>p.q.authorities>=1, show:p=>`權柄 ${p.q.authorities}/1` },
+    { desc:'神獸顯威：擊殺 2 隻 3 階以上敵人',          req:p=>p.q.killHighTier>=2, show:p=>`高階 ${p.q.killHighTier}/2` },
+    { desc:'聖獸雷霆：釋放權柄 4 次',                  req:p=>p.q.casts>=4, show:p=>`釋放 ${Math.min(p.q.casts,4)}/4` },
+    { desc:'大妖過界：進入終焉之地',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'已抵達':'未抵達' },
+    { desc:'獸神冕成：累計擊殺 30 隻',                  req:qK(30), show:qKShow(30) },
   ],
   bird: [
-    { desc:'First Flight: Explore 2 biomes',                  req:p=>p.q.terrains.size>=2, show:p=>`Biomes ${p.q.terrains.size}/2` },
-    { desc:'Wind Riding: Kill 5 creatures',                   req:qK(5),  show:qKShow(5) },
-    { desc:'Demon Bird: Kill 1 tier-3+ enemy',          req:p=>p.q.killHighTier>=1, show:p=>`High-tier ${p.q.killHighTier}/1` },
-    { desc:'Cloud Piercer: Explore 5 biomes',                  req:p=>p.q.terrains.size>=5, show:p=>`Biomes ${p.q.terrains.size}/5` },
-    { desc:'Thunderbird Subdues: Pick up 1 Authority',                  req:p=>p.q.authorities>=1, show:p=>`Authorities ${p.q.authorities}/1` },
-    { desc:'Wind God Roars: Use Authority 5 times',                  req:p=>p.q.casts>=5, show:p=>`Casts ${Math.min(p.q.casts,5)}/5` },
-    { desc:'Roc Spreads Wings: Enter Lands End',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'Reached':'Not yet' },
-    { desc:'Thunderbird Divine: Kill 3 tier-5+ enemies',          req:p=>p.q.killEpic>=3, show:p=>`Epic ${p.q.killEpic}/3` },
+    { desc:'雛鳥初飛：探索 2 種地形',                  req:p=>p.q.terrains.size>=2, show:p=>`地形 ${p.q.terrains.size}/2` },
+    { desc:'御風長空：擊殺 5 隻生物',                   req:qK(5),  show:qKShow(5) },
+    { desc:'妖鳥傲世：擊殺 1 隻 3 階以上敵人',          req:p=>p.q.killHighTier>=1, show:p=>`高階 ${p.q.killHighTier}/1` },
+    { desc:'金翅破雲：探索 5 種地形',                  req:p=>p.q.terrains.size>=5, show:p=>`地形 ${p.q.terrains.size}/5` },
+    { desc:'雷鳥伏魔：拾取 1 個權柄',                  req:p=>p.q.authorities>=1, show:p=>`權柄 ${p.q.authorities}/1` },
+    { desc:'風神鳥嘯：釋放權柄 5 次',                  req:p=>p.q.casts>=5, show:p=>`釋放 ${Math.min(p.q.casts,5)}/5` },
+    { desc:'大鵬展翼：進入終焉之地',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'已抵達':'未抵達' },
+    { desc:'雷鳥神位：擊殺 3 隻 5 階以上敵人',          req:p=>p.q.killEpic>=3, show:p=>`王階 ${p.q.killEpic}/3` },
   ],
   fish: [
-    { desc:'Fry Swims: Kill 3',                       req:qK(3),  show:qKShow(3) },
-    { desc:'Enter River: Visit water (swamp/water)',               req:p=>p.q.terrains.has('water')||p.q.terrains.has('swamp'), show:p=>(p.q.terrains.has('water')||p.q.terrains.has('swamp'))?'Reached':'Not yet' },
-    { desc:'Fish to Jiao: 10 total kills',                  req:qK(10), show:qKShow(10) },
-    { desc:'Jiao to Dragon: Pick up 1 Authority',                  req:p=>p.q.authorities>=1, show:p=>`Authorities ${p.q.authorities}/1` },
-    { desc:'Dragon Fish Turns River: Kill 2 tier-3+ enemies',          req:p=>p.q.killHighTier>=2, show:p=>`High-tier ${p.q.killHighTier}/2` },
-    { desc:'Water Spirit Shakes Sea: Use Authority 4 times',                  req:p=>p.q.casts>=4, show:p=>`Casts ${Math.min(p.q.casts,4)}/4` },
-    { desc:'Sea King Arrives: Enter Lands End',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'Reached':'Not yet' },
-    { desc:'Sea Emperor Crowned: Collect 4 Authorities',                  req:p=>p.q.authorities>=4, show:p=>`Authorities ${p.q.authorities}/4` },
+    { desc:'幼魚潛游：擊殺 3 隻',                       req:qK(3),  show:qKShow(3) },
+    { desc:'入溪入河：到訪水域（沼/水）',               req:p=>p.q.terrains.has('water')||p.q.terrains.has('swamp'), show:p=>(p.q.terrains.has('water')||p.q.terrains.has('swamp'))?'已抵達':'未抵達' },
+    { desc:'大魚化蛟：累計擊殺 10 隻',                  req:qK(10), show:qKShow(10) },
+    { desc:'蛟魚成龍：拾取 1 個權柄',                  req:p=>p.q.authorities>=1, show:p=>`權柄 ${p.q.authorities}/1` },
+    { desc:'龍魚翻江：擊殺 2 隻 3 階以上敵人',          req:p=>p.q.killHighTier>=2, show:p=>`高階 ${p.q.killHighTier}/2` },
+    { desc:'水靈震海：釋放權柄 4 次',                  req:p=>p.q.casts>=4, show:p=>`釋放 ${Math.min(p.q.casts,4)}/4` },
+    { desc:'海王臨世：進入終焉之地',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'已抵達':'未抵達' },
+    { desc:'海皇加冕：集齊 4 個權柄',                  req:p=>p.q.authorities>=4, show:p=>`權柄 ${p.q.authorities}/4` },
   ],
   insect: [
-    { desc:'Larva Seeks Blood: Kill 4 creatures',                   req:qK(4),  show:qKShow(4) },
-    { desc:'Demon Insect Molts: Explore 3 biomes',                  req:p=>p.q.terrains.size>=3, show:p=>`Biomes ${p.q.terrains.size}/3` },
-    { desc:'Queen Nests: Pick up 1 Authority',                  req:p=>p.q.authorities>=1, show:p=>`Authorities ${p.q.authorities}/1` },
-    { desc:'Queen Expands: 18 total kills',                  req:qK(18), show:qKShow(18) },
-    { desc:'Insect Emperor Devours: Kill 2 tier-3+ enemies',          req:p=>p.q.killHighTier>=2, show:p=>`High-tier ${p.q.killHighTier}/2` },
-    { desc:'Swarm Emperor: Use Authority 5 times',                  req:p=>p.q.casts>=5, show:p=>`Casts ${Math.min(p.q.casts,5)}/5` },
-    { desc:'Insect Patriarch Dreams: Enter Lands End',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'Reached':'Not yet' },
-    { desc:'Insect God Crown: Kill 2 tier-5+ enemies',          req:p=>p.q.killEpic>=2, show:p=>`Epic ${p.q.killEpic}/2` },
+    { desc:'幼蟲覓血：擊殺 4 隻生物',                   req:qK(4),  show:qKShow(4) },
+    { desc:'妖蟲蛻變：探索 3 種地形',                  req:p=>p.q.terrains.size>=3, show:p=>`地形 ${p.q.terrains.size}/3` },
+    { desc:'蟲后立巢：拾取 1 個權柄',                  req:p=>p.q.authorities>=1, show:p=>`權柄 ${p.q.authorities}/1` },
+    { desc:'王蟲擴疆：累計擊殺 18 隻',                  req:qK(18), show:qKShow(18) },
+    { desc:'蟲皇蠶食：擊殺 2 隻 3 階以上敵人',          req:p=>p.q.killHighTier>=2, show:p=>`高階 ${p.q.killHighTier}/2` },
+    { desc:'蟲帝橫掃：釋放權柄 5 次',                  req:p=>p.q.casts>=5, show:p=>`釋放 ${Math.min(p.q.casts,5)}/5` },
+    { desc:'蟲祖入夢：進入終焉之地',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'已抵達':'未抵達' },
+    { desc:'蟲神冠首：擊殺 2 隻 5 階以上敵人',          req:p=>p.q.killEpic>=2, show:p=>`王階 ${p.q.killEpic}/2` },
   ],
 };
 
@@ -339,54 +339,54 @@ const PATH_QUESTS = {
 // 權柄（巨型 AoE，必須超強）
 // =====================================================================
 const AUTHORITIES = [
-  { id:'fire',    name:'Pyre Authority',  color:'#ff5530', icon:'F', cd:14,
-    desc:'Fire rain: 240 dmg + 40 DOT x 6s' },
-  { id:'frost',   name:'Frost Authority',  color:'#88e0ff', icon:'I', cd:16,
-    desc:'Freeze all 6s, 120 dmg' },
-  { id:'thunder', name:'Thunder Authority',  color:'#fff080', icon:'T', cd:14,
-    desc:'30-jump chain lightning, 180 dmg each' },
-  { id:'gale',    name:'Storm Authority',  color:'#aaffcc', icon:'W', cd:12,
-    desc:'600r knock-up + 100 dmg + 4s slow' },
-  { id:'life',    name:'Life Authority',  color:'#80ff80', icon:'L', cd:30,
-    desc:'Full heal + perm +100 HP + 60s regen 12/s' },
-  { id:'titan',   name:'Titan Authority',  color:'#ffaa30', icon:'G', cd:25,
-    desc:'30s Size x2.2 ATK x2.5 DEF x2' },
-  { id:'time',    name:'Time Authority',  color:'#cc88ff', icon:'Tm', cd:30,
-    desc:'Freeze all 8s + perm +10 min lifespan' },
-  { id:'void',    name:'Rift Authority',  color:'#7a00cc', icon:'R', cd:22,
-    desc:'1200r rift: pull + 300 true dmg + tear 8s' },
-  { id:'omni',    name:'Starfall Authority',  color:'#ffdd66', icon:'S', cd:40,
-    desc:'Reveal map 12s + 800 boss dmg + Qi +50% 90s' },
+  { id:'fire',    name:'烈焰權柄',  color:'#ff5530', icon:'焰', cd:14,
+    desc:'天降火雨，全螢幕 240 傷 + 40 DOT × 6s' },
+  { id:'frost',   name:'冰封權柄',  color:'#88e0ff', icon:'冰', cd:16,
+    desc:'凍結全螢幕敵人 6s，造成 120 傷' },
+  { id:'thunder', name:'雷霆權柄',  color:'#fff080', icon:'雷', cd:14,
+    desc:'30 跳鏈式閃電，每跳 180 傷' },
+  { id:'gale',    name:'颶風權柄',  color:'#aaffcc', icon:'風', cd:12,
+    desc:'600 半徑擊飛 + 100 傷 + 4s 減速' },
+  { id:'life',    name:'生命權柄',  color:'#80ff80', icon:'生', cd:30,
+    desc:'回滿 HP + 永久 +100 HP + 60s 回血 12/s' },
+  { id:'titan',   name:'巨化權柄',  color:'#ffaa30', icon:'巨', cd:25,
+    desc:'30s 體型 ×2.2 攻擊 ×2.5 護甲 ×2' },
+  { id:'time',    name:'時光權柄',  color:'#cc88ff', icon:'時', cd:30,
+    desc:'全圖敵人停止 8s + 永久 +10 分鐘壽命' },
+  { id:'void',    name:'裂界權柄',  color:'#7a00cc', icon:'裂', cd:22,
+    desc:'1200 半徑空間裂縫吸入敵人 + 300 真實傷害 + 撕裂 8s' },
+  { id:'omni',    name:'群星權柄',  color:'#ffdd66', icon:'神', cd:40,
+    desc:'揭示全圖 12s + 立即打 Boss 800 傷 + 全圖修為 +50% 持續 90s' },
 ];
 
 // =====================================================================
 // 地形
 // =====================================================================
 const BIOMES = {
-  plain:  { name:'Plains', color:'#3a4a2a' },
-  forest: { name:'Forest', color:'#1a3520' },
-  desert: { name:'Desert', color:'#aa9050' },
-  swamp:  { name:'Swamp', color:'#3a4530' },
-  water:  { name:'Waters', color:'#1f3a55' },
-  mtn:    { name:'Mountains', color:'#555560' },
-  snow:   { name:'Snowfields', color:'#aac0d0' },
-  end:    { name:'Lands End', color:'#1a0a28' },
-  starsea:{ name:'Sea of Stars', color:'#0c1838' },  // v1.1.0 環帶生態：星辰外洋
+  plain:  { name:'平原', color:'#3a4a2a' },
+  forest: { name:'森林', color:'#1a3520' },
+  desert: { name:'沙漠', color:'#aa9050' },
+  swamp:  { name:'沼澤', color:'#3a4530' },
+  water:  { name:'水域', color:'#1f3a55' },
+  mtn:    { name:'山地', color:'#555560' },
+  snow:   { name:'雪原', color:'#aac0d0' },
+  end:    { name:'終焉之地', color:'#1a0a28' },
+  starsea:{ name:'群星之海', color:'#0c1838' },  // v1.1.0 環帶生態：星辰外洋
 };
 
 // =====================================================================
 // 道具
 // =====================================================================
 const PICKUPS = [
-  { id:'spirit',   name:'Qi',     color:'#bb88ff', icon:'Q', rare:false, weight:60, qi:8 },
-  { id:'bigspirit',name:'Qi Orb',   color:'#dd99ff', icon:'Q', rare:true,  weight:8,  qi:40 },
-  { id:'heal',     name:'Healing Fruit',   color:'#ff5566', icon:'H', rare:false, weight:25, heal:60 },
-  { id:'bighp',    name:'Blood Pill',   color:'#ff2244', icon:'B', rare:true,  weight:5,  bighp:80 },
-  { id:'sta',      name:'Stamina Fruit',   color:'#7fd07f', icon:'P', rare:false, weight:20, sta:50 },
-  { id:'zhenyuan', name:'True Essence Pill',   color:'#ffd66b', icon:'E', rare:true,  weight:5,  zy:0.15 },
-  { id:'daohen',   name:'Dao Trace Shard', color:'#ddccff', icon:'D', rare:true,  weight:5,  dh:0.15 },
-  { id:'cdreset',  name:'Purity Pearl',   color:'#aaffff', icon:'C', rare:true,  weight:6,  cdreset:true },
-  { id:'lifegem',  name:'Lifespan Crystal',   color:'#cc88ff', icon:'L', rare:true,  weight:4,  life:90 },
+  { id:'spirit',   name:'靈氣',     color:'#bb88ff', icon:'氣', rare:false, weight:60, qi:8 },
+  { id:'bigspirit',name:'靈氣團',   color:'#dd99ff', icon:'氣', rare:true,  weight:8,  qi:40 },
+  { id:'heal',     name:'療癒果',   color:'#ff5566', icon:'療', rare:false, weight:25, heal:60 },
+  { id:'bighp',    name:'血元丹',   color:'#ff2244', icon:'血', rare:true,  weight:5,  bighp:80 },
+  { id:'sta',      name:'氣力果',   color:'#7fd07f', icon:'力', rare:false, weight:20, sta:50 },
+  { id:'zhenyuan', name:'真元丹',   color:'#ffd66b', icon:'元', rare:true,  weight:5,  zy:0.15 },
+  { id:'daohen',   name:'道痕殘片', color:'#ddccff', icon:'痕', rare:true,  weight:5,  dh:0.15 },
+  { id:'cdreset',  name:'清淨珠',   color:'#aaffff', icon:'清', rare:true,  weight:6,  cdreset:true },
+  { id:'lifegem',  name:'壽元晶',   color:'#cc88ff', icon:'壽', rare:true,  weight:4,  life:90 },
 ];
 function weightedPickup(){
   const t=PICKUPS.reduce((s,p)=>s+p.weight,0); let r=Math.random()*t;
@@ -422,7 +422,7 @@ const G = {
   fps:60, frameAcc:0, frameN:0, mapOpen:false,
   boss:null, bossSpawnT:240, bossDefeated:0,
   miniboss:null, minibossSpawnT:180, miniDefeated:0,
-  event:null, eventCdT:120,  // Stars Align
+  event:null, eventCdT:120,  // 群星正確之時
   stage:1, stageBannerT:0, stageBannerText:'', stageBannerSub:'',
   revealT:0, pingX:0, pingY:0, pingT:0,
   timeline:[],  // 死亡時間軸
@@ -430,7 +430,7 @@ const G = {
   visited:null, visitedCellSize:200, visitedRadius:5,
   _nidSeq:0, _saveTimer:0, paused:false, _firstAdShown:false,
 };
-const FAKE_NAMES = ['Witch','Mystic Name','Brahman','Red Lord','Hermit','Spear of Society','Dark Philosopher','Sun','High Dyke','Trance','Rule','Deceiver','Hidden Lord','Reverberation','Conductor','Jiao One','Black Night','Student','Void Reducer','Elder Day','Devourer','Joy','Falsehood','Flame Tongue','Phantom Light','Kunlun','Penguin','Apostle of Flame','Medium','King'];
+const FAKE_NAMES = ['魔女','玄名','梵人','紅嬜','隱者','社鋒','闇哲','太陽','高堤','恍惚','規則','欺詐','秘主','振箪','指揮','蛟之者','黑夜','學生','虛減','舊日','吞噬','快樂','虛偽','火舌','雮明','巐崙','企鵝','火之使徒','靈媒','國王'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
 
 // =====================================================================
@@ -495,8 +495,8 @@ function generateTerrain(){
           tctx.fillRect(sx*ss, sy*ss, ss+0.5, ss+0.5);
         }
       }
-      // v0.8.0: Lands End額外灑星，避免一整片黑屏
-      // v1.1.0: Sea of Stars也灑滿星（更多更亮）
+      // v0.8.0: 終焉之地額外灑星，避免一整片黑屏
+      // v1.1.0: 群星之海也灑滿星（更多更亮）
       if (bk==='starsea'){
         for (let i=0;i<60;i++){
           seed = (seed*1664525 + 1013904223) >>> 0;
@@ -572,26 +572,26 @@ function generateCosmos(){
 
 
 // =====================================================================
-// 世界 Boss · Elder Day · Star-Touching Eye (v0.9.0)
+// 世界 Boss · 舊日 · 觸星之眼 (v0.9.0)
 // =====================================================================
 function spawnBoss(){
   const cx=WORLD.w/2, cy=WORLD.h/2;
   G.boss = {
-    isBoss:true, name:'Elder Day · Star-Touching Eye',
+    isBoss:true, name:'舊日 · 觸星之眼',
     x:cx, y:cy, vx:0, vy:0, r:80,
     hp:8000, maxHp:8000, atk:80,
     atkCdT:0, projT:4, eyeT:0, phase:1,
     color:'#aa44ff',
   };
-  pushKillFeed('☄ Elder Day Arrives: Star-Touching Eye ☄','#aa44ff');
-  logMsg('★★★ Outer God arrives at map center — approach with caution ★★★','promote');
+  pushKillFeed('☄ 舊日降臨：觸星之眼 ☄','#aa44ff');
+  logMsg('★★★ 外神降臨！地圖中央，謹慎接近 ★★★','promote');
   try{ playSound('auth'); flash('#aa44ff',0.6); shake(30); }catch(e){}
 }
 function updateBoss(b, dt){
   b.eyeT += dt;
   // 二階段：低於 50% 加速
   if (b.hp < b.maxHp*0.5 && b.phase===1){
-    b.phase = 2; pushKillFeed('☄ Star-Touching Eye awakens','#ff44aa');
+    b.phase = 2; pushKillFeed('☄ 觸星之眼覺醒','#ff44aa');
     try{ flash('#ff44aa',0.5); shake(20); }catch(e){}
   }
   // 緩慢追玩家
@@ -628,17 +628,17 @@ function onBossDeath(b){
     G.player.qi += 1500;
     G.player.q.bossKilled = (G.player.q.bossKilled||0) + 1;
     G.player.sanity = Math.min(G.player.maxSanity, G.player.sanity + 40);
-    addFloat(G.player.x, G.player.y-40, 'Slay the Outer God! +1500 Qi', '#ffd66b', 22, 2.5);
-    pushKillFeed('★★ You defeated ['+b.name+'】 ★★','#ffd66b');
-    logMsg('★★★ Outer God slain: +1500 Qi + SAN restored ★★★','promote');
+    addFloat(G.player.x, G.player.y-40, '斬外神！+1500 修為', '#ffd66b', 22, 2.5);
+    pushKillFeed('★★ 你擊敗了【'+b.name+'】 ★★','#ffd66b');
+    logMsg('★★★ 斬外神：+1500 修為 + 心智回復 ★★★','promote');
     try{ playSound('promote'); flash('#ffffff',0.9); shake(30); }catch(e){}
     G.bossDefeated++;
-    G.timeline.push({t:G.time, text:'Slay Star-Touching Eye'});
+    G.timeline.push({t:G.time, text:'斬外神 觸星之眼'});
     // 掉一個隨機權柄
     if (G.player.authoritySlots.length<6 && AUTHORITIES.length>0){
       const a = AUTHORITIES[(Math.random()*AUTHORITIES.length)|0];
       G.authorities.push({...a, x:b.x, y:b.y, pulse:0});
-      pushKillFeed('★ Outer God dropped: '+a.name, a.color);
+      pushKillFeed('★ 外神遺落：'+a.name, a.color);
     }
   }
   for (let i=0;i<160;i++) G.particles.push({x:b.x,y:b.y,vx:rand(-600,600),vy:rand(-600,600),life:2,color:'#aa44ff',r:4});
@@ -695,7 +695,7 @@ function applyDamageToBoss(dmg){
 
 
 // =====================================================================
-// 小 Boss · Ancient Wraith (v1.0.0)  — Era of Cultivation起循環刷新
+// 小 Boss · 古修者殘魂 (v1.0.0)  — 修煉紀起循環刷新
 // =====================================================================
 function spawnMiniboss(){
   // 在隨機秘境位置 spawn（玩家不在的那一個）
@@ -704,13 +704,13 @@ function spawnMiniboss(){
   for (const rf of candidates){ if (!G.player || dist(rf, G.player) > 600){ spot = rf; break; } }
   if (!spot){ spot = { x: WORLD.w/2 + rand(-3000,3000), y: WORLD.h/2 + rand(-3000,3000) }; }
   G.miniboss = {
-    isBoss:true, isMiniboss:true, name:'Ancient Wraith',
+    isBoss:true, isMiniboss:true, name:'古修者殘魂',
     x:spot.x, y:spot.y, vx:0, vy:0, r:50,
     hp:1800, maxHp:1800, atk:55,
     atkCdT:0, dashT:5, eyeT:0, color:'#66ccff',
   };
-  pushKillFeed('☄ Ancient Wraith appears near a sanctum','#66ccff');
-  logMsg('★ Wraith mini-boss appears! Slay for +600 Qi + item rain','promote');
+  pushKillFeed('☄ 古修者殘魂於秘境邊緣現身','#66ccff');
+  logMsg('★ 古修者殘魂（小 Boss）出現！斬之得 +600 修為 + 道具雨','promote');
   try{ flash('#66ccff',0.4); shake(15); playSound('auth'); }catch(e){}
 }
 function updateMiniboss(b, dt){
@@ -743,10 +743,10 @@ function onMinibossDeath(b){
   if (G.player){
     G.player.qi += 600;
     G.player.sanity = Math.min(G.player.maxSanity, G.player.sanity + 15);
-    addFloat(G.player.x, G.player.y-30, 'Slain Wraith! +600 Qi', '#66ccff', 18, 1.8);
-    pushKillFeed('★ You defeated the Wraith','#66ccff');
+    addFloat(G.player.x, G.player.y-30, '斬殘魂！+600 修為', '#66ccff', 18, 1.8);
+    pushKillFeed('★ 你擊敗了【古修者殘魂】','#66ccff');
     G.miniDefeated = (G.miniDefeated||0) + 1;
-    G.timeline.push({t:G.time, text:'Defeat the Wraith'});
+    G.timeline.push({t:G.time, text:'擊敗 古修者殘魂'});
   }
   // 道具雨
   for (let i=0;i<14;i++){
@@ -830,7 +830,7 @@ function drawWorldEventFX(){
   ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
   // 頂部倒計時
   ctx.fillStyle = '#ffdd66'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
-  ctx.fillText('☄ Stars Align ' + G.event.t.toFixed(1) + 's', W/2, 32);
+  ctx.fillText('☄ 群星正確之時 ' + G.event.t.toFixed(1) + 's', W/2, 32);
 }
 
 // =====================================================================
@@ -858,7 +858,7 @@ function _biomeCentroids(){
 function generateNodes(){
   G.qiSprings = [];
   const cx = WORLD.w/2, cy = WORLD.h/2;
-  // v1.0.0: 10 個Qi Spring（內 6 + 外 4），大地圖更需要修為來源
+  // v1.0.0: 10 個靈氣泉（內 6 + 外 4），大地圖更需要修為來源
   for (let i=0;i<6;i++){
     const ang = (i/6)*Math.PI*2 + Math.PI/6;
     G.qiSprings.push({ x: cx + Math.cos(ang)*2400, y: cy + Math.sin(ang)*2400, r: 150, tcd: 3, pulse: Math.random()*Math.PI*2 });
@@ -870,14 +870,14 @@ function generateNodes(){
   G.rifts = [];
   // v1.0.0: 8 個秘境（4 內 + 4 外）
   const riftDefs = [
-    {name:'Qi Sanctum',  icon:'Q', color:'#bb88ff', reward:'qi'},
-    {name:'Vitality Sanctum',  icon:'L', color:'#ff7080', reward:'heal'},
-    {name:'Strength Sanctum',  icon:'P', color:'#ffd66b', reward:'power'},
-    {name:'Outer God Sanctum',  icon:'★', color:'#aa44ff', reward:'all'},
-    {name:'Star Sanctum',  icon:'St', color:'#88ccff', reward:'qi'},
-    {name:'Bloodline Sanctum',  icon:'B', color:'#ff4466', reward:'heal'},
-    {name:'Thunder Sanctum',  icon:'T', color:'#fff080', reward:'power'},
-    {name:'Void Sanctum',  icon:'V', color:'#7a00cc', reward:'all'},
+    {name:'修為秘境',  icon:'修', color:'#bb88ff', reward:'qi'},
+    {name:'生機秘境',  icon:'生', color:'#ff7080', reward:'heal'},
+    {name:'力之秘境',  icon:'力', color:'#ffd66b', reward:'power'},
+    {name:'外神秘境',  icon:'★', color:'#aa44ff', reward:'all'},
+    {name:'星辰秘境',  icon:'星', color:'#88ccff', reward:'qi'},
+    {name:'血脈秘境',  icon:'血', color:'#ff4466', reward:'heal'},
+    {name:'雷霆秘境',  icon:'雷', color:'#fff080', reward:'power'},
+    {name:'虛無秘境',  icon:'虛', color:'#7a00cc', reward:'all'},
   ];
   for (let i=0;i<riftDefs.length;i++){
     const ang = (i/riftDefs.length)*Math.PI*2 + Math.PI/8;
@@ -946,7 +946,7 @@ function drawQiSprings(){
       ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(qs.x,qs.y,rr,0,Math.PI*2); ctx.stroke();
     }
     ctx.fillStyle='#fff'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('Qi Spring', qs.x, qs.y - r - 8);
+    ctx.fillText('靈氣泉', qs.x, qs.y - r - 8);
   }
 }
 
@@ -959,7 +959,7 @@ function drawRifts(){
       ctx.fillStyle = '#888'; ctx.font='12px sans-serif'; ctx.textAlign='center';
       ctx.fillText(rf.name, rf.x, rf.y - 8);
       ctx.fillStyle = '#aaa'; ctx.font='10px sans-serif';
-      ctx.fillText('Reviving '+((rf.respawnT||0)|0)+'s', rf.x, rf.y + 8);
+      ctx.fillText('復甦中 '+((rf.respawnT||0)|0)+'s', rf.x, rf.y + 8);
       continue;
     }
     const r = rf.r;
@@ -977,7 +977,7 @@ function drawRifts(){
     ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif';
     ctx.fillText(rf.name, rf.x, rf.y - r - 10);
     ctx.fillStyle=rf.color; ctx.font='11px sans-serif';
-    ctx.fillText('Approach to trigger', rf.x, rf.y + r + 14);
+    ctx.fillText('靠近觸發', rf.x, rf.y + r + 14);
   }
 }
 
@@ -1015,7 +1015,7 @@ function makeCreature(speciesKey, x, y, isPlayer=false){
     aiState:'wander', aiTarget:null, aiTimer:0,
     unlocks:[],
     color: sp.color,
-    name: isPlayer ? 'You' : randomName(),
+    name: isPlayer ? '你' : randomName(),
   };
   recalcStats(c);
   c.hp = c.maxHp; c.sta = c.maxSta; c.life = c.maxLife;
@@ -1049,7 +1049,7 @@ function recalcStats(p){
 // =====================================================================
 // 修為晉階
 // =====================================================================
-function currentQuest(p){ if (p.rank>=9) return null; /* v1.1.0: 序列升級無任務需求，只看修為與True God試煉 */ const list = PATH_QUESTS[p.pathKey] || PATH_QUESTS.human; return list[p.rank-1]; }
+function currentQuest(p){ if (p.rank>=9) return null; /* v1.1.0: 序列升級無任務需求，只看修為與真神試煉 */ const list = PATH_QUESTS[p.pathKey] || PATH_QUESTS.human; return list[p.rank-1]; }
 function tryPromote(p){
   let promoted = false;
   let safety = 12;
@@ -1065,23 +1065,23 @@ function tryPromote(p){
       if (p.q.bossKilled<1 || p.q.riftsUsed<4 || p.sanity<60){
         if (p.isPlayer && (!p._godTipT || G.time - p._godTipT > 8)){
           p._godTipT = G.time;
-          const need=[]; if (p.q.bossKilled<1) need.push(`Slay Outer God ${p.q.bossKilled}/1`);
-          if (p.q.riftsUsed<4) need.push(`Open Sanctums ${p.q.riftsUsed}/4`);
-          if (p.sanity<60) need.push(`SAN ${p.sanity|0}/60`);
-          pushKillFeed('★ Apotheosis Trial incomplete: '+need.join(' / '),'#ff88cc');
+          const need=[]; if (p.q.bossKilled<1) need.push(`斬外神 ${p.q.bossKilled}/1`);
+          if (p.q.riftsUsed<4) need.push(`開秘境 ${p.q.riftsUsed}/4`);
+          if (p.sanity<60) need.push(`心智 ${p.sanity|0}/60`);
+          pushKillFeed('★ 成神試煉未完成：'+need.join(' / '),'#ff88cc');
         }
         break;
       }
     }
-    // v1.1.0: True God試煉（rank 18→19，序列 0 愚者True God）
+    // v1.1.0: 真神試煉（rank 18→19，序列 0 愚者真神）
     if (p.rank===18){
       if (p.q.bossKilled<5 || p.q.riftsUsed<8 || p.sanity<80){
         if (p.isPlayer && (!p._trueGodTipT || G.time - p._trueGodTipT > 10)){
           p._trueGodTipT = G.time;
-          const need=[]; if (p.q.bossKilled<5) need.push(`Slay Outer God ${p.q.bossKilled}/5`);
-          if (p.q.riftsUsed<8) need.push(`Open Sanctums ${p.q.riftsUsed}/8`);
-          if (p.sanity<80) need.push(`SAN ${p.sanity|0}/80`);
-          pushKillFeed('★ True God Trial incomplete (Seq 0): '+need.join(' / '),'#ffd66b');
+          const need=[]; if (p.q.bossKilled<5) need.push(`斬外神 ${p.q.bossKilled}/5`);
+          if (p.q.riftsUsed<8) need.push(`開秘境 ${p.q.riftsUsed}/8`);
+          if (p.sanity<80) need.push(`心智 ${p.sanity|0}/80`);
+          pushKillFeed('★ 真神試煉未完成（序列 0）：'+need.join(' / '),'#ffd66b');
         }
         break;
       }
@@ -1097,14 +1097,14 @@ function tryPromote(p){
     if (p.isPlayer){
       const td = tierData(p);
       const title = td?td.name:'?';
-      logMsg(`★ Promoted [${title}] (tier ${p.rank}) — Gained "${td?td.pname:''}": ${td?td.pdesc:''}`, 'promote');
-      pushKillFeed(`★ Promoted ${title}: ${td?td.pname:''}`, p.path.color);
+      logMsg(`★ 晉【${title}】（第 ${p.rank} 階） — 領悟「${td?td.pname:''}」：${td?td.pdesc:''}`, 'promote');
+      pushKillFeed(`★ 晉階 ${title}：${td?td.pname:''}`, p.path.color);
       playSound('promote');
       flash(p.path.color, 0.5);
       shake(20);
       for (let i=0;i<80;i++) G.particles.push({x:p.x,y:p.y,vx:rand(-400,400),vy:rand(-400,400),life:1.4,color:p.path.color, r:3});
       G.shockwaves.push({x:p.x,y:p.y,r:0,max:280,life:0.9,color:p.path.color});
-      addFloat(p.x, p.y-30, `Level Up! ${title}`, p.path.color, 24, 2);
+      addFloat(p.x, p.y-30, `晉階！${title}`, p.path.color, 24, 2);
     }
   }
   if (promoted && p.isPlayer && p.rank>=19){ winGame(); }
@@ -1210,7 +1210,7 @@ function setupInput(canvas){
     if (k==='m' && G.started){ G.mapOpen = !G.mapOpen; }
     if (k==='escape' && G.mapOpen){ G.mapOpen = false; }
     if (k==='p' && G.started && G.player){ G.pingX = G.player.x; G.pingY = G.player.y; G.pingT = 8; try{ playSound('block'); }catch(e){} }
-    // v1.2.0 T 鍵開Chat
+    // v1.2.0 T 鍵開聊天
     if (k==='t' && G.started && window.Net && Net.online && !G._chatOpen){ e.preventDefault(); openChatInput(); }
   });
   window.addEventListener('keyup', e=>{ KEYS[e.key.toLowerCase()]=false; });
@@ -1297,7 +1297,7 @@ function updatePlayer(p, dt){
   if (p.darkT>0) p.darkT-=dt;
 
   // 壽命扣減（玩家）
-  if (p.isPlayer){ p.life -= dt; if (p.life<=0){ die('Lifespan exhausted'); return; } }
+  if (p.isPlayer){ p.life -= dt; if (p.life<=0){ die('壽元耗盡'); return; } }
 
   // 移動
   let mx=0,my=0;
@@ -1327,7 +1327,7 @@ function updatePlayer(p, dt){
   // 地形紀錄
   const t = terrainAt(p.x,p.y);
   p.q.terrains.add(t);
-  if (t==='end' && !p.q.enteredEnd){ p.q.enteredEnd = true; logMsg('★ Entered Lands End','promote'); }
+  if (t==='end' && !p.q.enteredEnd){ p.q.enteredEnd = true; logMsg('★ 進入終焉之地','promote'); }
 
   // 攻擊
   if (p.atkCdT>0) p.atkCdT-=dt;
@@ -1430,7 +1430,7 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
     return d;
   }
   if (!target || target.hp<=0) return;
-  // v1.0.0: Stars Align，所有非玩家攻擊者 +30%
+  // v1.0.0: 群星正確之時，所有非玩家攻擊者 +30%
   if (G.event && G.event.type==='aligned' && attacker && !attacker.isPlayer) dmg *= 1.3;
   // v0.9.0: 外神 Boss 走自有結算
   if (target.isBoss){
@@ -1440,7 +1440,7 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
     if (target.hp<=0){ target.hp = 0; }
     return;
   }
-  if (target.invuln>0){ addFloat(target.x, target.y-target.r, 'Imm', '#ffff80', 12, 0.5); return; }
+  if (target.invuln>0){ addFloat(target.x, target.y-target.r, '免', '#ffff80', 12, 0.5); return; }
   let final = dmg;
   if (!isFinite(final) || final<0) final = 1;
   // 進階能力：暴擊
@@ -1456,10 +1456,10 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
     if (attacker && attacker!==target && attacker.hp>0){
       const reflect = Math.max(1, Math.round(dmg*0.3));
       attacker.hp -= reflect;
-      addFloat(attacker.x, attacker.y-attacker.r, `Rfl ${reflect}`, '#88e0ff', 12, 0.6);
+      addFloat(attacker.x, attacker.y-attacker.r, `反 ${reflect}`, '#88e0ff', 12, 0.6);
       if (attacker.hp<=0) onKill(target, attacker);
     }
-    addFloat(target.x, target.y-target.r, 'Blk', '#88e0ff', 14, 0.5);
+    addFloat(target.x, target.y-target.r, '擋', '#88e0ff', 14, 0.5);
     playSound('block');
   }
   // 暗夜暴擊
@@ -1483,7 +1483,7 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
     if (d<200 && attacker.hp>0){
       const rd = Math.max(1, Math.round(target.atk*0.5));
       attacker.hp -= rd;
-      addFloat(attacker.x, attacker.y-attacker.r, `Shk ${rd}`, '#ffd66b', 12, 0.6);
+      addFloat(attacker.x, attacker.y-attacker.r, `震 ${rd}`, '#ffd66b', 12, 0.6);
       if (attacker.hp<=0) onKill(target, attacker);
     }
   }
@@ -1523,11 +1523,11 @@ function onKill(attacker, target){
   playSound('kill');
   // Kill feed
   if (attacker){
-    const an = attacker.isPlayer?'You':(attacker.name||attacker.sp.name);
-    const tn = target.isPlayer?'You':(target.name||target.sp.name);
-    pushKillFeed(`${an} killed ${tn}`, attacker.isPlayer ? '#ffd66b' : (target.isPlayer ? '#ff4040' : '#aaa'));
+    const an = attacker.isPlayer?'你':(attacker.name||attacker.sp.name);
+    const tn = target.isPlayer?'你':(target.name||target.sp.name);
+    pushKillFeed(`${an} 击殺了 ${tn}`, attacker.isPlayer ? '#ffd66b' : (target.isPlayer ? '#ff4040' : '#aaa'));
     // 記錄玩家死亡原因
-    if (target.isPlayer) G.deathBy = `Killed by ${attacker.sp.name} (${tierName(attacker)})`;
+    if (target.isPlayer) G.deathBy = `被 ${attacker.sp.name}【${tierName(attacker)}】擊殺`;
   }
   // 玩家擊殺
   if (attacker && attacker.isPlayer){
@@ -1536,8 +1536,8 @@ function onKill(attacker, target){
     if (target.rank>=5) attacker.q.killEpic++;
     const qiReward = 8 + target.rank*6;
     attacker.qi += qiReward;
-    addFloat(target.x, target.y-20, `+${qiReward} Qi`, '#bb88ff', 14, 1.2);
-    logMsg(`Killed ${target.sp.name} (${tierName(target)}) +${qiReward} Qi`);
+    addFloat(target.x, target.y-20, `+${qiReward} 修為`, '#bb88ff', 14, 1.2);
+    logMsg(`擊殺 ${target.sp.name}（${tierName(target)}）+${qiReward} 修為`);
     const _preRank = attacker.rank;
     tryPromote(attacker);
     if (window.SDK && attacker.rank>_preRank) SDK.happyTime(Math.min(1, attacker.rank/15));
@@ -1548,7 +1548,7 @@ function onKill(attacker, target){
   if (attacker && attacker.perks && attacker.perks.killheal>0 && attacker.hp>0){
     const h = Math.round(attacker.maxHp * attacker.perks.killheal);
     attacker.hp = Math.min(attacker.maxHp, attacker.hp + h);
-    if (attacker.isPlayer) addFloat(attacker.x, attacker.y-attacker.r-20, `+${h} HP`, '#80ff80', 14, 0.8);
+    if (attacker.isPlayer) addFloat(attacker.x, attacker.y-attacker.r-20, `+${h} 血`, '#80ff80', 14, 0.8);
   }
   // 掉落
   for (let i=0;i<Math.min(8, 2+target.rank*2);i++){
@@ -1560,7 +1560,7 @@ function onKill(attacker, target){
   }
   for (let i=0;i<15;i++) G.particles.push({x:target.x,y:target.y,vx:rand(-220,220),vy:rand(-220,220),life:0.6,color:target.color,r:2});
   // 移除
-  if (target===G.player){ die(G.deathBy || 'killed by'); }
+  if (target===G.player){ die(G.deathBy || '被擊殺'); }
 }
 
 // =====================================================================
@@ -1716,7 +1716,7 @@ function deathGaze(p){
   setTimeout(()=>{
     if (!G.started||G.dead) return;
     if (p.isPlayer && p!==G.player) return;
-    if (best && best.hp>0){ best.hp -= 999; addFloat(best.x,best.y,'Death Gaze','#aa00ff',18,1.5); onKill(p,best);}
+    if (best && best.hp>0){ best.hp -= 999; addFloat(best.x,best.y,'死亡凝視','#aa00ff',18,1.5); onKill(p,best);}
   },1500);
 }
 function enemiesOf(p){
@@ -1732,8 +1732,8 @@ function castAuthority(p, slot){
   const a = p.authoritySlots[slot]; if (!a) return;
   p.q.casts++;
   const dh = p.daohen;
-  logMsg(`[${a.name}] cast!`, 'promote');
-  pushKillFeed(`You cast ${a.name}`, a.color);
+  logMsg(`【${a.name}】 釋放！`, 'promote');
+  pushKillFeed(`你釋放 ${a.name}`, a.color);
   playSound('auth');
   flash(a.color, 0.6); shake(20);
   switch(a.id){
@@ -1815,11 +1815,11 @@ function castAuthority(p, slot){
       // 揭示全圖 + 重擊 Boss + 全圖修為加成
       G.revealT = 12;
       p.qiBonusT = 90; p.qiBonusMul = 1.5;
-      if (G.boss && G.boss.hp>0){ applyDamageToBoss(800*dh); addFloat(G.boss.x,G.boss.y-G.boss.r-40,'Starfall 800!','#ffdd66',20,1.5); }
+      if (G.boss && G.boss.hp>0){ applyDamageToBoss(800*dh); addFloat(G.boss.x,G.boss.y-G.boss.r-40,'群星 800!','#ffdd66',20,1.5); }
       flash('#ffdd66', 1.0); shake(20);
       // 揭示時填滿 visited
       if (G.visited){ for (let y=0;y<G.visited.length;y++) for (let x=0;x<G.visited[0].length;x++) G.visited[y][x] = 1; }
-      pushKillFeed('★ Stars Align! Map revealed','#ffdd66');
+      pushKillFeed('★ 群星正確！全圖揭示','#ffdd66');
       break;
     }
   }
@@ -1839,7 +1839,7 @@ function autoPickup(p){
       if (p.qiBonusT>0) q = (q * (p.qiBonusMul||1))|0;
       if (G.event && G.event.type==='aligned') q = (q * 1.5)|0;
       p.qi += q;
-      addFloat(s.x,s.y,`+${q} Qi`,'#bb88ff',10,0.6);
+      addFloat(s.x,s.y,`+${q} 修為`,'#bb88ff',10,0.6);
       s._gone = true;
     }
   }
@@ -1857,8 +1857,8 @@ function autoPickup(p){
     if (dist2(p,a) < (60+40)*(60+40)){
       if (p.authoritySlots.length<6){
         p.authoritySlots.push(a); p.authCdT.push(0); p.q.authorities++;
-        logMsg(`★ Picked up [${a.name}]`, 'promote');
-        pushKillFeed(`You picked up ${a.name}`, a.color);
+        logMsg(`★ 獲得【${a.name}】`, 'promote');
+        pushKillFeed(`你獲得權柄 ${a.name}`, a.color);
         playSound('promote');
         flash(a.color,0.5); shake(10);
         a._gone = true;
@@ -1869,7 +1869,7 @@ function autoPickup(p){
   for (const qs of G.qiSprings){
     if (dist(p, qs) < qs.r){
       p.qi += 12 * (1/60);
-      if (!qs._floatT || G.time - qs._floatT > 0.8){ addFloat(p.x,p.y-30,'Qi Spring +Qi','#bb88ff',12,0.8); qs._floatT = G.time; }
+      if (!qs._floatT || G.time - qs._floatT > 0.8){ addFloat(p.x,p.y-30,'靈氣泉 +修為','#bb88ff',12,0.8); qs._floatT = G.time; }
     }
     qs.tcd -= 1/60;
     if (qs.tcd<=0){
@@ -1882,7 +1882,7 @@ function autoPickup(p){
   }
   for (const rf of G.rifts){
     if (rf.used) continue;
-    if (dist(p, rf) < rf.r){ rf.used = true; rf.respawnT = 300; p.q.riftsUsed++; p.sanity = Math.min(p.maxSanity, p.sanity+25); G.timeline.push({t:G.time, text:'Opening '+rf.name}); grantRiftReward(p, rf); }
+    if (dist(p, rf) < rf.r){ rf.used = true; rf.respawnT = 300; p.q.riftsUsed++; p.sanity = Math.min(p.maxSanity, p.sanity+25); G.timeline.push({t:G.time, text:'開啟 '+rf.name}); grantRiftReward(p, rf); }
   }
   // v0.9.0: 心智 (Sanity) 計算
   if (!isFinite(p.sanity)) p.sanity = 100;
@@ -1898,42 +1898,42 @@ function autoPickup(p){
   p.sanity = clamp(p.sanity + sanDelta*(1/60), 0, p.maxSanity);
   // 心智效應
   if (p.sanity<10 && Math.random()<0.02){
-    addFloat(p.x+rand(-30,30), p.y-30, ["Madness…","It watches…","Run…","No turning back","Stars Align","Molt"][((Math.random()*6)|0)], "#ff66aa", 12, 1.2);
+    addFloat(p.x+rand(-30,30), p.y-30, ["瘋了…","祂在看…","逃啊…","回不去了","群星正確","蛻吧"][((Math.random()*6)|0)], "#ff66aa", 12, 1.2);
   }
   if (p.sanity<=0 && Math.random()<0.5){ p.hp = Math.max(0, p.hp - 10*(1/60)*10); }
   tryPromote(p);
 }
 function grantRiftReward(p, rf){
-  logMsg('★ Opened ['+rf.name+'】！', 'promote');
+  logMsg('★ 開啟【'+rf.name+'】！', 'promote');
   pushKillFeed('★ '+rf.name, rf.color);
   try{ playSound('promote'); }catch(e){}
   try{ flash(rf.color, 0.7); shake(18); }catch(e){}
   for (let i=0;i<60;i++) G.particles.push({x:rf.x,y:rf.y,vx:rand(-400,400),vy:rand(-400,400),life:1.2,color:rf.color,r:3});
   G.shockwaves.push({x:rf.x,y:rf.y,r:0,max:400,life:1,color:rf.color});
   if (rf.reward==='qi'){
-    p.qi += 200; addFloat(p.x,p.y-30,'+200 Qi','#bb88ff',18,1.5);
+    p.qi += 200; addFloat(p.x,p.y-30,'+200 修為','#bb88ff',18,1.5);
   } else if (rf.reward==='heal'){
     p.maxHp = Math.floor(p.maxHp*1.15); p.hp = p.maxHp; p.maxLife += 60; p.life = p.maxLife;
-    addFloat(p.x,p.y-30,'HP +15%','#ff7080',18,1.5);
+    addFloat(p.x,p.y-30,'生命強化 +15%','#ff7080',18,1.5);
   } else if (rf.reward==='power'){
     p.zhenyuan += 0.3; p.daohen += 0.3; recalcStats(p); p.hp = p.maxHp;
-    addFloat(p.x,p.y-30,'Essence +30% Dao +30%','#ffd66b',18,1.5);
+    addFloat(p.x,p.y-30,'真元 +30% 道痕 +30%','#ffd66b',18,1.5);
   } else if (rf.reward==='all'){
     p.qi += 120; p.zhenyuan += 0.2; p.daohen += 0.2; p.maxHp = Math.floor(p.maxHp*1.1); recalcStats(p); p.hp = p.maxHp;
-    addFloat(p.x,p.y-30,'Outer God Boon · All Stats +','#aa44ff',18,1.8);
+    addFloat(p.x,p.y-30,'外神饋贈 · 全屬性提升','#aa44ff',18,1.8);
   }
 }
 function applyPickup(p, it){
   playSound('pickup');
-  if (it.qi){ p.qi += it.qi; addFloat(p.x,p.y-20,`+${it.qi} Qi`,'#bb88ff',12,1); }
+  if (it.qi){ p.qi += it.qi; addFloat(p.x,p.y-20,`+${it.qi} 修為`,'#bb88ff',12,1); }
   if (it.heal){ p.hp = Math.min(p.maxHp, p.hp+it.heal); addFloat(p.x,p.y-20,`+${it.heal} HP`,'#ff6677',12,1); }
-  if (it.bighp){ p.maxHp += it.bighp; p.hp += it.bighp; addFloat(p.x,p.y-20,`+${it.bighp} max HP`,'#ff2244',14,1); }
+  if (it.bighp){ p.maxHp += it.bighp; p.hp += it.bighp; addFloat(p.x,p.y-20,`+${it.bighp} 上限`,'#ff2244',14,1); }
   if (it.sta){ p.sta = Math.min(p.maxSta, p.sta+it.sta); }
-  if (it.zy){ p.zhenyuan += it.zy; recalcStats(p); addFloat(p.x,p.y-20,`Essence +${(it.zy*100)|0}%`,'#ffd66b',14,1.2); }
-  if (it.dh){ p.daohen += it.dh; addFloat(p.x,p.y-20,`Dao +${(it.dh*100)|0}%`,'#ddccff',14,1.2); }
-  if (it.cdreset){ p.skillQT=p.skillET=p.skillRT=0; for (let i=0;i<p.authCdT.length;i++) p.authCdT[i]=0; addFloat(p.x,p.y-20,'CD Reset','#aaffff',14,1.2); }
-  if (it.life){ p.life = Math.min(p.maxLife, p.life+it.life); addFloat(p.x,p.y-20,`+${it.life}s Lifespan`,'#cc88ff',14,1.2); }
-  logMsg(`Picked up ${it.name}`);
+  if (it.zy){ p.zhenyuan += it.zy; recalcStats(p); addFloat(p.x,p.y-20,`真元 +${(it.zy*100)|0}%`,'#ffd66b',14,1.2); }
+  if (it.dh){ p.daohen += it.dh; addFloat(p.x,p.y-20,`道痕 +${(it.dh*100)|0}%`,'#ddccff',14,1.2); }
+  if (it.cdreset){ p.skillQT=p.skillET=p.skillRT=0; for (let i=0;i<p.authCdT.length;i++) p.authCdT[i]=0; addFloat(p.x,p.y-20,'CD 重置','#aaffff',14,1.2); }
+  if (it.life){ p.life = Math.min(p.maxLife, p.life+it.life); addFloat(p.x,p.y-20,`+${it.life}s 壽元`,'#cc88ff',14,1.2); }
+  logMsg(`拾取 ${it.name}`);
 }
 
 // =====================================================================
@@ -2056,7 +2056,7 @@ function updateHazards(dt){
 // =====================================================================
 function die(reason){
   if (G.dead) return;
-  // 進階能力：Immortal Phoenix — 復活一次
+  // 進階能力：不死鳳凰 — 復活一次
   if (G.player && G.player.perks && G.player.perks.revive>0 && !G.player._revivedOnce){
     G.player._revivedOnce = true;
     G.player.hp = G.player.maxHp;
@@ -2065,24 +2065,23 @@ function die(reason){
     G.shockwaves.push({x:G.player.x,y:G.player.y,r:0,max:500,life:1.2,color:'#ffaa30'});
     for (let i=0;i<120;i++) G.particles.push({x:G.player.x,y:G.player.y,vx:rand(-500,500),vy:rand(-500,500),life:1.6,color:'#ffaa30',r:3});
     flash('#ffaa30', 0.7); shake(30); playSound('promote');
-    pushKillFeed('★ Rebirth!', '#ffaa30');
-    logMsg('★ Rebirth! Phoenix power lifts you again','promote');
+    pushKillFeed('★ 涅槃復生！', '#ffaa30');
+    logMsg('★ 涅槃復生！不死鳳凰之力使你重新站起','promote');
     return;
   }
   G.dead = true;
-  try { saveProgress({onDeath:true}); } catch(e){}
   playSound('death');
   document.getElementById('death').classList.remove('hidden');
-  document.getElementById('deathReason').textContent=reason||G.deathBy||'Unknown cause';
+  document.getElementById('deathReason').textContent=reason||G.deathBy||'不明原因';
   const _dEl=document.getElementById('deathStats');
   if(_dEl){const _on=window.Net&&Net.online;
-    _dEl.textContent=`Survived ${(G.time/60)|0}m${(G.time%60)|0}s · Kills ${G.player.q.kills} · R${G.player.rank}`+(_on?' · Online '+(Net.peers.size+1):'');}
-  document.getElementById('deathStats').textContent = `Tier: ${tierName(G.player)} | Kills: ${G.player.q.kills} | High-tier: ${G.player.q.killHighTier} | Qi: ${G.player.qi} | Survived ${G.time.toFixed(0)}s`;
+    _dEl.textContent=`存活 ${(G.time/60)|0}m${(G.time%60)|0}s · 擊殺 ${G.player.q.kills} · R${G.player.rank}`+(_on?' · 線上'+(Net.peers.size+1)+'人':'');}
+  document.getElementById('deathStats').textContent = `階位：${tierName(G.player)} | 擊殺：${G.player.q.kills} | 高階：${G.player.q.killHighTier} | 修為：${G.player.qi} | 生存 ${G.time.toFixed(0)}s`;
   // v1.0.0: 死亡時間軸
   try{
     const tl = (G.timeline||[]).slice(-8);
     if (tl.length){
-      const txt = 'Cultivation Log:\n' + tl.map(e=>'  '+e.t.toFixed(0)+'s · '+e.text).join('\n');
+      const txt = '修行紀事：\n' + tl.map(e=>'  '+e.t.toFixed(0)+'s · '+e.text).join('\n');
       const el = document.getElementById('deathReason');
       if (el) el.textContent = (el.textContent||'') + '\n\n' + txt;
     }
@@ -2092,8 +2091,8 @@ function winGame(){
   if (G.won) return;
   G.won = true;
   document.getElementById('win').classList.remove('hidden');
-  // v1.1.0: 序列 0 愚者True God
-  document.getElementById('winStats').textContent = `${G.player.path.name} · Seq 0 [Fool, the True God] enthroned! From mortal creature to ruler of all stars — the path is complete.`;
+  // v1.1.0: 序列 0 愚者真神
+  document.getElementById('winStats').textContent = `${G.player.path.name} · 序列 0【愚者真神】登位！從凡塵生靈到統御萬星之主，路徑完成。`;
 }
 
 // =====================================================================
@@ -2126,7 +2125,7 @@ function drawStatusBanner(){
     ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
-    const t = `★ Spawn protect ${p.invuln.toFixed(1)}s ★`;
+    const t = `★ 出生保護 ${p.invuln.toFixed(1)}s ★`;
     ctx.strokeText(t, cx, 60); ctx.fillText(t, cx, 60);
   }
   if (p.defending){
@@ -2134,7 +2133,7 @@ function drawStatusBanner(){
     ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-    const t = 'Defending (80% dmg reduction + reflect)';
+    const t = '防禦中（80% 減傷 + 反射）';
     ctx.strokeText(t, cx, window.innerHeight-90); ctx.fillText(t, cx, window.innerHeight-90);
   }
 }
@@ -2156,7 +2155,7 @@ function loop(t){
     G.errorCount++;
     G.lastError = String(err);
     console.error('[loop error]', err);
-    if (G.errorCount<5) pushKillFeed('⚠ Internal error recovered', '#ff8888');
+    if (G.errorCount<5) pushKillFeed('⚠ 內部錯誤已安全恢復', '#ff8888');
   }
   requestAnimationFrame(loop);
 }
@@ -2200,7 +2199,7 @@ function update(dt){
   // NaN 守衛
   if (!isFinite(G.player.x) || !isFinite(G.player.y)){
     G.player.x = WORLD.w/2; G.player.y = WORLD.h/2; G.player.vx=0; G.player.vy=0;
-    pushKillFeed('⚠ Position reset', '#ff8888');
+    pushKillFeed('⚠ 位置重置', '#ff8888');
   }
   for (const e of G.enemies){ try{ aiUpdate(e, dt); }catch(err){ e.hp=0; console.warn('ai err',err);} }
   for (const m of G.minions){ try{ aiUpdate(m, dt); }catch(err){ m.hp=0;} m.life-=dt; if (m.life<=0) m.hp=0; }
@@ -2232,66 +2231,66 @@ function update(dt){
   const enemyCap = [120, 160, 200, 240, 320][G.stage-1] || 120;
   while (G.enemies.length < enemyCap) spawnEnemy();
   // v0.9.0: 秘境復活
-  for (const rf of G.rifts){ if (rf.used && rf.respawnT){ rf.respawnT -= dt; if (rf.respawnT<=0){ rf.used=false; rf.respawnT=0; pushKillFeed("★ Sanctum revived: "+rf.name, rf.color); } } }
+  for (const rf of G.rifts){ if (rf.used && rf.respawnT){ rf.respawnT -= dt; if (rf.respawnT<=0){ rf.used=false; rf.respawnT=0; pushKillFeed("★ 秘境復甦："+rf.name, rf.color); } } }
   // v0.9.0: 世界 Boss
   if (G.boss && G.boss.hp<=0){ onBossDeath(G.boss); G.boss=null; G.bossSpawnT=300; }
   if (!G.boss){ G.bossSpawnT -= dt; if (G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=300; } }
   if (G.boss) updateBoss(G.boss, dt);
   // v1.0.0: 階段進程
-  // v1.1.0: 5 紀元（Era of God War加入）
+  // v1.1.0: 5 紀元（神戰紀加入）
   const stageThresholds = [180, 480, 900, 1500];
-  const stageNames = ['Era of Beasts','Era of Cultivation','Era of Stars','Era of the Weird','Era of God War'];
+  const stageNames = ['生物紀','修煉紀','星辰紀','詭異紀','神戰紀'];
   const stageSubs  = [
-    'Life emerges · Learn ecosystem & hunting',
-    'Sanctums bloom · Authorities arrive, demons revive',
-    'Stars tremble · Tentacles rampage, mind shakes',
-    'Weirdness floods · Outer Gods cycle, trial begins',
-    'God War returns · Sequences collapse, True Gods duel'
+    '萬靈萌生 · 熟悉生態與獵食',
+    '秘境綻放 · 權柄降世，群魔復甦',
+    '星辰震動 · 觸手肆虐，心智動搖',
+    '詭異橫流 · 外神循環，登神試煉',
+    '神戰再臨 · 序列傾頹，真神對決'
   ];
   let newStage = 1;
   for (let i=0;i<stageThresholds.length;i++) if (G.time >= stageThresholds[i]) newStage = i+2;
   if (newStage !== G.stage){
     G.stage = newStage;
-    G.stageBannerT = 5; G.stageBannerText = '★ Chapter '+newStage+' Era · '+stageNames[newStage-1];
+    G.stageBannerT = 5; G.stageBannerText = '★ 第 '+newStage+' 紀元 · '+stageNames[newStage-1];
     G.stageBannerSub  = stageSubs[newStage-1];
     try{ flash('#ffdd66', 0.5); shake(15); playSound('promote'); }catch(e){}
-    pushKillFeed('☄ Era shift: '+stageNames[newStage-1]+' ☄','#ffdd66');
+    pushKillFeed('☄ 紀元更替：'+stageNames[newStage-1]+' ☄','#ffdd66');
     logMsg('★★★ '+G.stageBannerText+' — '+G.stageBannerSub,'promote');
-    G.timeline.push({t:G.time, text:'Entered '+stageNames[newStage-1]});
+    G.timeline.push({t:G.time, text:'進入 '+stageNames[newStage-1]});
     if (newStage===4){ G.bossSpawnT = Math.min(G.bossSpawnT, 60); }
     if (newStage===5){ G.bossSpawnT = Math.min(G.bossSpawnT, 30); G.minibossSpawnT = Math.min(G.minibossSpawnT, 20); G.eventCdT = Math.min(G.eventCdT, 30); }
   }
   if (G.stageBannerT>0) G.stageBannerT -= dt;
   if (G.revealT>0) G.revealT -= dt;
   if (G.pingT>0) G.pingT -= dt;
-  // v1.0.0: 小 Boss · Ancient Wraith（Era of Cultivation起，每 180s）
+  // v1.0.0: 小 Boss · 古修者殘魂（修煉紀起，每 180s）
   if (G.stage>=2){
     if (G.miniboss && G.miniboss.hp<=0){ onMinibossDeath(G.miniboss); G.miniboss=null; G.minibossSpawnT = G.stage>=3?150:180; }
     if (!G.miniboss){ G.minibossSpawnT -= dt; if (G.minibossSpawnT<=0){ spawnMiniboss(); G.minibossSpawnT = G.stage>=3?150:180; } }
     if (G.miniboss) updateMiniboss(G.miniboss, dt);
   }
-  // v1.0.0: 世界事件 · Stars Align（Era of Cultivation起，每 120s, 20s 持續）
+  // v1.0.0: 世界事件 · 群星正確之時（修煉紀起，每 120s, 20s 持續）
   if (G.stage>=2){
     if (G.event){
       G.event.t -= dt;
-      if (G.event.t<=0){ G.event = null; G.eventCdT = 120; pushKillFeed('☄ Stars disperse','#aaccff'); }
+      if (G.event.t<=0){ G.event = null; G.eventCdT = 120; pushKillFeed('☄ 群星散去','#aaccff'); }
     } else {
       G.eventCdT -= dt;
       if (G.eventCdT<=0){
         G.event = {type:'aligned', t:20};
-        pushKillFeed('☄ Stars Align! Enemy ATK +30% · Qi +50% (20s)','#ffdd66');
-        logMsg('★ Stars Align: 20s of danger and opportunity — reap all!','promote');
+        pushKillFeed('☄ 群星正確之時！怪 +30% 攻 · 修為 +50% (20s)','#ffdd66');
+        logMsg('★ 群星正確之時：危險與機會並存，20s 內全力收割','promote');
         try{ flash('#ffdd66',0.5); shake(10); }catch(e){}
-        G.timeline.push({t:G.time, text:'Stars Align'});
+        G.timeline.push({t:G.time, text:'群星正確之時'});
       }
     }
   }
   // v0.9.0: 教學浮窗
   G.tutorialT += dt;
-  if (G.tutorialStep===0 && G.tutorialT>3){ addFloat(G.player.x, G.player.y-60, "WASD move · Left-click melee", "#ffd66b", 18, 4); G.tutorialStep=1; }
-  if (G.tutorialStep===1 && G.tutorialT>9){ addFloat(G.player.x, G.player.y-60, "Stand near purple Qi springs for Qi", "#bb88ff", 18, 4); G.tutorialStep=2; }
-  if (G.tutorialStep===2 && G.tutorialT>15){ addFloat(G.player.x, G.player.y-60, "Press M for map · 1-6 cast Authority", "#88ccff", 18, 4); G.tutorialStep=3; }
-  if (G.tutorialStep===3 && G.tutorialT>22){ addFloat(G.player.x, G.player.y-60, "4 sanctums + slay Outer God = Apotheosis", "#ff88cc", 18, 5); G.tutorialStep=4; }
+  if (G.tutorialStep===0 && G.tutorialT>3){ addFloat(G.player.x, G.player.y-60, "WASD 移動 · 左鍵近戰", "#ffd66b", 18, 4); G.tutorialStep=1; }
+  if (G.tutorialStep===1 && G.tutorialT>9){ addFloat(G.player.x, G.player.y-60, "靠近紫光靈氣泉吸修為", "#bb88ff", 18, 4); G.tutorialStep=2; }
+  if (G.tutorialStep===2 && G.tutorialT>15){ addFloat(G.player.x, G.player.y-60, "按 M 開星圖 · 1-6 釋放權柄", "#88ccff", 18, 4); G.tutorialStep=3; }
+  if (G.tutorialStep===3 && G.tutorialT>22){ addFloat(G.player.x, G.player.y-60, "找四座秘境 + 斬外神 = 登神", "#ff88cc", 18, 5); G.tutorialStep=4; }
   // 補充靈氣與道具
   if (G.spirits.length<100 && Math.random()<0.5) spawnSpirit();
   if (G.pickups.length<400 && Math.random()<0.4) spawnPickup();  // v1.0.0
@@ -2309,7 +2308,7 @@ function updateLeaderboard(){
   const all=[G.player,...G.enemies];
   if(window.Net&&Net.peers)for(const [id,peer] of Net.peers){
     if(!peer||peer.x===undefined)continue;
-    all.push({name:peer.name||('Player#'+id),rank:peer.rank||1,qi:0,
+    all.push({name:peer.name||('玩家#'+id),rank:peer.rank||1,qi:0,
       path:{color:peer.color||'#88ccff'},sp:{name:peer.name||'?'},
       _isPeer:true,isPlayer:false});
   }
@@ -2381,7 +2380,7 @@ function render(){
   ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
   ctx.fillText('FPS '+G.fps, 8, window.innerHeight-8);
   ctx.fillStyle = '#88ccff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
-  ctx.fillText(G.mapOpen?'[M] Close map':'[M] Open map', window.innerWidth-12, window.innerHeight-8);
+  ctx.fillText(G.mapOpen?'[M] 關閉星圖':'[M] 開啟星圖', window.innerWidth-12, window.innerHeight-8);
   if (G.mapOpen) try{ drawStarMap(); }catch(e){ console.warn('[starmap]',e); }
   try{ drawWorldEventFX(); }catch(e){}
   try{ drawPingArrow(); }catch(e){}
@@ -2431,7 +2430,7 @@ function drawTerrain(){
   }
   // 裝飾物
   drawDecor(x0,y0,x1,y1);
-  // Lands End中心動畫
+  // 終焉之地中心動畫
   const cx=WORLD.w/2, cy=WORLD.h/2;
   if (Math.hypot(G.cam.x-cx,G.cam.y-cy)<2500){
     for (let i=0;i<6;i++){
@@ -2920,15 +2919,15 @@ function drawStarMap(){
     else if (t.side==='right'){ tx = mx+mw; ty = my + (t.pos/WORLD.h)*mh; }
     ctx.fillStyle = '#aa0033'; ctx.beginPath(); ctx.arc(tx,ty,3,0,Math.PI*2); ctx.fill();
   }
-  // Lands End中心標記
+  // 終焉之地中心標記
   const cxw = mx + (WORLD.w/2)*sx, cyw = my + (WORLD.h/2)*sy;
   ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 1;
   for (let i=0;i<3;i++){
     ctx.beginPath(); ctx.arc(cxw, cyw, 8+i*6+Math.sin(G.time*2+i)*2, 0, Math.PI*2); ctx.stroke();
   }
   ctx.fillStyle = '#aa44ff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('Lands End', cxw, cyw - 26);
-  // Qi Spring
+  ctx.fillText('終焉之地', cxw, cyw - 26);
+  // 靈氣泉
   for (const qs of G.qiSprings){
     const px = mx + qs.x*sx, py = my + qs.y*sy;
     ctx.fillStyle = '#bb88ff'; ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2); ctx.fill();
@@ -2962,7 +2961,7 @@ function drawStarMap(){
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px,py,6,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle = G.player.path.color; ctx.lineWidth = 2; ctx.stroke();
     ctx.fillStyle = G.player.path.color; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('You', px, py - 10);
+    ctx.fillText('你', px, py - 10);
   }
   // v0.9.0: 外神 Boss
   if (G.boss && G.boss.hp>0){
@@ -2984,13 +2983,13 @@ function drawStarMap(){
     ctx.strokeStyle='#fff5';ctx.lineWidth=1.5;ctx.stroke();
     ctx.fillStyle='#cce8ff';ctx.font='10px sans-serif';ctx.textAlign='center';
     ctx.fillText((peer.name||('P'+id))+' R'+(peer.rank||1),_ppx,_ppy-10);}
-  // v1.0.0: 小 Boss 古修Wraith
+  // v1.0.0: 小 Boss 古修殘魂
   if (G.miniboss && G.miniboss.hp>0){
     const bx = mx + G.miniboss.x*sx, by = my + G.miniboss.y*sy;
     ctx.fillStyle = '#66ccff'; ctx.beginPath(); ctx.arc(bx,by,5,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle = '#88ccff'; ctx.lineWidth=2; ctx.stroke();
     ctx.fillStyle = '#88ccff'; ctx.font='10px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('Wraith', bx, by - 8);
+    ctx.fillText('殘魂', bx, by - 8);
   }
   // v1.0.0: 權柄標記（黃色小星）
   for (const a of G.authorities){
@@ -3047,34 +3046,34 @@ function drawStarMap(){
   }
   // 羅盤
   ctx.fillStyle = '#88ccff'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
-  ctx.fillText('N', mx+mw/2, my-6); ctx.fillText('S', mx+mw/2, my+mh+18);
-  ctx.textAlign='right'; ctx.fillText('W', mx-6, my+mh/2+5);
-  ctx.textAlign='left'; ctx.fillText('E', mx+mw+6, my+mh/2+5);
+  ctx.fillText('北', mx+mw/2, my-6); ctx.fillText('南', mx+mw/2, my+mh+18);
+  ctx.textAlign='right'; ctx.fillText('西', mx-6, my+mh/2+5);
+  ctx.textAlign='left'; ctx.fillText('東', mx+mw+6, my+mh/2+5);
   // 玩家狀態總覽（左上）
   if (G.player){
     const p = G.player;
     ctx.fillStyle = '#000c'; ctx.fillRect(20, 60, 240, 130);
     ctx.strokeStyle = '#aa44ff'; ctx.strokeRect(20, 60, 240, 130);
     ctx.fillStyle = '#cc99ff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='left';
-    ctx.fillText('☄ Cultivation Log', 30, 80);
+    ctx.fillText('☄ 修行紀錄', 30, 80);
     ctx.fillStyle = '#fff'; ctx.font='12px sans-serif';
-    ctx.fillText(`Tier: ${tierName(p)} (${p.rank}/9)`, 30, 100);
-    ctx.fillText(`Qi: ${p.qi|0} / ${QI_THR[p.rank]||'∞'}`, 30, 116);
-    ctx.fillText(`SAN: ${p.sanity|0} / ${p.maxSanity}`, 30, 132);
-    ctx.fillText(`Slain Outer Gods: ${p.q.bossKilled||0} · Sanctums: ${p.q.riftsUsed||0}/4`, 30, 148);
-    ctx.fillText(`Kills: ${p.q.kills} · Survived: ${G.time.toFixed(0)}s`, 30, 164);
+    ctx.fillText(`階位：${tierName(p)} (${p.rank}/9)`, 30, 100);
+    ctx.fillText(`修為：${p.qi|0} / ${QI_THR[p.rank]||'∞'}`, 30, 116);
+    ctx.fillText(`心智：${p.sanity|0} / ${p.maxSanity}`, 30, 132);
+    ctx.fillText(`斬外神：${p.q.bossKilled||0} · 秘境：${p.q.riftsUsed||0}/4`, 30, 148);
+    ctx.fillText(`擊殺：${p.q.kills} · 生存：${G.time.toFixed(0)}s`, 30, 164);
     ctx.fillStyle = '#aaa'; ctx.font='10px sans-serif';
-    ctx.fillText(`Next Outer God: ${(G.bossSpawnT||0)|0}s`, 30, 180);
+    ctx.fillText(`下次外神：${(G.bossSpawnT||0)|0}s`, 30, 180);
   }
   // 標題 + 提示
   ctx.fillStyle = '#cc99ff'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center';
-  ctx.fillText('☄ Star Map · Lands End ☄', W/2, PAD/2 + 6);
+  ctx.fillText('☄ 星圖 · 終焉之地 ☄', W/2, PAD/2 + 6);
   ctx.fillStyle = '#888'; ctx.font='11px sans-serif';
-  const stageNamesM = ['Era of Beasts','Era of Cultivation','Era of Stars','Era of the Weird'];
+  const stageNamesM = ['生物紀','修煉紀','星辰紀','詭異紀'];
   ctx.fillStyle = '#ffdd66'; ctx.font='bold 13px sans-serif';
-  ctx.fillText('★ Chapter '+G.stage+' Era · '+stageNamesM[G.stage-1]+'　|　Time '+G.time.toFixed(0)+'s', W/2, PAD/2 + 28);
+  ctx.fillText('★ 第 '+G.stage+' 紀元 · '+stageNamesM[G.stage-1]+'　|　時間 '+G.time.toFixed(0)+'s', W/2, PAD/2 + 28);
   ctx.fillStyle = '#888'; ctx.font='11px sans-serif';
-  ctx.fillText('M/Esc close | Left-click = Ping | White=you Purple=Qi Color=Sanctum Eye=OuterGod Cyan=Wraith Yellow=Authority', W/2, H - PAD/2 + 6);
+  ctx.fillText('M/Esc 關閉 | 左鍵 = 設定 Ping 標記 | 白=你 紫=靈氣 彩=秘境 紫眼=外神 青=殘魂 黃=權柄', W/2, H - PAD/2 + 6);
 }
 
 function drawMinimap(){
@@ -3172,7 +3171,7 @@ function drawLeaderboard(){
   ctx.strokeStyle = '#ffd66b88'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, 12 + G.leaderboard.length*22 + 6);
   const _oc=(window.Net&&Net.online)?Net.peers.size+1:0;
   ctx.fillStyle='#ffd66b';ctx.font='bold 13px sans-serif';ctx.textAlign='left';
-  ctx.fillText('Qi Leaderboard'+(_oc>0?' · Online '+_oc:''),lx+8,ly+18);
+  ctx.fillText('修為榜'+(_oc>0?' · 線上'+_oc+'人':''),lx+8,ly+18);
   for(let i=0;i<G.leaderboard.length;i++){
     const c=G.leaderboard[i];
     const yy=ly+38+i*22;
@@ -3213,11 +3212,11 @@ function updateHUD(){
   const statsEl = document.getElementById('stats');
   if (statsEl){
     statsEl.innerHTML = `
-      <div class="pathLine"><b style="color:${p.path.color}">${p.path.name}</b> · <span style="color:${p.path.color}">${tierName(p)}</span>(Tier ${p.rank}/9)— <span style="color:#cccccc">${tierData(p)?tierData(p).pname:''}</span></div>
-      <div>Essence x${p.zhenyuan.toFixed(2)} · Dao x${p.daohen.toFixed(2)}</div>
+      <div class="pathLine"><b style="color:${p.path.color}">${p.path.name}</b> · <span style="color:${p.path.color}">${tierName(p)}</span>（第 ${p.rank}/9 階）— <span style="color:#cccccc">${tierData(p)?tierData(p).pname:''}</span></div>
+      <div>真元 ×${p.zhenyuan.toFixed(2)} · 道痕 ×${p.daohen.toFixed(2)}</div>
       <div class="cdrow">Q ${p.skillQT>0?p.skillQT.toFixed(1):'★'} ${p.sp.skillQ.name} | E ${p.skillET>0?p.skillET.toFixed(1):(p.rank>=(p.sp.skillE.unlockRank||1)?'★':'?')} ${p.sp.skillE.name} | R ${p.skillRT>0?p.skillRT.toFixed(1):(p.rank>=(p.sp.skillR.unlockRank||1)?'★':'?')} ${p.sp.skillR.name}</div>
-      ${G.boss && G.boss.hp>0 ? `<div class="quest" style="background:#aa44ff33;border-left-color:#aa44ff;color:#dabbff;">☄ Outer God ${G.boss.name} · HP ${G.boss.hp|0}/${G.boss.maxHp}</div>` : `<div style="color:#888;font-size:10px;margin-top:4px">外神降臨：${(G.bossSpawnT||0)|0}s 後</div>`}
-      ${q ? `<div class="quest" style="${p.qi>=QI_THR[p.rank]&&!q.req(p)?'background:#ff446644;border-left-color:#ff4466;color:#ffccdd;':''}">${p.qi>=QI_THR[p.rank]&&!q.req(p)?'⚠ Enough Qi! Complete quest or reach Qi '+(QI_THR[p.rank]*1.8|0)+' Force ascend: ':'Quest: '}${q.desc}　<span class="qprog">[${q.show(p)}]</span> ${q.req(p)?'<span class="qdone">✓</span>':''}</div>` : '<div class="quest qdone">★ Divinity achieved</div>'}
+      ${G.boss && G.boss.hp>0 ? `<div class="quest" style="background:#aa44ff33;border-left-color:#aa44ff;color:#dabbff;">☄ 外神 ${G.boss.name} · HP ${G.boss.hp|0}/${G.boss.maxHp}</div>` : `<div style="color:#888;font-size:10px;margin-top:4px">外神降臨：${(G.bossSpawnT||0)|0}s 後</div>`}
+      ${q ? `<div class="quest" style="${p.qi>=QI_THR[p.rank]&&!q.req(p)?'background:#ff446644;border-left-color:#ff4466;color:#ffccdd;':''}">${p.qi>=QI_THR[p.rank]&&!q.req(p)?'⚠ 修為已足！需完成任務或修為達 '+(QI_THR[p.rank]*1.8|0)+' 強行突破：':'任務：'}${q.desc}　<span class="qprog">[${q.show(p)}]</span> ${q.req(p)?'<span class="qdone">✓</span>':''}</div>` : '<div class="quest qdone">★ 已達神位</div>'}
     `;
   }
   // 權柄槽（v0.8.0: 6 槽，按 1-6 釋放）
@@ -3279,31 +3278,17 @@ function playSound(type){
 // 存檔系統 (v1.4.0)
 // =====================================================================
 const EVO_SAVE_KEY = 'evo_save_v140';
-function saveProgress(opts){
-  if (!G.player || !G.started) return;
-  if (G.dead && !(opts && opts.onDeath)) return;
+function saveProgress(){
+  if (!G.player || G.dead || !G.started) return;
   try {
-    const prev = getSave() || {};
-    let qiBank = prev.qiBank || 0;
-    if (opts && opts.onDeath){
-      // v1.6.0 retention: bank 10% of run's Qi for next run as starter bonus (cap 2000)
-      const earned = Math.floor((G.player.qi||0) * 0.10);
-      qiBank = Math.min(2000, qiBank + earned);
-    }
     const d = {
-      v:'1.6', name:G.player.name, species:G.selectedSpecies,
+      v:'1.4', name:G.player.name, species:G.selectedSpecies,
       rank:G.player.rank, qi:G.player.qi,
       kills:G.player.q ? G.player.q.kills : 0,
-      time:Math.floor(G.time), savedAt:Date.now(),
-      qiBank: qiBank,
-      bestRank: Math.max(prev.bestRank||0, G.player.rank||0),
-      bestKills: Math.max(prev.bestKills||0, (G.player.q&&G.player.q.kills)||0)
+      time:Math.floor(G.time), savedAt:Date.now()
     };
     localStorage.setItem(EVO_SAVE_KEY, JSON.stringify(d));
   } catch(e) {}
-}
-function consumeQiBank(){
-  try { const s = getSave(); if (!s) return 0; const b = s.qiBank||0; s.qiBank = 0; localStorage.setItem(EVO_SAVE_KEY, JSON.stringify(s)); return b; } catch(e){ return 0; }
 }
 function getSave(){
   try { return JSON.parse(localStorage.getItem(EVO_SAVE_KEY)); } catch(e) { return null; }
@@ -3404,14 +3389,14 @@ function buildMenu(){
       const sp = SPECIES[sk];
       const div = document.createElement('div'); div.className='species';
       div.innerHTML = `<div style="font-weight:700;color:${sp.color}">${sp.icon} ${sp.name}</div>
-        <div class="nums">HP ${sp.base.hp} · ATK ${sp.base.atk} · SPD ${sp.base.spd} ${sp.base.rngDmg?`· Ranged ${sp.base.rngDmg}`:'(melee only)'}</div>
-        <div class="skills">Q ${sp.skillQ.name} · E ${sp.skillE.name} (tier ${sp.skillE.unlockRank}) · R ${sp.skillR.name} (tier ${sp.skillR.unlockRank})</div>`;
+        <div class="nums">HP ${sp.base.hp} · ATK ${sp.base.atk} · SPD ${sp.base.spd} ${sp.base.rngDmg?`· 遠程 ${sp.base.rngDmg}`:'（純近戰）'}</div>
+        <div class="skills">Q ${sp.skillQ.name} · E ${sp.skillE.name}（${sp.skillE.unlockRank}階） · R ${sp.skillR.name}（${sp.skillR.unlockRank}階）</div>`;
       div.onclick = ()=>{
         document.querySelectorAll('.species').forEach(d=>d.classList.remove('sel'));
         div.classList.add('sel');
         G.selectedSpecies = sk;
         document.getElementById('startBtn').disabled = false;
-        document.getElementById('startBtn').textContent = `Play as ${sp.name} · Join ${PATHS[pk].name}`;
+        document.getElementById('startBtn').textContent = `成為 ${sp.name} · 加入 ${PATHS[pk].name}`;
       };
       grp.appendChild(div);
     }
@@ -3428,8 +3413,7 @@ function buildMenu(){
   if (_sv){
     const _sd = new Date(_sv.savedAt);
     _siel.className='saveInfo';
-    const _qb = (_sv.qiBank||0)|0;
-    _siel.innerHTML = '<div class="saveBox">Last run: <b>'+(_sv.name||'?')+'</b> &nbsp;Tier '+_sv.rank+'&nbsp;&middot;&nbsp;Kills '+_sv.kills+'&nbsp;&middot;&nbsp;'+Math.floor(_sv.time/60)+'m'+(_sv.time%60)+'s&nbsp;&middot;&nbsp;'+_sd.toLocaleDateString('en-US')+(_qb>0?' &nbsp;&middot;&nbsp; <span style="color:#bb88ff">+'+_qb+' Qi banked</span>':'')+'</div>';
+    _siel.innerHTML = '<div class="saveBox">存檔：<b>'+(_sv.name||'?')+'</b> &nbsp;R'+_sv.rank+'&nbsp;&middot;&nbsp;擊殺 '+_sv.kills+'&nbsp;&middot;&nbsp;'+Math.floor(_sv.time/60)+'m'+(_sv.time%60)+'s&nbsp;&middot;&nbsp;'+_sd.toLocaleDateString('zh-TW')+'</div>';
   } else { _siel.innerHTML=''; }
 }
 
@@ -3505,11 +3489,11 @@ function drawRemotePeers(){
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 12px system-ui,sans-serif';
     ctx.textAlign = 'center';
-    const label = (peer.name||('Player#'+id)) + ' · ' + (peer.path||'?') + ' R' + (peer.rank||1);
+    const label = (peer.name||('玩家#'+id)) + ' · ' + (peer.path||'?') + ' R' + (peer.rank||1);
     ctx.strokeStyle = '#000a'; ctx.lineWidth = 3;
     ctx.strokeText(label, drawX, drawY - r - 18);
     ctx.fillText(label, drawX, drawY - r - 18);
-    // Chat泡泡
+    // 聊天泡泡
     if (peer.chatT>0 && peer.chatText){
       ctx.font = '13px system-ui,sans-serif';
       const tw = ctx.measureText(peer.chatText).width;
@@ -3527,7 +3511,7 @@ function openChatInput(){
   G._chatOpen = true;
   const wrap = document.createElement('div');
   wrap.style.cssText = 'position:fixed;left:50%;bottom:80px;transform:translateX(-50%);z-index:9999;background:#000c;border:1px solid #88ccff;padding:8px 12px;border-radius:6px;font:14px system-ui;';
-  wrap.innerHTML = '<span style="color:#88ccff;margin-right:6px">Chat</span><input id="_chatInput" maxlength="180" style="width:380px;background:#111;color:#fff;border:1px solid #444;padding:4px 8px;border-radius:4px;outline:none"/> <span style="color:#888;font-size:11px">Enter to send · Esc to cancel</span>';
+  wrap.innerHTML = '<span style="color:#88ccff;margin-right:6px">聊天</span><input id="_chatInput" maxlength="180" style="width:380px;background:#111;color:#fff;border:1px solid #444;padding:4px 8px;border-radius:4px;outline:none"/> <span style="color:#888;font-size:11px">Enter 送出 · Esc 取消</span>';
   document.body.appendChild(wrap);
   const inp = wrap.querySelector('#_chatInput');
   inp.focus();
@@ -3536,7 +3520,7 @@ function openChatInput(){
     ev.stopPropagation();
     if (ev.key==='Enter'){
       const v = inp.value.trim();
-      if (v && window.Net){ Net.sendChat(v); pushKillFeed('💬 You: '+v, '#ffeb70'); }
+      if (v && window.Net){ Net.sendChat(v); pushKillFeed('💬 你: '+v, '#ffeb70'); }
       close();
     } else if (ev.key==='Escape'){ close(); }
   });
@@ -3546,7 +3530,7 @@ function drawOnlineBadge(){
   if (!window.Net) return;
   ctx.save();
   ctx.font = 'bold 13px system-ui,sans-serif';
-  const txt = Net.online ? ('● Online '+(Net.peers.size+1)+' players · ID '+(Net.myId||'?')+' · T chat') : '○ Connecting…';
+  const txt = Net.online ? ('● 線上 '+(Net.peers.size+1)+' 人 · ID '+(Net.myId||'?')+' · T 聊天') : '○ 連線中…';
   const tw = ctx.measureText(txt).width;
   ctx.fillStyle = '#000a';
   ctx.fillRect(10, window.innerHeight-34, tw+18, 24);
@@ -3572,17 +3556,8 @@ async function startGame(){
   G.player.hp = G.player.maxHp;
   recalcStats(G.player);
   G.player.hp = G.player.maxHp; G.player.sta = G.player.maxSta;
-  G.player.invuln = 10; // 10s spawn protection
-  // v1.6.0 retention bonus: consume banked Qi from previous run
-  try {
-    const _bonus = consumeQiBank();
-    if (_bonus>0){
-      G.player.qi = (G.player.qi||0) + _bonus;
-      logMsg('★ Welcome back! +'+_bonus+' Qi from your last run', 'promote');
-      try{ addFloat(G.player.x, G.player.y-40, '+'+_bonus+' Qi (banked)', '#bb88ff', 18, 2.0); }catch(e){}
-    }
-  } catch(e){}
-  // Camera snap to player
+  G.player.invuln = 10; // 出生 10 秒無敵
+  // 相機立即對齊玩家位置，避免開局「無限放大」與黑屏錯覺
   G.cam.x = G.cam.tx = G.player.x;
   G.cam.y = G.cam.ty = G.player.y;
   G.cam.shake = 0; G.cam.flash = 0; G.cam.hitFlash = 0;
@@ -3590,37 +3565,37 @@ async function startGame(){
   if (typeof resize==='function') resize();
   G.started = true;
   if (window.SDK) SDK.gameplayStart();
-  logMsg(`You chose [${G.player.sp.name}] · ${G.player.path.name}`, 'promote');
-  logMsg('★ 10s spawn protection — get used to controls before attacking!', 'promote');
-  logMsg('Controls: WASD move / LMB melee / RMB defend / F ranged / QER skills / X dash / 1-6 Authority / M map', 'promote');
-  logMsg('★ At 0 SAN you self-harm. SAN drops near tentacles/Outer Gods/sanctums. Qi springs restore it.', 'promote');
-  logMsg('★ At 5 min the Outer God [Star-Touching Eye] descends to map center. Slay for +1500 Qi.', 'promote');
-  logMsg('★ 4 eras: Beasts → Cultivation → Stars → Weird. Each has unique challenges.', 'promote');
-  logMsg('★ After Cultivation Era: Wraith mini-boss every 180s; Stars Align every 120s.', 'promote');
-  logMsg('★ Star Map (M): left-click to Ping, fog-of-war, all 9 Authorities on map.', 'promote');
-  logMsg('★ Hotkey P: place Ping at your position without opening map.', 'promote');
-  logMsg('★ 22 Sequences: rank 1-9 mortal; rank 10-19 divine Seq 9→0 (Fool True God is the goal).', 'promote');
-  logMsg('★ Apotheosis (tier 8→9): slay Outer God + open 4 sanctums + SAN ≥ 60.', 'promote');
-  logMsg('★ Each path has unique ascension rituals — check the bottom-left quest panel!', 'promote');
+  logMsg(`你選擇了【${G.player.sp.name}】 · ${G.player.path.name}`, 'promote');
+  logMsg('★ 出生保護 10 秒：先熟悉操作再進攻！', 'promote');
+  logMsg('操作：WASD 移動 / 左鍵近戰 / 右鍵防禦反擊 / F 遠程 / Q E R 技能 / X 衝刺 / 1-6 權柄 / M 星圖', 'promote');
+  logMsg('★ 心智 0 會自殘，靠近觸手/外神/秘境會掉，靈氣泉回滿。', 'promote');
+  logMsg('★ 5 分鐘後外神【觸星之眼】降臨地圖中央。斬之得 +1500 修為。', 'promote');
+  logMsg('★ 4 紀元：生物 → 修煉 → 星辰 → 詭異。每段都有專屬挑戰。', 'promote');
+  logMsg('★ 修煉紀後：每 180s 小 Boss 殘魂出現；每 120s 群星正確之時。', 'promote');
+  logMsg('★ 星圖 M 鍵：左鍵設 Ping 標記、霧戰探索、9 大權柄全圖位置。', 'promote');
+  logMsg('★ 快捷鍵 P：直接在玩家位置設 Ping（不必開星圖）。', 'promote');
+  logMsg('★ 22 序列：rank 1-9 為凡途；rank 10-19 為神途序列 9→0（愚者真神為終點）。', 'promote');
+  logMsg('★ 成神試煉（第 8→9 階）：斬外神 + 開 4 秘境 + 心智 ≥ 60。', 'promote');
+  logMsg('★ 各途徑專屬晉階儀式，仔細看左下任務描述！', 'promote');
   // v1.2.0 多人聯機
   const _ni=document.getElementById('playerName');
   const _nv=_ni?_ni.value.trim().slice(0,16):'';
-  G.player.name=_nv||('Player#'+((Math.random()*9000|0)+1000));
+  G.player.name=_nv||('玩家#'+((Math.random()*9000|0)+1000));
   if (window.Net){
-    Net.onWelcome = (m)=>{ logMsg('★ Connected to multiplayer server (your ID: '+m.id+', currently online: '+((m.peers||[]).length+1)+' players)','promote'); };
+    Net.onWelcome = (m)=>{ logMsg('★ 已連線多人聯機伺服器（你的 ID: '+m.id+'，目前線上 '+((m.peers||[]).length+1)+' 人）','promote'); };
     Net.onHit = (fromId, dmg, kind)=>{
       if (!G.player || G.player.hp<=0) return;
       const peer = Net.peers.get(fromId);
-      const fake = { isPlayer:false, isRemotePeerAttacker:true, name:(peer&&peer.name)||('Player#'+fromId), x:(peer&&peer.x)||G.player.x, y:(peer&&peer.y)||G.player.y, hp:1, atk:dmg, perks:{} };
+      const fake = { isPlayer:false, isRemotePeerAttacker:true, name:(peer&&peer.name)||('玩家#'+fromId), x:(peer&&peer.x)||G.player.x, y:(peer&&peer.y)||G.player.y, hp:1, atk:dmg, perks:{} };
       dealDamage(fake, G.player, dmg, '#ff6688');
       if(G.player.hp<=0&&window.Net&&Net.sendDead){
         const _kp=Net.peers.get(fromId);
-        Net.sendDead(fromId,(_kp&&_kp.name)||('Player#'+fromId));
+        Net.sendDead(fromId,(_kp&&_kp.name)||('玩家#'+fromId));
       }
     };
     Net.onChat = (fromId, text)=>{
       const peer = Net.peers.get(fromId);
-      const nm = (peer&&peer.name)||('Player#'+fromId);
+      const nm = (peer&&peer.name)||('玩家#'+fromId);
       pushKillFeed('💬 '+nm+': '+text, '#ffeb70');
       logMsg('💬 '+nm+'：'+text,'kill');
       if (peer){ peer.chatText=text; peer.chatT=5; }
@@ -3628,12 +3603,12 @@ async function startGame(){
     Net.onPvpKill=(killerId,killerName,victimId,victimName)=>{
       const iKilled=(killerId===Net.myId);
       if(iKilled){
-        pushKillFeed('You killed '+victimName,'#ffd66b');
+        pushKillFeed('你 击殺了 '+victimName,'#ffd66b');
         if(G.player){G.player.q.kills++;tryPromote(G.player);}
         try{playSound('kill');}catch(e){}
       }else{
         const isMe=(victimId===Net.myId);
-        pushKillFeed(killerName+' killed '+(isMe?'You':victimName),isMe?'#ff4466':'#ff8866');
+        pushKillFeed(killerName+' 击殺了 '+(isMe?'你':victimName),isMe?'#ff4466':'#ff8866');
       }
     };
     Net.onEnemyKill = (nid)=>{
@@ -3653,7 +3628,7 @@ async function restartGame(){
   document.getElementById('menu').classList.remove('hidden');
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('startBtn').disabled=true;
-  document.getElementById('startBtn').textContent='Choose a species to start';
+  document.getElementById('startBtn').textContent='選擇物種後開始';
   try { buildMenu(); } catch(e){}
 }
 window.addEventListener('load', async ()=>{
@@ -3664,58 +3639,6 @@ window.addEventListener('load', async ()=>{
   document.getElementById('startBtn').onclick = startGame;
   document.getElementById('restartBtn').onclick = restartGame;
   document.getElementById('winRestartBtn').onclick = restartGame;
-
-  // v1.6.0: Quick Start (random species) — Poki best practice: 1-click play
-  const _qs = document.getElementById('quickStartBtn');
-  if (_qs) _qs.onclick = ()=>{
-    const keys = Object.keys(SPECIES);
-    G.selectedSpecies = keys[(Math.random()*keys.length)|0];
-    startGame();
-  };
-
-  // v1.6.0: 30-second tutorial overlay
-  const _tutBtn = document.getElementById('tutorialBtn');
-  const _tutEl  = document.getElementById('tutorial');
-  const _tutClose = document.getElementById('tutCloseBtn');
-  if (_tutBtn && _tutEl){
-    _tutBtn.onclick = ()=>{ _tutEl.classList.remove('hidden'); };
-  }
-  if (_tutClose && _tutEl){
-    _tutClose.onclick = ()=>{ _tutEl.classList.add('hidden'); };
-  }
-  // Auto-show tutorial on first visit
-  try {
-    if (!localStorage.getItem('evo_tut_seen')){
-      setTimeout(()=>{ if (_tutEl) _tutEl.classList.remove('hidden'); }, 600);
-      localStorage.setItem('evo_tut_seen','1');
-    }
-  } catch(e){}
-
-  // v1.6.0: Privacy / Terms inline overlays (required for Poki/CrazyGames)
-  const _legalEl = document.getElementById('legal');
-  const _legalT  = document.getElementById('legalTitle');
-  const _legalB  = document.getElementById('legalBody');
-  const _legalC  = document.getElementById('legalCloseBtn');
-  const _privacyHTML = '<p>Lands End does not collect any personal data. Your chosen nickname and game progress (current tier, banked Qi, kill count) are stored only in your browser <code>localStorage</code> and never transmitted to our servers.</p>'
-    +'<p>For multiplayer, your nickname, in-game position, HP, and species are broadcast in real time to the multiplayer relay so other players can see you. No IP addresses, accounts, or tracking cookies are stored on the server.</p>'
-    +'<p>The game may show advertisements via the Poki SDK or CrazyGames SDK when embedded on those platforms. Those ad networks have their own privacy policies — see <a href="https://poki.com/en/privacy" target="_blank" rel="noopener">poki.com/privacy</a> and <a href="https://www.crazygames.com/privacy" target="_blank" rel="noopener">crazygames.com/privacy</a>.</p>'
-    +'<p>This game is intended for general audiences (13+). It contains stylized combat between abstract creature shapes and is not directed at children under 13.</p>'
-    +'<p>To clear your local save, open browser DevTools (F12) → Application → Local Storage → delete entries starting with <code>evo_</code>.</p>';
-  const _termsHTML = '<p>By playing Lands End you agree to use the game for personal, non-commercial entertainment. The game is provided "as is" without warranty of any kind.</p>'
-    +'<p>Do not exploit bugs, run modified clients, harass other players via chat, or attempt to disrupt the multiplayer service. We reserve the right to block clients that abuse the relay.</p>'
-    +'<p>You retain ownership of any nickname you submit. We are not responsible for content typed by other players in the global chat.</p>'
-    +'<p>The game is open-source-spirited and may be updated, modified, or discontinued at any time without notice.</p>';
-  function _openLegal(kind){
-    if (!_legalEl) return;
-    _legalT.textContent = (kind==='terms') ? 'Terms of Service' : 'Privacy Policy';
-    _legalB.innerHTML   = (kind==='terms') ? _termsHTML : _privacyHTML;
-    _legalEl.classList.remove('hidden');
-  }
-  const _pl = document.getElementById('privacyLink');
-  const _tl = document.getElementById('termsLink');
-  if (_pl) _pl.onclick = (ev)=>{ ev.preventDefault(); _openLegal('privacy'); };
-  if (_tl) _tl.onclick = (ev)=>{ ev.preventDefault(); _openLegal('terms');   };
-  if (_legalC) _legalC.onclick = ()=>{ _legalEl.classList.add('hidden'); };
   setupTouch(document.getElementById('game'));
   const _unlock = ()=>{ try{ ac(); }catch(e){} };
   document.addEventListener('touchstart', _unlock, {once:true});

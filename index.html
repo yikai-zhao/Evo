@@ -1,69 +1,95 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0820" />
-<meta name="description" content="終焉之地 The Land's End — 物種進化 + 22 序列登神的 .io 多人生存 PvP。選擇你的物種，在 14000² 群星海洋中狩獵成神。" />
-<meta property="og:title" content="終焉之地 The Land's End" />
-<meta property="og:description" content=".io 物種進化 PvP 生存遊戲·14000² 群星海洋·22 序列登神" />
+<meta name="description" content="Lands End — a .io species-evolution + 22-Sequence ascension multiplayer survival PvP. Pick a creature, hunt across a 14,000² Sea of Stars, and become a god." />
+<meta property="og:title" content="Lands End — .io Species Evolution PvP" />
+<meta property="og:description" content="Evolve through 22 divine sequences across a 14,000² Sea of Stars. Hunt, ascend, ascend again." />
 <meta property="og:type" content="website" />
-<title>終焉之地 The Land's End — .io 物種進化 PvP</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23bb88ff'/%3E%3Ctext x='32' y='44' font-size='36' text-anchor='middle' fill='%23fff'%3E★%3C/text%3E%3C/svg%3E" />
-<link rel="stylesheet" href="styles.css" />
+<meta name="robots" content="index,follow" />
+<title>Lands End — .io Species Evolution PvP</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='40%25' cy='35%25'%3E%3Cstop offset='0' stop-color='%23ffd9ff'/%3E%3Cstop offset='1' stop-color='%23552288'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='28' fill='url(%23g)'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%23fff' font-family='serif' font-weight='bold'%3E%E2%98%85%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css?v=1.6.0" />
 </head>
 <body>
   <div id="loading" class="overlay">
-    <h1>終焉之地<span class="sub">The Land's End</span></h1>
+    <h1>Lands End<span class="sub">A .io Apotheosis</span></h1>
     <div class="loader"><div class="loaderBar"></div></div>
-    <p class="tag">載入中…</p>
+    <p class="tag">Loading…</p>
   </div>
+
   <div id="menu" class="overlay hidden">
-    <h1>終焉之地<span class="sub">The Land's End</span></h1>
-    <p class="tag">六大序列 · 22 序列登神 · 14000² 群星海洋 · 五紀元 · 雙 Boss · 九權柄 · 多人 PvP + 排行 + 地圖 + 聊天 — v1.5.0</p>
+    <h1>Lands End<span class="sub">A .io Apotheosis</span></h1>
+    <p class="tag">6 Paths · 22 Divine Sequences · 14,000² Sea of Stars · 5 Eras · Outer Gods · 9 Authorities · Multiplayer PvP — v1.6.0</p>
 
     <div class="nameRow">
-      <label for="playerName">你的名字</label>
-      <input id="playerName" type="text" maxlength="16" placeholder="輸入暱稱（最多 16 字）" autocomplete="off" />
+      <label for="playerName">Your name</label>
+      <input id="playerName" type="text" maxlength="16" placeholder="Enter a nickname (max 16)" autocomplete="off" />
     </div>
-    <h2>選擇你的物種</h2>
+
+    <div class="quickRow">
+      <button id="quickStartBtn" class="primary">▶ Quick Start (Random)</button>
+      <button id="tutorialBtn" class="secondary">? 30-Second Tutorial</button>
+    </div>
+
+    <h2>Or choose your species</h2>
     <div id="speciesList"></div>
 
     <div class="hint">
-      <p><b>移動</b> WASD　<b>衝刺</b> X　<b>近戰</b> 左鍵/空白　<b>防禦反擊</b> 右鍵（80% 減傷 + 30% 反射）　<b>遠程</b> F　<b>技能</b> Q E R　<b>權柄</b> 1 2 3　<b>拾取</b> 自動</p>
-      <p>每物種有 <b>3 個專屬主動技能（Q/E/R）</b>，E 於 3 階、R 於 6 階解鎖。每條序列<b>每階皆有獨有能力</b>（演化進階，會疊加），如：血蝠飲血、金翅穿甲、神威反震、涅槃復生…</p>
-      <p>左上有 <b>修為榜 TOP 5</b>，右上有 <b>擊殺播報</b>。出生 10 秒無敵，遠處才會出現高階敵人。</p>
+      <p><b>Move</b> WASD　<b>Dash</b> X　<b>Melee</b> LMB / Space　<b>Defend</b> RMB (80% dmg reduction + 30% reflect)　<b>Ranged</b> F　<b>Skills</b> Q E R　<b>Authority</b> 1 2 3　<b>Pickup</b> auto</p>
+      <p>Each species has <b>3 unique active skills (Q/E/R)</b>; E unlocks at tier 3, R at tier 6. Every sequence step grants <b>a unique passive</b> that stacks: lifesteal, armor pierce, reflect, auto-revive…</p>
+      <p>Top-left <b>Qi Leaderboard (Top 5)</b>, top-right <b>kill feed</b>. 10s spawn protection; tougher enemies spawn further from your start.</p>
+      <p class="legal"><a href="#" id="privacyLink">Privacy</a> · <a href="#" id="termsLink">Terms</a> · No personal data collected beyond optional nickname stored locally.</p>
     </div>
-    <button id="startBtn" disabled>選擇物種後開始</button>
+    <button id="startBtn" disabled>Pick a species to start</button>
   </div>
 
   <div id="death" class="overlay hidden">
-    <h1>你死了</h1>
+    <h1>You Died</h1>
     <p id="deathReason"></p>
     <p id="deathStats"></p>
-    <button id="restartBtn">重新開始</button>
+    <button id="restartBtn">Try Again</button>
   </div>
 
   <div id="win" class="overlay hidden">
-    <h1>你成為了神！</h1>
+    <h1>You Became a God</h1>
     <p id="winStats"></p>
-    <button id="winRestartBtn">再來一局</button>
+    <button id="winRestartBtn">Play Again</button>
+  </div>
+
+  <div id="tutorial" class="overlay hidden">
+    <h1>How to Play</h1>
+    <div class="tutSteps">
+      <div class="tutStep"><b>1. Move &amp; Hunt</b><br>WASD to move. Left-click (or Space) to attack. Kill creatures to gain Qi (XP).</div>
+      <div class="tutStep"><b>2. Defend &amp; Dash</b><br>Right-click to defend (80% reduction + 30% reflect). X to dash through danger.</div>
+      <div class="tutStep"><b>3. Collect Authorities</b><br>9 Authorities spawn on the map. Press 1, 2, or 3 to unleash screen-clearing powers.</div>
+      <div class="tutStep"><b>4. Evolve &amp; Ascend</b><br>Reach Qi thresholds + complete quests to evolve through 9 mortal tiers and 10 divine sequences. Slay an Outer God to unlock apotheosis.</div>
+    </div>
+    <button id="tutCloseBtn">Got it</button>
+  </div>
+
+  <div id="legal" class="overlay hidden">
+    <h1 id="legalTitle">Privacy</h1>
+    <div id="legalBody" class="legalBody"></div>
+    <button id="legalCloseBtn">Close</button>
   </div>
 
   <canvas id="game"></canvas>
 
-  <button id="muteBtn" title="音效開關">🔊</button>
+  <button id="muteBtn" title="Sound on/off">🔊</button>
 
   <div id="hud" class="hidden">
     <div class="bar"><span class="lbl">HP</span><div class="track"><div id="hpFill" class="fill hp"></div></div><span id="hpTxt" class="num"></span></div>
     <div class="bar"><span class="lbl">SAN</span><div class="track"><div id="sanFill" class="fill san"></div></div><span id="sanTxt" class="num"></span></div>
     <div class="bar"><span class="lbl">STA</span><div class="track"><div id="staFill" class="fill sta"></div></div><span id="staTxt" class="num"></span></div>
     <div class="bar life"><span class="lbl">LIFE</span><div class="track"><div id="lifeFill" class="fill life"></div></div><span id="lifeTxt" class="num"></span></div>
-    <div class="bar evo"><span class="lbl">修為</span><div class="track"><div id="evoFill" class="fill evo"></div></div><span id="evoTxt" class="num"></span></div>
+    <div class="bar evo"><span class="lbl">QI</span><div class="track"><div id="evoFill" class="fill evo"></div></div><span id="evoTxt" class="num"></span></div>
     <div id="stats"></div>
     <div id="fruitSlots"></div>
     <div id="fruitsPanel">
-      <h3>七大權柄（全圖唯一）</h3>
+      <h3>9 Authorities (unique on the map)</h3>
       <ul id="fruitList"></ul>
     </div>
     <div id="log"></div>
@@ -73,14 +99,14 @@
     <div id="joystick"><div id="stick"></div></div>
     <div id="touchButtons">
       <div class="row skills"><button id="btnQ">Q</button><button id="btnE">E</button><button id="btnR">R</button><button id="btnMap">★</button></div>
-      <div class="row main"><button id="btnAtk" class="big">近戰</button><button id="btnRng">遠程</button></div>
-      <div class="row sub"><button id="btnDef">防禦</button><button id="btnSpr">衝刺</button></div>
+      <div class="row main"><button id="btnAtk" class="big">Atk</button><button id="btnRng">Rng</button></div>
+      <div class="row sub"><button id="btnDef">Def</button><button id="btnSpr">Dash</button></div>
       <div class="row fruits"><button id="btnF1">1</button><button id="btnF2">2</button><button id="btnF3">3</button></div>
     </div>
   </div>
 
-  <script src="sdk.js?v=1.5.0"></script>
-  <script src="net.js?v=1.5.0"></script>
-  <script src="game.js?v=1.5.0"></script>
+  <script src="sdk.js?v=1.6.0"></script>
+  <script src="net.js?v=1.6.0"></script>
+  <script src="game.js?v=1.6.0"></script>
 </body>
 </html>
