@@ -2,14 +2,25 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>終焉之地 The Land's End — Prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0820" />
+<meta name="description" content="終焉之地 The Land's End — 物種進化 + 22 序列登神的 .io 多人生存 PvP。選擇你的物種，在 14000² 群星海洋中狩獵成神。" />
+<meta property="og:title" content="終焉之地 The Land's End" />
+<meta property="og:description" content=".io 物種進化 PvP 生存遊戲·14000² 群星海洋·22 序列登神" />
+<meta property="og:type" content="website" />
+<title>終焉之地 The Land's End — .io 物種進化 PvP</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23bb88ff'/%3E%3Ctext x='32' y='44' font-size='36' text-anchor='middle' fill='%23fff'%3E★%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="menu" class="overlay">
+  <div id="loading" class="overlay">
     <h1>終焉之地<span class="sub">The Land's End</span></h1>
-    <p class="tag">六大序列 · 22 序列登神 · 14000² 群星海洋 · 五紀元 · 雙 Boss · 九權柄 · 多人 PvP + 排行 + 地圖 + 聊天 — Prototype v1.3.0</p>
+    <div class="loader"><div class="loaderBar"></div></div>
+    <p class="tag">載入中…</p>
+  </div>
+  <div id="menu" class="overlay hidden">
+    <h1>終焉之地<span class="sub">The Land's End</span></h1>
+    <p class="tag">六大序列 · 22 序列登神 · 14000² 群星海洋 · 五紀元 · 雙 Boss · 九權柄 · 多人 PvP + 排行 + 地圖 + 聊天 — v1.5.0</p>
 
     <div class="nameRow">
       <label for="playerName">你的名字</label>
@@ -41,6 +52,8 @@
 
   <canvas id="game"></canvas>
 
+  <button id="muteBtn" title="音效開關">🔊</button>
+
   <div id="hud" class="hidden">
     <div class="bar"><span class="lbl">HP</span><div class="track"><div id="hpFill" class="fill hp"></div></div><span id="hpTxt" class="num"></span></div>
     <div class="bar"><span class="lbl">SAN</span><div class="track"><div id="sanFill" class="fill san"></div></div><span id="sanTxt" class="num"></span></div>
@@ -66,7 +79,8 @@
     </div>
   </div>
 
-  <script src="net.js?v=1.4.0"></script>
-  <script src="game.js?v=1.4.0"></script>
+  <script src="sdk.js?v=1.5.0"></script>
+  <script src="net.js?v=1.5.0"></script>
+  <script src="game.js?v=1.5.0"></script>
 </body>
 </html>

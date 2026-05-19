@@ -72,6 +72,9 @@ wss.on('connection', (ws, req) => {
       case 'fx':         // 視覺效果同步（權柄釋放、晉階等）
         broadcast(msg, id);
         break;
+      case 'enemy_kill': // v1.4.0 sync enemy deaths
+        broadcast(msg, id);
+        break;
       case 'dead':
         msg.victimId=id;
         broadcast(msg);

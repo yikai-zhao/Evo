@@ -428,6 +428,7 @@ const G = {
   timeline:[],  // 死亡時間軸
   tutorialT:0, tutorialStep:0,
   visited:null, visitedCellSize:200, visitedRadius:5,
+  _nidSeq:0, _saveTimer:0, paused:false, _firstAdShown:false,
 };
 const FAKE_NAMES = ['魔女','玄名','梵人','紅嬜','隱者','社鋒','闇哲','太陽','高堤','恍惚','規則','欺詐','秘主','振箪','指揮','蛟之者','黑夜','學生','虛減','舊日','吞噬','快樂','虛偽','火舌','雮明','巐崙','企鵝','火之使徒','靈媒','國王'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
@@ -1194,6 +1195,7 @@ function spawnEnemy(initial=false){
   }
   e.rank = tier;
   recalcStats(e); e.hp=e.maxHp; e.sta=e.maxSta;
+  e.nid = ++G._nidSeq;
   G.enemies.push(e);
 }
 
@@ -1536,7 +1538,11 @@ function onKill(attacker, target){
     attacker.qi += qiReward;
     addFloat(target.x, target.y-20, `+${qiReward} 修為`, '#bb88ff', 14, 1.2);
     logMsg(`擊殺 ${target.sp.name}（${tierName(target)}）+${qiReward} 修為`);
+    const _preRank = attacker.rank;
     tryPromote(attacker);
+    if (window.SDK && attacker.rank>_preRank) SDK.happyTime(Math.min(1, attacker.rank/15));
+    saveProgress();
+    if (window.Net && Net.online && !target.isPlayer && target.nid && Net.sendEnemyKill) Net.sendEnemyKill(target.nid);
   }
   // 進階能力：擊殺回血
   if (attacker && attacker.perks && attacker.perks.killheal>0 && attacker.hp>0){
@@ -2101,8 +2107,12 @@ function setupCanvas(){
   window.addEventListener('resize', resize);
 }
 function resize(){
-  canvas.width = window.innerWidth*dpr;
-  canvas.height = window.innerHeight*dpr;
+  // v1.5.0: cap DPR for mobile performance
+  const raw = window.devicePixelRatio || 1;
+  const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
+  dpr = Math.min(raw, isMobile ? 1.5 : 2);
+  canvas.width = Math.floor(window.innerWidth*dpr);
+  canvas.height = Math.floor(window.innerHeight*dpr);
   canvas.style.width = window.innerWidth+'px';
   canvas.style.height = window.innerHeight+'px';
 }
@@ -2129,11 +2139,17 @@ function drawStatusBanner(){
 }
 let lastT=0;
 function loop(t){
-  const dt = Math.min(0.05, (t-lastT)/1000 || 0); lastT=t;
+  let dt = Math.min(0.05, (t-lastT)/1000 || 0); lastT=t;
+  // v1.5.0: pause when tab hidden / ad playing
+  if (G.paused || document.hidden) dt = 0;
   G.frameAcc += dt; G.frameN++;
   if (G.frameAcc >= 0.5){ G.fps = Math.round(G.frameN / G.frameAcc); G.frameAcc = 0; G.frameN = 0; }
   try {
-    if (G.started && !G.dead && !G.won) update(dt);
+    if (dt>0 && G.started && !G.dead && !G.won){
+      update(dt);
+      G._saveTimer += dt;
+      if (G._saveTimer >= 30){ G._saveTimer = 0; saveProgress(); }
+    }
     render();
   } catch(err){
     G.errorCount++;
@@ -3427,12 +3443,25 @@ function drawRemotePeers(){
     ctx.fillStyle = flash>0 ? '#ff5566' : (peer.color || '#88ccff');
     ctx.beginPath(); ctx.arc(drawX, drawY, r+6, 0, Math.PI*2); ctx.fill();
     ctx.restore();
-    // 主體
-    ctx.fillStyle = peer.color || '#88ccff';
-    ctx.beginPath(); ctx.arc(drawX, drawY, r, 0, Math.PI*2); ctx.fill();
-    ctx.lineWidth = 2; ctx.strokeStyle = '#fff';
-    ctx.stroke();
-    // 朝向
+    // v1.5.0: render with drawShape when species known
+    const _spDef = (peer.species && typeof SPECIES!=='undefined') ? SPECIES[peer.species] : null;
+    if (_spDef){
+      const fake = {
+        x:drawX, y:drawY, r:r, facing:peer.facing||0, vx:0, vy:0,
+        color:peer.color||_spDef.color, sp:_spDef, _fp:(id*17)%100, isPlayer:false,
+        rank:peer.rank||1, hp:peer.hp||1, maxHp:peer.maxHp||1,
+      };
+      try { drawShape(fake); }
+      catch(e){
+        ctx.fillStyle = peer.color || '#88ccff';
+        ctx.beginPath(); ctx.arc(drawX, drawY, r, 0, Math.PI*2); ctx.fill();
+      }
+    } else {
+      ctx.fillStyle = peer.color || '#88ccff';
+      ctx.beginPath(); ctx.arc(drawX, drawY, r, 0, Math.PI*2); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#fff';
+      ctx.stroke();
+    }
     if (typeof peer.facing === 'number'){
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(drawX, drawY);
@@ -3510,8 +3539,12 @@ function drawOnlineBadge(){
   ctx.restore();
 }
 
-function startGame(){
+async function startGame(){
   if (!G.selectedSpecies) return;
+  if (window.SDK && SDK.ready && !G._firstAdShown){
+    G._firstAdShown = true;
+    try { await SDK.commercialBreak(); } catch(e){}
+  }
   document.getElementById('menu').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
   G.enemies=[]; G.minions=[]; G.projectiles=[]; G.pickups=[]; G.spirits=[]; G.authorities=[]; G.particles=[]; G.floats=[]; G.shockwaves=[]; G.hazards=[];
@@ -3531,6 +3564,7 @@ function startGame(){
   spawnInitialWorld();
   if (typeof resize==='function') resize();
   G.started = true;
+  if (window.SDK) SDK.gameplayStart();
   logMsg(`你選擇了【${G.player.sp.name}】 · ${G.player.path.name}`, 'promote');
   logMsg('★ 出生保護 10 秒：先熟悉操作再進攻！', 'promote');
   logMsg('操作：WASD 移動 / 左鍵近戰 / 右鍵防禦反擊 / F 遠程 / Q E R 技能 / X 衝刺 / 1-6 權柄 / M 星圖', 'promote');
@@ -3584,24 +3618,51 @@ function startGame(){
     Net.connect();
   }
 }
-function restartGame(){
+async function restartGame(){
+  if (window.SDK && SDK.ready) SDK.gameplayStop();
   document.getElementById('death').classList.add('hidden');
   document.getElementById('win').classList.add('hidden');
-  document.getElementById('menu').classList.remove('hidden');
-  document.getElementById('hud').classList.add('hidden');
   G.started=false; G.selectedSpecies=null;
   G.killFeed=[]; G.leaderboard=[]; G.deathBy=''; G.errorCount=0;
+  if (window.SDK && SDK.ready){ try { await SDK.commercialBreak(); } catch(e){} }
+  document.getElementById('menu').classList.remove('hidden');
+  document.getElementById('hud').classList.add('hidden');
   document.getElementById('startBtn').disabled=true;
   document.getElementById('startBtn').textContent='選擇物種後開始';
+  try { buildMenu(); } catch(e){}
 }
-window.addEventListener('load', ()=>{
+window.addEventListener('load', async ()=>{
   setupCanvas();
   setupInput(document.getElementById('game'));
+  const _sdkP = (window.SDK ? SDK.init() : Promise.resolve()).catch(()=>{});
   buildMenu();
   document.getElementById('startBtn').onclick = startGame;
   document.getElementById('restartBtn').onclick = restartGame;
   document.getElementById('winRestartBtn').onclick = restartGame;
   setupTouch(document.getElementById('game'));
-  document.addEventListener('touchstart', ()=>{ try{ ac(); }catch(e){} }, {once:true});
+  const _unlock = ()=>{ try{ ac(); }catch(e){} };
+  document.addEventListener('touchstart', _unlock, {once:true});
+  document.addEventListener('click',      _unlock, {once:true});
+  const _mb = document.getElementById('muteBtn');
+  if (_mb){
+    _mb.onclick = ()=>{
+      G.soundOn = !G.soundOn;
+      _mb.textContent = G.soundOn ? '🔊' : '🔇';
+      try{ localStorage.setItem('evo_mute', G.soundOn?'0':'1'); }catch(e){}
+    };
+    try{ if (localStorage.getItem('evo_mute')==='1'){ G.soundOn=false; _mb.textContent='🔇'; } }catch(e){}
+  }
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.hidden){ G.paused=true; }
+    else { G.paused=false; }
+  });
+  window.addEventListener('blur',  ()=>{ G.paused=true; });
+  window.addEventListener('focus', ()=>{ G.paused=false; });
+  window.addEventListener('evo:ad-start', ()=>{ G.paused=true; });
+  window.addEventListener('evo:ad-end',   ()=>{ G.paused=false; });
+  await _sdkP;
+  if (window.SDK) SDK.gameLoadingFinished();
+  const _ld = document.getElementById('loading');
+  if (_ld) _ld.classList.add('hidden');
   requestAnimationFrame(loop);
 });

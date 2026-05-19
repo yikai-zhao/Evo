@@ -113,6 +113,9 @@
       case 'pong':
         // RTT 量測待擴展
         break;
+      case 'enemy_kill':
+        if (Net.onEnemyKill) Net.onEnemyKill(m.nid);
+        break;
     }
   }
 
@@ -133,7 +136,7 @@
         r: player.r|0,
         facing: +(player.facing||0).toFixed(2),
         path: player.path && player.path.name,
-        species: player.pathKey,
+        species: player.species,
         sanity: player.sanity|0,
       }));
     }catch(e){}
@@ -159,6 +162,11 @@
     try{Net.ws.send(JSON.stringify({t:'dead',killerId,killerName:String(killerName||'').slice(0,16),victimName:(Net._myName||'').slice(0,16)}));}catch(e){}
   };
   Net.onPvpKill=null;
+  Net.onEnemyKill=null;
+  Net.sendEnemyKill=function(nid){
+    if(!Net.online||!Net.ws||Net.ws.readyState!==1)return;
+    try{Net.ws.send(JSON.stringify({t:'enemy_kill',nid}));}catch(e){}
+  };
   Net.sendFx = function(kind, data){
     if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return;
     try{ Net.ws.send(JSON.stringify(Object.assign({ t:'fx', kind }, data||{}))); }catch(e){}
