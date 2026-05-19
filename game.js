@@ -1,4 +1,4 @@
-// Lands End — Prototype v1.6.0 (English · Poki/CrazyGames ready)
+// Lands End — Prototype v1.6.2 (Polish: emoji icons, gated HUD, daily bonus, revive ad, combat juice)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -36,7 +36,7 @@ const MOUSE = { x:0, y:0, wx:0, wy:0, ldown:false, rdown:false };
 // =====================================================================
 const PATHS = {
   human: {
-    name:'Path of Humanity', color:'#ffd66b', icon:'H',
+    name:'Path of Humanity', color:'#ffd66b', icon:'⚔️',
     tiers:[
       { name:'Qi Apprentice', pname:'Vital Flow', pdesc:'AS +15%',                 p:{spd:1.15} },
       { name:'Forged Fist', pname:'Inner Burst', pdesc:'ATK +10%, Crit +10%',       p:{atk:1.10, crit:0.10} },
@@ -50,7 +50,7 @@ const PATHS = {
     ],
   },
   dragon: {
-    name:'Path of Dragons', color:'#88e0ff', icon:'D',
+    name:'Path of Dragons', color:'#88e0ff', icon:'🐉',
     tiers:[
       { name:'Hatchling Jiao',   pname:'First Scales', pdesc:'DEF +20%',                  p:{def:1.20} },
       { name:'Twin-Horned Hui',   pname:'Towering Horns', pdesc:'KB Res +50%, HP +10%',     p:{knockRes:0.5, hp:1.10} },
@@ -64,7 +64,7 @@ const PATHS = {
     ],
   },
   beast: {
-    name:'Path of Beasts', color:'#e0a060', icon:'B',
+    name:'Path of Beasts', color:'#e0a060', icon:'🐺',
     tiers:[
       { name:'Bloodthirsty Cub', pname:'Bloody Fangs', pdesc:'ATK +10%, Lifesteal 3%',          p:{atk:1.10, lifesteal:0.03} },
       { name:'Wild Predator', pname:'Feral Fury', pdesc:'ATK +15%, SPD +5%',          p:{atk:1.15, spd:1.05} },
@@ -78,7 +78,7 @@ const PATHS = {
     ],
   },
   bird: {
-    name:'Path of Feathers', color:'#cce0ff', icon:'F',
+    name:'Path of Feathers', color:'#cce0ff', icon:'🦅',
     tiers:[
       { name:'Fledgling', pname:'Light Feathers', pdesc:'SPD +20%',                    p:{spd:1.20} },
       { name:'Wind Rider', pname:'Riding Cry', pdesc:'STA +30%, SPD +10%',          p:{sta:1.30, spd:1.10} },
@@ -92,7 +92,7 @@ const PATHS = {
     ],
   },
   fish: {
-    name:'Path of Scales', color:'#88c0ff', icon:'S',
+    name:'Path of Scales', color:'#88c0ff', icon:'🐟',
     tiers:[
       { name:'Drifting Fry', pname:'Slick Glide', pdesc:'SPD +15%',                    p:{spd:1.15} },
       { name:'River Carp', pname:'Carp Qi', pdesc:'Regen +1.5/s',                p:{regen:1.5} },
@@ -106,7 +106,7 @@ const PATHS = {
     ],
   },
   insect: {
-    name:'Path of Insects', color:'#c0ff60', icon:'I',
+    name:'Path of Insects', color:'#c0ff60', icon:'🦂',
     tiers:[
       { name:'Devouring Larva', pname:'Devour Heal', pdesc:'Lifesteal 5%',                       p:{lifesteal:0.05} },
       { name:'Molting Mantid', pname:'Shed Carapace', pdesc:'DEF +20%, HP +10%',           p:{def:1.20, hp:1.10} },
@@ -195,71 +195,71 @@ function sequenceData(p){ return p.rank>=10 ? SEQUENCES[p.rank-10] : null; }
 // =====================================================================
 const SPECIES = {
   // Path of Humanity
-  swordsman: { path:'human', name:'Swordsman', icon:'Sw', color:'#ffd66b', shape:'humanoid',
+  swordsman: { path:'human', name:'Swordsman', icon:'🗡️', color:'#ffd66b', shape:'humanoid',
     base:{hp:130,atk:15,def:5,spd:185,sta:90,life:240, r:18, atkR:55, atkCd:0.4, rngR:480, rngCd:0.8, rngDmg:12, rngSpd:540},
     skillQ:{name:'Triple Arrow', cd:3.5, type:'arrow3', desc:'Fan 3 arrows, x0.7 dmg each'},
     skillE:{name:'Sword Will Slash', cd:6,  type:'cleave',  desc:'Forward 180 deg fan slash, x3 dmg', unlockRank:3},
     skillR:{name:'Myriad Swords', cd:18, type:'sword_rain', desc:'24 swords orbit and fire at nearest', unlockRank:6},
   },
-  lizard: { path:'beast', name:'Lizard', icon:'Lz', color:'#7fd07f', shape:'reptile',
+  lizard: { path:'beast', name:'Lizard', icon:'🦎', color:'#7fd07f', shape:'reptile',
     base:{hp:150,atk:16,def:6,spd:170,sta:80,life:200, r:20, atkR:58, atkCd:0.42},
     skillQ:{name:'Whirlwind Slash', cd:3, type:'spin', desc:'360 deg spin slash, x2 + KB'},
     skillE:{name:'Tail Sweep', cd:5,  type:'tail',  desc:'280 deg tail sweep knockup', unlockRank:3},
     skillR:{name:'Berserk Form', cd:18, type:'rage', desc:'10s AS x2 DEF x2', unlockRank:6},
   },
-  croc: { path:'beast', name:'Crocodile', icon:'Cr', color:'#6aa86a', shape:'reptile',
+  croc: { path:'beast', name:'Crocodile', icon:'🐊', color:'#6aa86a', shape:'reptile',
     base:{hp:170,atk:18,def:8,spd:155,sta:80,life:240, r:22, atkR:55, atkCd:0.5},
     skillQ:{name:'Death Roll', cd:3.5, type:'roll', desc:'Charge bite, x2 dmg + bleed'},
     skillE:{name:'Lockjaw', cd:6, type:'grab', desc:'Grab nearest 2s, bite every 0.3s', unlockRank:3},
     skillR:{name:'Blood River', cd:22, type:'bloodpool', desc:'Blood pool, enemies bleed', unlockRank:6},
   },
-  dino: { path:'dragon', name:'Dinosaur', icon:'Dn', color:'#7a8a3a', shape:'beast',
+  dino: { path:'dragon', name:'Dinosaur', icon:'🦖', color:'#7a8a3a', shape:'beast',
     base:{hp:180,atk:20,def:10,spd:150,sta:80,life:260, r:26, atkR:65, atkCd:0.5},
     skillQ:{name:'Stomp', cd:3, type:'stomp', desc:'250r AoE wave + stun 1s'},
     skillE:{name:'Tail Slam', cd:6, type:'tail',  desc:'Huge 320 deg tail slam x3 dmg', unlockRank:3},
     skillR:{name:'Tyrant Roar', cd:20, type:'roar', desc:'Push all + stun 3s', unlockRank:6},
   },
-  wolf: { path:'beast', name:'Wolf', icon:'Wo', color:'#a0a0a0', shape:'beast',
+  wolf: { path:'beast', name:'Wolf', icon:'🐺', color:'#a0a0a0', shape:'beast',
     base:{hp:130,atk:15,def:5,spd:195,sta:100,life:200, r:18, atkR:55, atkCd:0.388},
     skillQ:{name:'Pounce', cd:2.5, type:'pounce', desc:'Lunge + bite x2 dmg'},
     skillE:{name:'Wolf Pack', cd:8, type:'summon_wolf', desc:'Summon 3 phantom wolves 15s', unlockRank:3},
     skillR:{name:'Bloodlust', cd:20, type:'frenzy', desc:'12s AS x2 + full heal on kill', unlockRank:6},
   },
   // 龍
-  longSnake: { path:'dragon', name:'Jiao Serpent', icon:'Js', color:'#88e0ff', shape:'dragon',
+  longSnake: { path:'dragon', name:'Jiao Serpent', icon:'🐉', color:'#88e0ff', shape:'dragon',
     base:{hp:160,atk:17,def:7,spd:170,sta:90,life:260, r:22, atkR:60, atkCd:0.45, rngR:460, rngCd:1.1, rngDmg:18, rngSpd:520},
     skillQ:{name:'Dragon Breath', cd:3, type:'breath', desc:'400px flame cone x0.6/tick'},
     skillE:{name:'Coil', cd:6, type:'whirl', desc:'Energy ribbon 3s', unlockRank:3},
     skillR:{name:'True Dragon Descend', cd:25, type:'dragon_form', desc:'15s Size x1.5 ATK +100%', unlockRank:6},
   },
   // 羽
-  eagle: { path:'bird', name:'Eagle', icon:'Eg', color:'#cce0ff', shape:'bird',
+  eagle: { path:'bird', name:'Eagle', icon:'🦅', color:'#cce0ff', shape:'bird',
     base:{hp:110,atk:13,def:4,spd:200,sta:120,life:200, r:16, atkR:50, atkCd:0.38, rngR:540, rngCd:0.6, rngDmg:10, rngSpd:640},
     skillQ:{name:'Dive', cd:3, type:'dive', desc:'Dash to cursor, x3 dmg'},
     skillE:{name:'Storm Feather Tempest', cd:6, type:'feather_storm', desc:'Fire 12 quills x0.5', unlockRank:3},
     skillR:{name:'Thunder Pierce', cd:20, type:'thunder_dive', desc:'Sky lightning pierces all', unlockRank:6},
   },
-  owl: { path:'bird', name:'Night Owl', icon:'Ow', color:'#aabbcc', shape:'bird',
+  owl: { path:'bird', name:'Night Owl', icon:'🦉', color:'#aabbcc', shape:'bird',
     base:{hp:115,atk:14,def:4,spd:190,sta:100,life:220, r:16, atkR:52, atkCd:0.4, rngR:520, rngCd:0.7, rngDmg:14, rngSpd:580},
     skillQ:{name:'Shadow Arrow', cd:3, type:'shadow_arrow', desc:'Piercing arrow x2 dmg'},
     skillE:{name:'Veil of Night', cd:8, type:'darkness', desc:'8s stealth + 50% crit', unlockRank:3},
     skillR:{name:'Death Gaze', cd:20, type:'death_gaze', desc:'Lock 1.5s, then 999 true dmg', unlockRank:6},
   },
   // 鱗
-  shark: { path:'fish', name:'Shark', icon:'Sh', color:'#88c0ff', shape:'fish',
+  shark: { path:'fish', name:'Shark', icon:'🦈', color:'#88c0ff', shape:'fish',
     base:{hp:220,atk:24,def:8,spd:170,sta:100,life:220, r:24, atkR:60, atkCd:0.4},
     skillQ:{name:'Triple Bite', cd:3, type:'combo3', desc:'3 bites x0.8 + bleed'},
     skillE:{name:'Blood Frenzy', cd:6, type:'bloodrage', desc:'Sense low-HP 6s + AS x1.5', unlockRank:3},
     skillR:{name:'Abyss Call', cd:22, type:'abyss', desc:'Summon 5 phantom sharks', unlockRank:6},
   },
-  electroEel: { path:'fish', name:'Eel', icon:'El', color:'#aaffe0', shape:'fish',
+  electroEel: { path:'fish', name:'Eel', icon:'🐍', color:'#aaffe0', shape:'fish',
     base:{hp:120,atk:13,def:4,spd:170,sta:120,life:200, r:18, atkR:50, atkCd:0.4, rngR:480, rngCd:0.5, rngDmg:9, rngSpd:660},
     skillQ:{name:'Discharge', cd:3, type:'shock', desc:'250r shock + stun 0.5s'},
     skillE:{name:'Lightning Chain', cd:6, type:'chain', desc:'8-jump chain x0.6 each', unlockRank:3},
     skillR:{name:'Heavenly Thunder', cd:20, type:'sky_lightning', desc:'15 random bolts', unlockRank:6},
   },
   // 蟲
-  scorpion: { path:'insect', name:'Scorpion', icon:'Sc', color:'#c0ff60', shape:'insect',
+  scorpion: { path:'insect', name:'Scorpion', icon:'🦂', color:'#c0ff60', shape:'insect',
     base:{hp:140,atk:15,def:7,spd:160,sta:90,life:220, r:18, atkR:55, atkCd:0.42, rngR:430, rngCd:0.9, rngDmg:12, rngSpd:500},
     skillQ:{name:'Venom Tail', cd:3, type:'poison_sting', desc:'Spear lunge, 6s DOT 5/s'},
     skillE:{name:'Venom Mist', cd:7, type:'poison_cloud', desc:'200r venom cloud 6s DOT', unlockRank:3},
@@ -339,23 +339,23 @@ const PATH_QUESTS = {
 // 權柄（巨型 AoE，必須超強）
 // =====================================================================
 const AUTHORITIES = [
-  { id:'fire',    name:'Pyre Authority',  color:'#ff5530', icon:'F', cd:14,
+  { id:'fire',    name:'Pyre Authority',  color:'#ff5530', icon:'🔥', cd:14,
     desc:'Fire rain: 240 dmg + 40 DOT x 6s' },
-  { id:'frost',   name:'Frost Authority',  color:'#88e0ff', icon:'I', cd:16,
+  { id:'frost',   name:'Frost Authority',  color:'#88e0ff', icon:'❄️', cd:16,
     desc:'Freeze all 6s, 120 dmg' },
-  { id:'thunder', name:'Thunder Authority',  color:'#fff080', icon:'T', cd:14,
+  { id:'thunder', name:'Thunder Authority',  color:'#fff080', icon:'⚡', cd:14,
     desc:'30-jump chain lightning, 180 dmg each' },
-  { id:'gale',    name:'Storm Authority',  color:'#aaffcc', icon:'W', cd:12,
+  { id:'gale',    name:'Storm Authority',  color:'#aaffcc', icon:'🌪️', cd:12,
     desc:'600r knock-up + 100 dmg + 4s slow' },
-  { id:'life',    name:'Life Authority',  color:'#80ff80', icon:'L', cd:30,
+  { id:'life',    name:'Life Authority',  color:'#80ff80', icon:'💚', cd:30,
     desc:'Full heal + perm +100 HP + 60s regen 12/s' },
-  { id:'titan',   name:'Titan Authority',  color:'#ffaa30', icon:'G', cd:25,
+  { id:'titan',   name:'Titan Authority',  color:'#ffaa30', icon:'💪', cd:25,
     desc:'30s Size x2.2 ATK x2.5 DEF x2' },
-  { id:'time',    name:'Time Authority',  color:'#cc88ff', icon:'Tm', cd:30,
+  { id:'time',    name:'Time Authority',  color:'#cc88ff', icon:'⏳', cd:30,
     desc:'Freeze all 8s + perm +10 min lifespan' },
-  { id:'void',    name:'Rift Authority',  color:'#7a00cc', icon:'R', cd:22,
+  { id:'void',    name:'Rift Authority',  color:'#7a00cc', icon:'🌌', cd:22,
     desc:'1200r rift: pull + 300 true dmg + tear 8s' },
-  { id:'omni',    name:'Starfall Authority',  color:'#ffdd66', icon:'S', cd:40,
+  { id:'omni',    name:'Starfall Authority',  color:'#ffdd66', icon:'☄️', cd:40,
     desc:'Reveal map 12s + 800 boss dmg + Qi +50% 90s' },
 ];
 
@@ -378,15 +378,15 @@ const BIOMES = {
 // 道具
 // =====================================================================
 const PICKUPS = [
-  { id:'spirit',   name:'Qi',     color:'#bb88ff', icon:'Q', rare:false, weight:60, qi:8 },
-  { id:'bigspirit',name:'Qi Orb',   color:'#dd99ff', icon:'Q', rare:true,  weight:8,  qi:40 },
-  { id:'heal',     name:'Healing Fruit',   color:'#ff5566', icon:'H', rare:false, weight:25, heal:60 },
-  { id:'bighp',    name:'Blood Pill',   color:'#ff2244', icon:'B', rare:true,  weight:5,  bighp:80 },
-  { id:'sta',      name:'Stamina Fruit',   color:'#7fd07f', icon:'P', rare:false, weight:20, sta:50 },
-  { id:'zhenyuan', name:'True Essence Pill',   color:'#ffd66b', icon:'E', rare:true,  weight:5,  zy:0.15 },
-  { id:'daohen',   name:'Dao Trace Shard', color:'#ddccff', icon:'D', rare:true,  weight:5,  dh:0.15 },
-  { id:'cdreset',  name:'Purity Pearl',   color:'#aaffff', icon:'C', rare:true,  weight:6,  cdreset:true },
-  { id:'lifegem',  name:'Lifespan Crystal',   color:'#cc88ff', icon:'L', rare:true,  weight:4,  life:90 },
+  { id:'spirit',   name:'Qi',     color:'#bb88ff', icon:'✦', rare:false, weight:60, qi:8 },
+  { id:'bigspirit',name:'Qi Orb',   color:'#dd99ff', icon:'✧', rare:true,  weight:8,  qi:40 },
+  { id:'heal',     name:'Healing Fruit',   color:'#ff5566', icon:'❤', rare:false, weight:25, heal:60 },
+  { id:'bighp',    name:'Blood Pill',   color:'#ff2244', icon:'♥', rare:true,  weight:5,  bighp:80 },
+  { id:'sta',      name:'Stamina Fruit',   color:'#7fd07f', icon:'⚡', rare:false, weight:20, sta:50 },
+  { id:'zhenyuan', name:'True Essence Pill',   color:'#ffd66b', icon:'◆', rare:true,  weight:5,  zy:0.15 },
+  { id:'daohen',   name:'Dao Trace Shard', color:'#ddccff', icon:'◇', rare:true,  weight:5,  dh:0.15 },
+  { id:'cdreset',  name:'Purity Pearl',   color:'#aaffff', icon:'○', rare:true,  weight:6,  cdreset:true },
+  { id:'lifegem',  name:'Lifespan Crystal',   color:'#cc88ff', icon:'∞', rare:true,  weight:4,  life:90 },
 ];
 function weightedPickup(){
   const t=PICKUPS.reduce((s,p)=>s+p.weight,0); let r=Math.random()*t;
@@ -1149,14 +1149,14 @@ function spawnInitialWorld(){
     const D = 3000;  // v1.0.0 大地圖外擴
     G.authorities.push({...a, x: WORLD.w/2 + Math.cos(ang)*D, y: WORLD.h/2 + Math.sin(ang)*D, pulse:0});
   }
-  // 出生點周遭塞一些靈氣與道具讓玩家先成長
+  // 出生點周遭塞一些靈氣與道具讓玩家先成長 (v1.6.2: bigger starter cache)
   if (G.player){
-    for (let i=0;i<30;i++){
-      const ang=Math.random()*Math.PI*2, d=rand(80,400);
+    for (let i=0;i<60;i++){
+      const ang=Math.random()*Math.PI*2, d=rand(80,600);
       G.spirits.push({x:G.player.x+Math.cos(ang)*d, y:G.player.y+Math.sin(ang)*d, pulse:Math.random()*Math.PI*2, qi:8});
     }
-    for (let i=0;i<8;i++){
-      const ang=Math.random()*Math.PI*2, d=rand(150,500);
+    for (let i=0;i<18;i++){
+      const ang=Math.random()*Math.PI*2, d=rand(150,700);
       const def = weightedPickup();
       G.pickups.push({...def, x:G.player.x+Math.cos(ang)*d, y:G.player.y+Math.sin(ang)*d, pulse:0});
     }
@@ -1174,19 +1174,21 @@ function spawnSpirit(){
 function spawnEnemy(initial=false){
   const keys = Object.keys(SPECIES);
   const sp = keys[(Math.random()*keys.length)|0];
-  // v1.1.0: 14000² 群星地圖適配
+  // v1.1.0: 14000² group-star map adaptation
   const safeDist = initial ? 4200 : 2200;
   let x,y, tries=0;
   do { x=rand(100,WORLD.w-100); y=rand(100,WORLD.h-100); tries++; }
   while (G.player && dist({x,y},G.player) < safeDist && tries<20);
   const e = makeCreature(sp, x, y, false);
-  // 階位：靠近出生點越弱；遊戲時間越長外圍越強
+  // v1.6.2 onboarding: gentle first 90s — enemies max rank 1
   let maxTier;
   if (G.player){
     const d = dist({x,y},G.player);
-    if (d < 2500) maxTier = 1;
-    else if (d < 3800) maxTier = 1 + Math.floor(G.time/90);
-    else maxTier = 2 + Math.floor(G.time/60);
+    if (G.time < 90){
+      maxTier = 1;
+    } else if (d < 2500) maxTier = 1;
+    else if (d < 3800) maxTier = 1 + Math.floor((G.time-90)/90);
+    else maxTier = 2 + Math.floor((G.time-90)/60);
   } else maxTier = 1;
   maxTier = Math.max(1, Math.min(7, maxTier));
   const tier = 1 + Math.floor(Math.random()*maxTier);
@@ -1504,6 +1506,15 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
     playSound('hurt');
   } else if (attacker && attacker.isPlayer){
     playSound('hit');
+    // v1.6.2 combat juice: sparks + tiny shake + brief screen tint on player hits
+    G.cam.shake = Math.max(G.cam.shake, isCrit ? 8 : 3);
+    if (isCrit) flash('#ffeb40', 0.35);
+    const _spk = isCrit ? 14 : 7;
+    for (let i=0;i<_spk;i++){
+      const a = Math.random()*Math.PI*2;
+      const sp_ = rand(180, 380);
+      G.particles.push({x:target.x, y:target.y, vx:Math.cos(a)*sp_, vy:Math.sin(a)*sp_, life:0.35, color:isCrit?'#ffeb40':color, r:isCrit?3:2});
+    }
   }
   // 擊退（防禦時不被擊退；考慮 knockRes / knockMul）
   if (!target.defending && attacker){
@@ -2074,10 +2085,48 @@ function die(reason){
   playSound('death');
   document.getElementById('death').classList.remove('hidden');
   document.getElementById('deathReason').textContent=reason||G.deathBy||'Unknown cause';
-  const _dEl=document.getElementById('deathStats');
-  if(_dEl){const _on=window.Net&&Net.online;
-    _dEl.textContent=`Survived ${(G.time/60)|0}m${(G.time%60)|0}s · Kills ${G.player.q.kills} · R${G.player.rank}`+(_on?' · Online '+(Net.peers.size+1):'');}
-  document.getElementById('deathStats').textContent = `Tier: ${tierName(G.player)} | Kills: ${G.player.q.kills} | High-tier: ${G.player.q.killHighTier} | Qi: ${G.player.qi} | Survived ${G.time.toFixed(0)}s`;
+  // v1.6.2: leaderboard rank in death stats
+  let _rankTxt = '';
+  try {
+    const lb = G.leaderboard || [];
+    const idx = lb.findIndex(e=>e && e.isPlayer);
+    if (idx>=0) _rankTxt = ` · Leaderboard #${idx+1}/${lb.length}`;
+  } catch(e){}
+  const _on = window.Net && Net.online;
+  document.getElementById('deathStats').textContent =
+    `Tier ${G.player.rank} ${tierName(G.player)} · Kills ${G.player.q.kills} · High-tier ${G.player.q.killHighTier} · Qi ${G.player.qi} · Survived ${(G.time/60)|0}m${(G.time%60)|0}s`
+    + _rankTxt
+    + (_on?` · ${Net.peers.size+1} online`:'');
+  // v1.6.2: one-time rewarded-ad revive button
+  const _revive = document.getElementById('reviveBtn');
+  if (_revive){
+    if (!G._reviveUsed && window.SDK && SDK.ready && typeof SDK.rewardedBreak==='function'){
+      _revive.classList.remove('hidden');
+      _revive.disabled = false;
+      _revive.textContent = '▶ Watch Ad to Revive (Once per run)';
+      _revive.onclick = async ()=>{
+        if (G._reviveUsed) return;
+        G._reviveUsed = true;
+        _revive.disabled = true; _revive.textContent = 'Loading ad…';
+        try { await SDK.rewardedBreak(); } catch(e){}
+        // Restore 60% HP + invuln, hide death, resume
+        G.dead = false;
+        document.getElementById('death').classList.add('hidden');
+        if (G.player){
+          G.player.hp = Math.max(G.player.hp, Math.floor(G.player.maxHp * 0.6));
+          G.player.sta = G.player.maxSta;
+          G.player.invuln = 5;
+          G.shockwaves.push({x:G.player.x,y:G.player.y,r:0,max:600,life:1.4,color:'#ffaa30'});
+          for (let i=0;i<160;i++) G.particles.push({x:G.player.x,y:G.player.y,vx:rand(-600,600),vy:rand(-600,600),life:1.8,color:'#ffaa30',r:3});
+          flash('#ffaa30', 0.9); shake(40); playSound('promote');
+          pushKillFeed('★ Revived by Heaven’s Mercy!', '#ffaa30');
+          logMsg('★ Revived! +60% HP restored','promote');
+        }
+      };
+    } else {
+      _revive.classList.add('hidden');
+    }
+  }
   // v1.0.0: 死亡時間軸
   try{
     const tl = (G.timeline||[]).slice(-8);
@@ -2162,6 +2211,7 @@ function loop(t){
 }
 function update(dt){
   G.time += dt;
+  G._mDt = dt;
   // 相機平滑跟隨 + 世界邊界夾限 + NaN 保護
   if (!isFinite(G.player.x) || !isFinite(G.player.y)){ G.player.x = WORLD.w/2; G.player.y = WORLD.h/2; G.player.vx=0; G.player.vy=0; }
   G.cam.tx = G.player.x; G.cam.ty = G.player.y;
@@ -2340,6 +2390,7 @@ function render(){
     ctx.translate(window.innerWidth/2 - G.cam.x + sx, window.innerHeight/2 - G.cam.y + sy);
     drawCosmicBG();
     drawTerrain();
+    drawAmbientMotes();
     drawTendrils();
     drawQiSprings();
     drawRifts();
@@ -2484,6 +2535,49 @@ function drawDecor(x0,y0,x1,y1){
     if (d.x<wx0||d.x>wx1||d.y<wy0||d.y>wy1) continue;
     drawDecorItem(d);
   }
+}
+// v1.6.2: ambient motes — biome-colored floating particles (dust / fireflies / snow / starsea sparks).
+// Pure screen-space, ~120 motes, tiny perf cost, big visual upgrade.
+function drawAmbientMotes(){
+  if (!G.terrain) return;
+  const cw = window.innerWidth, ch = window.innerHeight;
+  if (!G._motes){
+    G._motes = [];
+    for (let i=0;i<120;i++){
+      G._motes.push({
+        sx: Math.random()*cw, sy: Math.random()*ch,
+        vx: (Math.random()-0.5)*22, vy: -8 - Math.random()*18,
+        r: 0.8 + Math.random()*1.6,
+        ph: Math.random()*Math.PI*2,
+      });
+    }
+  }
+  // Biome at player position drives color
+  let col = '#bb88ff';
+  try {
+    const b = terrainAt(G.player.x, G.player.y);
+    col = ({
+      forest:'#a8ff80', plain:'#ddff90', desert:'#ffd680', swamp:'#88ffcc',
+      water:'#88ccff', mtn:'#cccccc', snow:'#ffffff', end:'#cc66ff', starsea:'#ffeeaa'
+    })[b] || '#bb88ff';
+  } catch(e){}
+  ctx.save();
+  // Reset transform so motes are screen-space (above terrain, below entities).
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const dt = (G._mDt || 0.016);
+  for (const m of G._motes){
+    m.sx += m.vx * dt + Math.sin(G.time*1.4 + m.ph)*0.3;
+    m.sy += m.vy * dt;
+    if (m.sy < -8){ m.sy = ch + 8; m.sx = Math.random()*cw; }
+    if (m.sx <  -8) m.sx = cw + 8;
+    if (m.sx > cw+8) m.sx = -8;
+    const a = 0.35 + Math.sin(G.time*2 + m.ph)*0.25;
+    ctx.fillStyle = col;
+    ctx.globalAlpha = Math.max(0, Math.min(0.8, a));
+    ctx.beginPath(); ctx.arc(m.sx, m.sy, m.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 function drawDecorItem(d){
   const s = d.scale;
@@ -3200,7 +3294,9 @@ function updateHUD(){
   const set = (id,v)=>{ const el=document.getElementById(id); if (el) el.textContent=v; };
   const setW = (id,pct)=>{ const el=document.getElementById(id); if (el) el.style.width=(clamp(pct,0,1)*100).toFixed(1)+'%'; };
   setW('hpFill', p.hp/p.maxHp); set('hpTxt', `${p.hp|0}/${p.maxHp}`);
-  // v0.9.0: 心智條
+  // v1.6.2: gate SAN bar until rank 3 (reduce onboarding cognitive load)
+  const sanRow = document.querySelector('#hud .bar.san') || document.querySelector('#sanFill') && document.querySelector('#sanFill').closest('.bar');
+  if (sanRow) sanRow.style.display = (p.rank >= 3) ? '' : 'none';
   setW('sanFill', p.sanity/p.maxSanity); set('sanTxt', `${p.sanity|0}/${p.maxSanity}`);
   setW('staFill', p.sta/p.maxSta); set('staTxt', `${p.sta|0}/${p.maxSta}`);
   setW('lifeFill', p.life/p.maxLife); set('lifeTxt', `${p.life|0}s`);
@@ -3222,7 +3318,12 @@ function updateHUD(){
   }
   // 權柄槽（v0.8.0: 6 槽，按 1-6 釋放）
   const slotsEl = document.getElementById('fruitSlots');
-  if (slotsEl){
+  // v1.6.2: hide authority slots and the auth list panel until rank 2
+  const fruitsPanelEl = document.getElementById('fruitsPanel');
+  const showAuth = p.rank >= 2;
+  if (slotsEl)       slotsEl.style.display       = showAuth ? '' : 'none';
+  if (fruitsPanelEl) fruitsPanelEl.style.display = showAuth ? '' : 'none';
+  if (slotsEl && showAuth){
     slotsEl.innerHTML = '';
     for (let i=0;i<6;i++){
       const div = document.createElement('div'); div.className='slot';
@@ -3429,8 +3530,33 @@ function buildMenu(){
     const _sd = new Date(_sv.savedAt);
     _siel.className='saveInfo';
     const _qb = (_sv.qiBank||0)|0;
-    _siel.innerHTML = '<div class="saveBox">Last run: <b>'+(_sv.name||'?')+'</b> &nbsp;Tier '+_sv.rank+'&nbsp;&middot;&nbsp;Kills '+_sv.kills+'&nbsp;&middot;&nbsp;'+Math.floor(_sv.time/60)+'m'+(_sv.time%60)+'s&nbsp;&middot;&nbsp;'+_sd.toLocaleDateString('en-US')+(_qb>0?' &nbsp;&middot;&nbsp; <span style="color:#bb88ff">+'+_qb+' Qi banked</span>':'')+'</div>';
-  } else { _siel.innerHTML=''; }
+    // v1.6.2: daily login bonus — give +80 Qi-banked once per UTC day
+    let _daily = '';
+    try {
+      const today = new Date().toISOString().slice(0,10);
+      const last  = localStorage.getItem('evo_daily_last');
+      if (last !== today){
+        const cur = JSON.parse(localStorage.getItem(EVO_SAVE_KEY)) || {};
+        cur.qiBank = Math.min(2000, (cur.qiBank||0) + 80);
+        localStorage.setItem(EVO_SAVE_KEY, JSON.stringify(cur));
+        localStorage.setItem('evo_daily_last', today);
+        _daily = ' &nbsp;&middot;&nbsp; <span style="color:#7fd07f">★ +80 Daily Login Bonus claimed!</span>';
+      }
+    } catch(e){}
+    _siel.innerHTML = '<div class="saveBox">Last run: <b>'+(_sv.name||'?')+'</b> &nbsp;Tier '+_sv.rank+'&nbsp;&middot;&nbsp;Kills '+_sv.kills+'&nbsp;&middot;&nbsp;'+Math.floor(_sv.time/60)+'m'+(_sv.time%60)+'s&nbsp;&middot;&nbsp;'+_sd.toLocaleDateString('en-US')+(_qb>0?' &nbsp;&middot;&nbsp; <span style="color:#bb88ff">+'+_qb+' Qi banked</span>':'')+_daily+'</div>';
+  } else {
+    // v1.6.2: first-visit daily bonus stub
+    try {
+      const today = new Date().toISOString().slice(0,10);
+      const last  = localStorage.getItem('evo_daily_last');
+      if (last !== today){
+        localStorage.setItem(EVO_SAVE_KEY, JSON.stringify({v:'1.6',qiBank:80,savedAt:Date.now()}));
+        localStorage.setItem('evo_daily_last', today);
+        _siel.className='saveInfo';
+        _siel.innerHTML = '<div class="saveBox"><span style="color:#7fd07f">★ +80 Qi Welcome Bonus! Bank ready for your first run.</span></div>';
+      } else { _siel.innerHTML=''; }
+    } catch(e){ _siel.innerHTML=''; }
+  }
 }
 
 // =====================================================================
@@ -3647,7 +3773,8 @@ async function restartGame(){
   if (window.SDK && SDK.ready) SDK.gameplayStop();
   document.getElementById('death').classList.add('hidden');
   document.getElementById('win').classList.add('hidden');
-  G.started=false; G.selectedSpecies=null;
+  const _rev = document.getElementById('reviveBtn'); if (_rev) _rev.classList.add('hidden');
+  G.started=false; G.selectedSpecies=null; G._reviveUsed=false;
   G.killFeed=[]; G.leaderboard=[]; G.deathBy=''; G.errorCount=0;
   if (window.SDK && SDK.ready){ try { await SDK.commercialBreak(); } catch(e){} }
   document.getElementById('menu').classList.remove('hidden');
