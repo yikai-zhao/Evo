@@ -1,4 +1,4 @@
-// Lands End — Prototype v1.6.2 (Polish: emoji icons, gated HUD, daily bonus, revive ad, combat juice)
+// Lands End — Prototype v1.7.0 (Evolution Brawl: SAN removed, slower XP, stronger fruits, death drops, currency + character locks, daily quest)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -172,8 +172,9 @@ const RANK_BONUS = [
 ];
 // 修為門檻（rank N 需要 QI_THR[N]）— v0.7.0 再次收斂，玩起來更爽
 // v1.1.0: 擴張到 19 階（rank 1-9 凡途；10-19 = 序列 9→0 神途）
-const QI_THR = [0, 15, 40, 90, 160, 270, 430, 650, 950, 4000,
-                8000, 14000, 22000, 32000, 45000, 62000, 85000, 115000, 280000];
+// v1.7.0: ranks 1-9 ~1.7x slower for a longer, more meaningful evolution arc
+const QI_THR = [0, 25, 70, 160, 290, 480, 760, 1150, 1700, 5500,
+                10000, 17000, 26000, 38000, 53000, 72000, 95000, 125000, 300000];
 
 // v1.1.0: 22 序列風格神途（rank 10-19 對應 序列 9 → 序列 0；參考《詭秘之主》序列觀）
 const SEQUENCES = [
@@ -1060,27 +1061,25 @@ function tryPromote(p){
     // v0.8.0: 修為溢出寬限 — 達到 1.8 倍門檻則無視任務直接突破
     const grace = p.qi >= QI_THR[p.rank] * 1.8;
     if (q && !q.req(p) && !grace) break;
-    // v0.9.0: 成神試煉（rank 8→9）
+    // v0.9.0: 成神試煉（rank 8→9） — v1.7.0: SAN gate removed
     if (p.rank===8){
-      if (p.q.bossKilled<1 || p.q.riftsUsed<4 || p.sanity<60){
+      if (p.q.bossKilled<1 || p.q.riftsUsed<4){
         if (p.isPlayer && (!p._godTipT || G.time - p._godTipT > 8)){
           p._godTipT = G.time;
           const need=[]; if (p.q.bossKilled<1) need.push(`Slay Outer God ${p.q.bossKilled}/1`);
           if (p.q.riftsUsed<4) need.push(`Open Sanctums ${p.q.riftsUsed}/4`);
-          if (p.sanity<60) need.push(`SAN ${p.sanity|0}/60`);
           pushKillFeed('★ Apotheosis Trial incomplete: '+need.join(' / '),'#ff88cc');
         }
         break;
       }
     }
-    // v1.1.0: True God試煉（rank 18→19，序列 0 愚者True God）
+    // v1.1.0: True God試煉（rank 18→19，序列 0 愚者True God） — v1.7.0: SAN gate removed
     if (p.rank===18){
-      if (p.q.bossKilled<5 || p.q.riftsUsed<8 || p.sanity<80){
+      if (p.q.bossKilled<5 || p.q.riftsUsed<8){
         if (p.isPlayer && (!p._trueGodTipT || G.time - p._trueGodTipT > 10)){
           p._trueGodTipT = G.time;
           const need=[]; if (p.q.bossKilled<5) need.push(`Slay Outer God ${p.q.bossKilled}/5`);
           if (p.q.riftsUsed<8) need.push(`Open Sanctums ${p.q.riftsUsed}/8`);
-          if (p.sanity<80) need.push(`SAN ${p.sanity|0}/80`);
           pushKillFeed('★ True God Trial incomplete (Seq 0): '+need.join(' / '),'#ffd66b');
         }
         break;
@@ -1134,9 +1133,9 @@ function spawnInitialWorld(){
   G.visited = [];
   for (let y=0;y<vh;y++){ const row=[]; for (let x=0;x<vw;x++) row.push(0); G.visited.push(row); }
   G.stage = 1; G.eventCdT = 120; G.minibossSpawnT = 180; G.bossSpawnT = 240; G.timeline = [];
-  // 大地圖：道具/靈氣同步擴張
-  for (let i=0;i<560;i++) spawnPickup();
-  for (let i=0;i<260;i++) spawnSpirit();
+  // 大地圖：道具/靈氣 — v1.7.0: leaner ambient density for combat focus
+  for (let i=0;i<220;i++) spawnPickup();
+  for (let i=0;i<160;i++) spawnSpirit();
   for (const qs of G.qiSprings){
     for (let i=0;i<30;i++){
       const ang=Math.random()*Math.PI*2, dd=rand(20, qs.r*0.9);
@@ -1561,13 +1560,27 @@ function onKill(attacker, target){
     attacker.hp = Math.min(attacker.maxHp, attacker.hp + h);
     if (attacker.isPlayer) addFloat(attacker.x, attacker.y-attacker.r-20, `+${h} HP`, '#80ff80', 14, 0.8);
   }
-  // 掉落
+  // 掉落 — v1.7.0: richer brawl drops (more Qi spirits, higher item rate, Authority fruits from rank 3+)
   for (let i=0;i<Math.min(8, 2+target.rank*2);i++){
     G.spirits.push({x:target.x+rand(-20,20), y:target.y+rand(-20,20), pulse:Math.random()*Math.PI*2, qi:5+target.rank*2, vx:rand(-100,100), vy:rand(-100,100), life:0.5});
   }
-  if (Math.random()<0.3){
+  // bonus Qi orbs scaling with kill rank
+  if (target.rank>=2){
+    for (let i=0;i<target.rank+2;i++){
+      G.spirits.push({x:target.x+rand(-30,30), y:target.y+rand(-30,30), pulse:Math.random()*Math.PI*2, qi:8+target.rank*3, vx:rand(-150,150), vy:rand(-150,150), life:0.4});
+    }
+  }
+  // higher item pickup chance (was 30%)
+  if (Math.random() < 0.45 + target.rank*0.05){
     const def = weightedPickup();
     G.pickups.push({...def, x:target.x, y:target.y, pulse:0});
+  }
+  // v1.7.0: Authority fruit drop chance from rank 3+ kills
+  if (target.rank>=3 && Math.random()<0.18 && typeof AUTHORITIES!=='undefined' && AUTHORITIES.length){
+    try {
+      const a = AUTHORITIES[(Math.random()*AUTHORITIES.length)|0];
+      G.pickups.push({...a, x:target.x, y:target.y, pulse:0});
+    } catch(e){}
   }
   for (let i=0;i<15;i++) G.particles.push({x:target.x,y:target.y,vx:rand(-220,220),vy:rand(-220,220),life:0.6,color:target.color,r:2});
   // 移除
@@ -1895,23 +1908,8 @@ function autoPickup(p){
     if (rf.used) continue;
     if (dist(p, rf) < rf.r){ rf.used = true; rf.respawnT = 300; p.q.riftsUsed++; p.sanity = Math.min(p.maxSanity, p.sanity+25); G.timeline.push({t:G.time, text:'Opening '+rf.name}); grantRiftReward(p, rf); }
   }
-  // v0.9.0: 心智 (Sanity) 計算
-  if (!isFinite(p.sanity)) p.sanity = 100;
-  let sanDelta = 0.3; // 基礎緩回
-  for (const t of G.tendrils){
-    let bx,by; if (t.side==="top"){bx=t.pos;by=0;} else if(t.side==="bottom"){bx=t.pos;by=WORLD.h;}
-    else if(t.side==="left"){bx=0;by=t.pos;} else {bx=WORLD.w;by=t.pos;}
-    const d = Math.hypot(p.x-bx,p.y-by); if (d<800) sanDelta -= 1.5*(1-d/800);
-  }
-  if (terrainAt(p.x,p.y)==="end") sanDelta -= 3;
-  if (G.boss && G.boss.hp>0 && dist(p,G.boss)<900) sanDelta -= 5;
-  for (const qs of G.qiSprings){ if (dist(p,qs)<qs.r) sanDelta += 6; }
-  p.sanity = clamp(p.sanity + sanDelta*(1/60), 0, p.maxSanity);
-  // 心智效應
-  if (p.sanity<10 && Math.random()<0.02){
-    addFloat(p.x+rand(-30,30), p.y-30, ["Madness…","It watches…","Run…","No turning back","Stars Align","Molt"][((Math.random()*6)|0)], "#ff66aa", 12, 1.2);
-  }
-  if (p.sanity<=0 && Math.random()<0.5){ p.hp = Math.max(0, p.hp - 10*(1/60)*10); }
+  // v1.7.0: SAN system removed — pin sanity full so legacy quest gates never block
+  p.sanity = p.maxSanity;
   tryPromote(p);
 }
 function grantRiftReward(p, rf){
@@ -2093,9 +2091,14 @@ function die(reason){
     if (idx>=0) _rankTxt = ` · Leaderboard #${idx+1}/${lb.length}`;
   } catch(e){}
   const _on = window.Net && Net.online;
+  // v1.7.0: award coins and show in death stats
+  let _coinsEarned = 0;
+  try { _coinsEarned = awardRunCoins(); } catch(e){}
+  const _coinTxt = (_coinsEarned>0) ? ` · ★ +${_coinsEarned} coins earned (Total: ${getCoins()})` : '';
   document.getElementById('deathStats').textContent =
     `Tier ${G.player.rank} ${tierName(G.player)} · Kills ${G.player.q.kills} · High-tier ${G.player.q.killHighTier} · Qi ${G.player.qi} · Survived ${(G.time/60)|0}m${(G.time%60)|0}s`
     + _rankTxt
+    + _coinTxt
     + (_on?` · ${Net.peers.size+1} online`:'');
   // v1.6.2: one-time rewarded-ad revive button
   const _revive = document.getElementById('reviveBtn');
@@ -2343,8 +2346,8 @@ function update(dt){
   if (G.tutorialStep===2 && G.tutorialT>15){ addFloat(G.player.x, G.player.y-60, "Press M for map · 1-6 cast Authority", "#88ccff", 18, 4); G.tutorialStep=3; }
   if (G.tutorialStep===3 && G.tutorialT>22){ addFloat(G.player.x, G.player.y-60, "4 sanctums + slay Outer God = Apotheosis", "#ff88cc", 18, 5); G.tutorialStep=4; }
   // 補充靈氣與道具
-  if (G.spirits.length<100 && Math.random()<0.5) spawnSpirit();
-  if (G.pickups.length<400 && Math.random()<0.4) spawnPickup();  // v1.0.0
+  if (G.spirits.length<70 && Math.random()<0.35) spawnSpirit();
+  if (G.pickups.length<180 && Math.random()<0.25) spawnPickup();  // v1.7.0: leaner ambient
   // v1.2.0 多人聯機 tick
   if (window.Net){
     try{ Net.update(G.player, dt); }catch(e){}
@@ -3294,9 +3297,9 @@ function updateHUD(){
   const set = (id,v)=>{ const el=document.getElementById(id); if (el) el.textContent=v; };
   const setW = (id,pct)=>{ const el=document.getElementById(id); if (el) el.style.width=(clamp(pct,0,1)*100).toFixed(1)+'%'; };
   setW('hpFill', p.hp/p.maxHp); set('hpTxt', `${p.hp|0}/${p.maxHp}`);
-  // v1.6.2: gate SAN bar until rank 3 (reduce onboarding cognitive load)
+  // v1.7.0: SAN system removed — keep bar hidden always (DOM still present for legacy compat)
   const sanRow = document.querySelector('#hud .bar.san') || document.querySelector('#sanFill') && document.querySelector('#sanFill').closest('.bar');
-  if (sanRow) sanRow.style.display = (p.rank >= 3) ? '' : 'none';
+  if (sanRow) sanRow.style.display = 'none';
   setW('sanFill', p.sanity/p.maxSanity); set('sanTxt', `${p.sanity|0}/${p.maxSanity}`);
   setW('staFill', p.sta/p.maxSta); set('staTxt', `${p.sta|0}/${p.maxSta}`);
   setW('lifeFill', p.life/p.maxLife); set('lifeTxt', `${p.life|0}s`);
@@ -3411,6 +3414,84 @@ function getSave(){
 }
 
 // =====================================================================
+// v1.7.0: Meta-progression — coins, character unlocks, daily quests
+// =====================================================================
+const EVO_COINS_KEY = 'evo_coins';
+const EVO_UNLOCKS_KEY = 'evo_unlocks';
+const EVO_DAILY_QUEST_KEY = 'evo_daily_q';
+
+// Species costs. 0 / undefined = free. Adjust to balance reward.
+const SPECIES_LOCKS = {
+  swordsman:0, wolf:0, eagle:0, fish:0, scorpion:0,
+  archer:120, mage:150, monk:200, assassin:250,
+  lizard:80,  croc:180, raptor:300, tyrant:500,
+  fox:100,    bear:200, lion:350,   dragon:700,
+  owl:150,    falcon:220, phoenix:600,
+  shark:250,  kraken:550,
+  snake:100,  viper:200,  naga:400,
+  centipede:180, beetle:220, mantis:380, locust:450
+};
+
+function getCoins(){ try { return parseInt(localStorage.getItem(EVO_COINS_KEY)||'0',10)||0; } catch(e){ return 0; } }
+function setCoins(n){ try { localStorage.setItem(EVO_COINS_KEY, String(Math.max(0, n|0))); } catch(e){} }
+function addCoins(n){ setCoins(getCoins() + (n|0)); }
+function getUnlocks(){ try { return JSON.parse(localStorage.getItem(EVO_UNLOCKS_KEY)||'{}') || {}; } catch(e){ return {}; } }
+function isUnlocked(sk){
+  const cost = SPECIES_LOCKS[sk]; if (cost===undefined || cost===0) return true;
+  const u = getUnlocks(); return !!u[sk];
+}
+function unlockSpecies(sk){
+  const cost = SPECIES_LOCKS[sk]; if (!cost) return true;
+  const have = getCoins(); if (have < cost) return false;
+  setCoins(have - cost);
+  const u = getUnlocks(); u[sk] = 1;
+  try { localStorage.setItem(EVO_UNLOCKS_KEY, JSON.stringify(u)); } catch(e){}
+  return true;
+}
+// Award coins at end of run from current G.player stats; also checks daily quest.
+function awardRunCoins(){
+  let earned = 0;
+  try {
+    const p = G.player; if (!p) return 0;
+    const qi = p.qi|0, rank = p.rank|0, kills = (p.q&&p.q.kills)|0;
+    earned = Math.floor(qi/15 + rank*12 + kills*2);
+    // Daily quest completion bonus
+    const dq = getDailyQuest();
+    if (dq && !dq.done){
+      let ok = false;
+      if (dq.type==='survive') ok = (G.time||0) >= dq.target;
+      else if (dq.type==='kills') ok = kills >= dq.target;
+      else if (dq.type==='rank') ok = rank >= dq.target;
+      if (ok){
+        earned += dq.reward|0;
+        dq.done = true;
+        try{ localStorage.setItem(EVO_DAILY_QUEST_KEY, JSON.stringify(dq)); }catch(e){}
+      }
+    }
+    if (earned > 0) addCoins(earned);
+  } catch(e){}
+  return earned;
+}
+// One daily quest per UTC day, rotates from a small pool
+function getDailyQuest(){
+  const today = new Date().toISOString().slice(0,10);
+  try {
+    const cur = JSON.parse(localStorage.getItem(EVO_DAILY_QUEST_KEY)||'null');
+    if (cur && cur.date===today) return cur;
+  } catch(e){}
+  const pool = [
+    {type:'survive', target:300, reward:60,  desc:'Survive 5 minutes in one run'},
+    {type:'kills',   target:50,  reward:80,  desc:'Get 50 kills in one run'},
+    {type:'rank',    target:4,   reward:100, desc:'Reach Tier 4 in one run'},
+    {type:'kills',   target:25,  reward:50,  desc:'Get 25 kills in one run'},
+    {type:'survive', target:600, reward:120, desc:'Survive 10 minutes in one run'},
+  ];
+  const q = {...pool[(Math.random()*pool.length)|0], date:today, done:false};
+  try{ localStorage.setItem(EVO_DAILY_QUEST_KEY, JSON.stringify(q)); }catch(e){}
+  return q;
+}
+
+// =====================================================================
 // 行動觸控 (v1.4.0)
 // =====================================================================
 function setupTouch(canvas){
@@ -3493,6 +3574,18 @@ function setupTouch(canvas){
 // =====================================================================
 function buildMenu(){
   const list = document.getElementById('speciesList'); list.innerHTML='';
+  // v1.7.0: coin banner + daily quest meta bar at top of menu
+  let topBar = document.getElementById('metaBar');
+  if (!topBar){
+    topBar = document.createElement('div'); topBar.id='metaBar';
+    topBar.style.cssText = 'display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;margin:6px 0 10px;padding:8px 12px;background:rgba(180,140,60,0.12);border:1px solid #cc9944;border-radius:8px;font-size:13px;';
+    list.parentNode.insertBefore(topBar, list);
+  }
+  const _coins = getCoins();
+  const _dq = getDailyQuest();
+  const _dqTxt = _dq ? (_dq.done ? `<span style="color:#7fd07f">✓ Daily: ${_dq.desc} (+${_dq.reward} coins claimed)</span>` : `<span style="color:#ffd66b">★ Daily Quest: ${_dq.desc} → +${_dq.reward} coins</span>`) : '';
+  topBar.innerHTML = `<span style="font-weight:700;color:#ffd66b;font-size:16px">🪙 ${_coins} coins</span> ${_dqTxt}`;
+
   const byPath = {};
   for (const k of Object.keys(SPECIES)){ const sp = SPECIES[k]; (byPath[sp.path]=byPath[sp.path]||[]).push(k); }
   for (const pk of Object.keys(PATHS)){
@@ -3504,10 +3597,33 @@ function buildMenu(){
     for (const sk of arr){
       const sp = SPECIES[sk];
       const div = document.createElement('div'); div.className='species';
-      div.innerHTML = `<div style="font-weight:700;color:${sp.color}">${sp.icon} ${sp.name}</div>
+      // v1.7.0: lock badge UI
+      const cost = SPECIES_LOCKS[sk];
+      const locked = (cost!==undefined && cost>0 && !isUnlocked(sk));
+      let lockBadge = '';
+      if (locked){
+        const canBuy = getCoins() >= cost;
+        div.style.opacity = '0.7';
+        lockBadge = `<div style="float:right;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${canBuy?'#3a6b3a':'#552222'};color:${canBuy?'#ccffcc':'#ffaaaa'};border:1px solid ${canBuy?'#7fd07f':'#aa5555'}">🔒 ${cost} ${canBuy?'(click to unlock)':'(need more)'}</div>`;
+      } else if (cost>0){
+        lockBadge = `<div style="float:right;padding:2px 6px;border-radius:4px;font-size:10px;background:#2a4a2a;color:#9fd09f">✓ Unlocked</div>`;
+      }
+      div.innerHTML = `${lockBadge}<div style="font-weight:700;color:${sp.color}">${sp.icon} ${sp.name}</div>
         <div class="nums">HP ${sp.base.hp} · ATK ${sp.base.atk} · SPD ${sp.base.spd} ${sp.base.rngDmg?`· Ranged ${sp.base.rngDmg}`:'(melee only)'}</div>
         <div class="skills">Q ${sp.skillQ.name} · E ${sp.skillE.name} (tier ${sp.skillE.unlockRank}) · R ${sp.skillR.name} (tier ${sp.skillR.unlockRank})</div>`;
       div.onclick = ()=>{
+        // v1.7.0: locked species — try to unlock first
+        if (SPECIES_LOCKS[sk]>0 && !isUnlocked(sk)){
+          if (unlockSpecies(sk)){
+            try{ playSound('promote'); }catch(e){}
+            buildMenu();
+          } else {
+            try{ playSound('hurt'); }catch(e){}
+            const need = SPECIES_LOCKS[sk] - getCoins();
+            try { pushKillFeed(`Need ${need} more coins to unlock ${sp.name}`, '#ff6688'); } catch(e){}
+          }
+          return;
+        }
         document.querySelectorAll('.species').forEach(d=>d.classList.remove('sel'));
         div.classList.add('sel');
         G.selectedSpecies = sk;
@@ -3719,15 +3835,9 @@ async function startGame(){
   logMsg(`You chose [${G.player.sp.name}] · ${G.player.path.name}`, 'promote');
   logMsg('★ 10s spawn protection — get used to controls before attacking!', 'promote');
   logMsg('Controls: WASD move / LMB melee / RMB defend / F ranged / QER skills / X dash / 1-6 Authority / M map', 'promote');
-  logMsg('★ At 0 SAN you self-harm. SAN drops near tentacles/Outer Gods/sanctums. Qi springs restore it.', 'promote');
-  logMsg('★ At 5 min the Outer God [Star-Touching Eye] descends to map center. Slay for +1500 Qi.', 'promote');
-  logMsg('★ 4 eras: Beasts → Cultivation → Stars → Weird. Each has unique challenges.', 'promote');
-  logMsg('★ After Cultivation Era: Wraith mini-boss every 180s; Stars Align every 120s.', 'promote');
-  logMsg('★ Star Map (M): left-click to Ping, fog-of-war, all 9 Authorities on map.', 'promote');
-  logMsg('★ Hotkey P: place Ping at your position without opening map.', 'promote');
-  logMsg('★ 22 Sequences: rank 1-9 mortal; rank 10-19 divine Seq 9→0 (Fool True God is the goal).', 'promote');
-  logMsg('★ Apotheosis (tier 8→9): slay Outer God + open 4 sanctums + SAN ≥ 60.', 'promote');
-  logMsg('★ Each path has unique ascension rituals — check the bottom-left quest panel!', 'promote');
+  logMsg('★ EVOLUTION BRAWL: kill enemies for Qi & loot. Higher-rank enemies drop Authority fruits!', 'promote');
+  logMsg('★ 9 unique Authorities scattered on the map — also dropped by rank 3+ enemies on death.', 'promote');
+  logMsg('★ Outer God descends every 5 min for +1500 Qi. Sanctums grant power. 5 eras escalate the war.', 'promote');
   // v1.2.0 多人聯機
   const _ni=document.getElementById('playerName');
   const _nv=_ni?_ni.value.trim().slice(0,16):'';
