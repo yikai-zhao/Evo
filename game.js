@@ -3741,5 +3741,7 @@ window.addEventListener('load', async ()=>{
   if (window.SDK) SDK.gameLoadingFinished();
   const _ld = document.getElementById('loading');
   if (_ld) _ld.classList.add('hidden');
+  const _menuEl = document.getElementById('menu');
+  if (_menuEl) _menuEl.classList.remove('hidden');
   requestAnimationFrame(loop);
 });
