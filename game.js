@@ -1,4 +1,4 @@
-// Lands End — Prototype v1.8.1 (Difficulty rebalance + UI cleanup + epic era transitions)
+// Lands End — Prototype v1.8.2 (Compact UI + slower XP + denser enemies)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -1184,20 +1184,20 @@ function spawnInitialWorld(){
     const D = 3000;  // v1.0.0 大地圖外擴
     G.authorities.push({...a, x: WORLD.w/2 + Math.cos(ang)*D, y: WORLD.h/2 + Math.sin(ang)*D, pulse:0});
   }
-  // 出生點周遭塞一些靈氣與道具讓玩家先成長 (v1.6.2: bigger starter cache)
+// 出生點周遭塞一些靈氣與道具讓玩家先成長 (v1.8.2: drastically reduced — was instant +2 levels)
   if (G.player){
-    for (let i=0;i<60;i++){
-      const ang=Math.random()*Math.PI*2, d=rand(80,600);
-      G.spirits.push({x:G.player.x+Math.cos(ang)*d, y:G.player.y+Math.sin(ang)*d, pulse:Math.random()*Math.PI*2, qi:8});
+    for (let i=0;i<15;i++){
+      const ang=Math.random()*Math.PI*2, d=rand(120,700);
+      G.spirits.push({x:G.player.x+Math.cos(ang)*d, y:G.player.y+Math.sin(ang)*d, pulse:Math.random()*Math.PI*2, qi:3});
     }
-    for (let i=0;i<18;i++){
-      const ang=Math.random()*Math.PI*2, d=rand(150,700);
+    for (let i=0;i<8;i++){
+      const ang=Math.random()*Math.PI*2, d=rand(180,700);
       const def = weightedPickup();
       G.pickups.push({...def, x:G.player.x+Math.cos(ang)*d, y:G.player.y+Math.sin(ang)*d, pulse:0});
     }
   }
-  // 敵人（出生點 2000px 內為絕對安全區；初始數量降為 60 較少壓力）
-  for (let i=0;i<60;i++) spawnEnemy(true);
+  // 敵人（出生點 2000px 內為絕對安全區）— v1.8.2: more enemies near player for combat density
+  for (let i=0;i<90;i++) spawnEnemy(true);
 }
 function spawnPickup(){
   const def = weightedPickup();
@@ -1209,8 +1209,8 @@ function spawnSpirit(){
 function spawnEnemy(initial=false){
   const keys = Object.keys(SPECIES);
   const sp = keys[(Math.random()*keys.length)|0];
-  // v1.1.0: 14000² group-star map adaptation
-  const safeDist = initial ? 4200 : 2200;
+  // v1.8.2: closer spawn for denser combat (was 4200/2200)
+  const safeDist = initial ? 2400 : 1400;
   let x,y, tries=0;
   do { x=rand(100,WORLD.w-100); y=rand(100,WORLD.h-100); tries++; }
   while (G.player && dist({x,y},G.player) < safeDist && tries<20);
@@ -2367,8 +2367,8 @@ function update(dt){
   // 清理死敵 + 補充
   G.enemies = G.enemies.filter(e=>e.hp>0 && isFinite(e.x) && isFinite(e.y));
   G.minions = G.minions.filter(m=>m.hp>0);
-  // v1.0.0: 大地圖敵人數量隨階段提升
-  const enemyCap = [120, 160, 200, 240, 320][G.stage-1] || 120;
+  // v1.0.0: 大地圖敵人數量隨階段提升 — v1.8.2: denser, especially mid-game
+  const enemyCap = [180, 240, 300, 360, 460][G.stage-1] || 180;
   while (G.enemies.length < enemyCap) spawnEnemy();
   // v0.9.0: 秘境復活
   for (const rf of G.rifts){ if (rf.used && rf.respawnT){ rf.respawnT -= dt; if (rf.respawnT<=0){ rf.used=false; rf.respawnT=0; pushKillFeed("★ Sanctum revived: "+rf.name, rf.color); } } }
