@@ -1,4 +1,4 @@
-// Lands End — Prototype v1.8.3 (Quest-gated promotion + slow XP, banked Qi capped)
+// Lands End — Prototype v1.9.0 (Sequence quest chain + Throne uniqueness + Species rites)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -193,8 +193,49 @@ const SEQUENCES = [
 function sequenceData(p){ return p.rank>=10 ? SEQUENCES[p.rank-10] : null; }
 
 // =====================================================================
-// 物種
+// v1.9.0 — 物種專屬進階儲式（覆蓋 PATH_QUESTS 某些 rank slot，增加可玩性）
+// Index = rank-1. Only listed slots override; others fall through to PATH_QUESTS.
 // =====================================================================
+const SPECIES_QUESTS = {
+  swordsman: { 1: { desc:'Sword Will: Endure 3 strikes from a superior creature', req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
+  lizard:    { 1: { desc:'Tail Regrown: Survive 3 hits from a higher predator',   req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
+  croc:      { 1: { desc:'Scaled Patience: Endure 4 strikes from your elder',     req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
+  wolf:      { 1: { desc:'Lone Wolf: Take 4 hits while hunting upward',           req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
+  scorpion:  { 1: { desc:'Carapace: Endure 5 strikes from a higher creature',     req:p=>p.q.hitByHigher>=5, show:p=>`Endured ${Math.min(p.q.hitByHigher,5)}/5` } },
+  eagle:     { 1: { desc:'Storm Trial: Be struck 3 times from above your tier',   req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
+  owl:       { 1: { desc:'Night Vigil: Survive 3 hits from elder creatures',      req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
+  shark:     { 1: { desc:'Bloodscent: Endure 4 hits from a higher hunter',        req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
+  electroEel:{ 1: { desc:'Live Wire: Endure 3 strikes from your elder',           req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
+  longSnake: { 1: { desc:'Coiled Will: Endure 4 strikes from a greater dragon',   req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
+  dino:      { 1: { desc:'Tyrant Trial: Endure 5 strikes from a higher beast',    req:p=>p.q.hitByHigher>=5, show:p=>`Endured ${Math.min(p.q.hitByHigher,5)}/5` } },
+};
+
+// =====================================================================
+// v1.9.0 — 序列升進任務鐘（rank 9→10 ... 18→19，index = rank-9）
+// rank 9→10 ：凡人登天變為半神，需刬序列者
+// rank 17→18： Seq 2 → Seq 1，需擊殺别的種族的 Seq 1 以上
+// rank 18→19： Seq 1 → Seq 0，本種族的神位必須空缺，或寒你擊殺現任神位持有者后窃位
+// =====================================================================
+const SEQUENCE_QUESTS = [
+  { desc:'Demigod Arrival: Slay 1 Sequenced (Tier 10+)',                req:p=>p.q.killSequenced>=1, show:p=>`Sequenced ${Math.min(p.q.killSequenced,1)}/1` },
+  { desc:'Divinity Apprentice: Slay 3 Sequenced total',                 req:p=>p.q.killSequenced>=3, show:p=>`Sequenced ${Math.min(p.q.killSequenced,3)}/3` },
+  { desc:'Divine Oracle: Channel Authority 8 times in this life',       req:p=>p.q.casts>=8,         show:p=>`Casts ${Math.min(p.q.casts,8)}/8` },
+  { desc:'High Priest: Slay 5 Sequenced and seize 5 Authorities',       req:p=>p.q.killSequenced>=5 && p.q.authorities>=5, show:p=>`Seq ${Math.min(p.q.killSequenced,5)}/5 · Auth ${Math.min(p.q.authorities,5)}/5` },
+  { desc:'Sequence Lord: Slay 1 Outer God',                             req:p=>p.q.bossKilled>=1,    show:p=>`Outer Gods ${Math.min(p.q.bossKilled,1)}/1` },
+  { desc:'Higher Servant: Slay 8 Sequenced total',                      req:p=>p.q.killSequenced>=8, show:p=>`Sequenced ${Math.min(p.q.killSequenced,8)}/8` },
+  { desc:'Demigod King: Slay 1 rival-path Sequence (Tier 18+)',         req:p=>p.q.killSeq1Rival>=1, show:p=>`Rival Seq-1+ ${Math.min(p.q.killSeq1Rival,1)}/1` },
+  { desc:'Ancient Acolyte: Slay 3 Outer Gods total',                    req:p=>p.q.bossKilled>=3,    show:p=>`Outer Gods ${Math.min(p.q.bossKilled,3)}/3` },
+  { desc:'Shadow of True God: Slay 2 rival-path Sequence-1 (Tier 18+)', req:p=>p.q.killSeq1Rival>=2, show:p=>`Rival Seq-1+ ${Math.min(p.q.killSeq1Rival,2)}/2` },
+  { desc:'Usurp the Throne: this path\u2019s Seq-0 must fall (or be vacant)', req:p=>{
+      const t = G.thrones && G.thrones[p.pathKey];
+      return (!t || t === p) || p.q.killThrone>=1;
+    }, show:p=>{
+      const t = G.thrones && G.thrones[p.pathKey];
+      if (!t || t === p) return 'Throne vacant — ascend!';
+      return p.q.killThrone>=1 ? 'Throne usurped' : `Throne held by ${t.name||t.sp.name} — slay them`;
+    } },
+];
+
 const SPECIES = {
   // Path of Humanity
   swordsman: { path:'human', name:'Swordsman', icon:'🗡️', color:'#ffd66b', shape:'humanoid',
@@ -431,6 +472,8 @@ const G = {
   tutorialT:0, tutorialStep:0,
   visited:null, visitedCellSize:200, visitedRadius:5,
   _nidSeq:0, _saveTimer:0, paused:false, _firstAdShown:false,
+  // v1.9.0: only ONE Seq 0 (rank 19) per path may exist at any time. Maps path -> creature reference.
+  thrones: { human:null, dragon:null, beast:null, bird:null, fish:null, insect:null },
 };
 const FAKE_NAMES = ['Witch','Mystic Name','Brahman','Red Lord','Hermit','Spear of Society','Dark Philosopher','Sun','High Dyke','Trance','Rule','Deceiver','Hidden Lord','Reverberation','Conductor','Jiao One','Black Night','Student','Void Reducer','Elder Day','Devourer','Joy','Falsehood','Flame Tongue','Phantom Light','Kunlun','Penguin','Apostle of Flame','Medium','King'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
@@ -1038,7 +1081,13 @@ function makeCreature(speciesKey, x, y, isPlayer=false){
     defending:false,
     bleed:0, poison:0, slow:0, freeze:0, stun:0, invuln:0, rageT:0, titanT:0, darkT:0,
     bonusAtkMult:1, bonusSpdMult:1, bonusDefMult:1, bonusSizeMult:1,
-    q:{ kills:0, killHighTier:0, killEpic:0, casts:0, terrains:new Set(), enteredEnd:false, authorities:0, bossKilled:0, riftsUsed:0 },
+    q:{ kills:0, killHighTier:0, killEpic:0, casts:0, terrains:new Set(), enteredEnd:false, authorities:0, bossKilled:0, riftsUsed:0,
+        // v1.9.0 trackers
+        hitByHigher:0,         // hits taken from creatures of higher rank (species rites)
+        killSequenced:0,       // kills of rank>=10 creatures
+        killSeq1Rival:0,       // kills of rank>=18 creatures of a DIFFERENT path
+        killThrone:0,          // kills of rank===19 creatures of the SAME path (throne usurpation)
+      },
     sanity:100, maxSanity:100,
     aiState:'wander', aiTarget:null, aiTimer:0,
     unlocks:[],
@@ -1133,6 +1182,11 @@ function tryPromote(p){
     p.zhenyuan += b.zy;
     p.daohen += b.dh;
     recalcStats(p);
+    // v1.9.0: register as Throne holder when ascending to Seq 0 (rank 19). Uniqueness already enforced by quest gate.
+    if (p.rank === 19 && G.thrones && !G.thrones[p.pathKey]){
+      G.thrones[p.pathKey] = p;
+      pushKillFeed(`★ The ${p.pathKey.toUpperCase()} Throne is claimed by ${p.isPlayer?'You':(p.name||p.sp.name)}!`, '#ffd66b');
+    }
     p.hp = p.maxHp; p.sta = p.maxSta; p.life = p.maxLife; // 晉階回滿所有狀態
     if (p.isPlayer) p.invuln = Math.max(p.invuln, 3); // 晉階短暫無敵
     promoted = true;
@@ -1239,16 +1293,42 @@ function spawnEnemy(initial=false){
       maxTier = baseTier + farBonus + timeBonus;
     }
   } else maxTier = 1;
-  maxTier = Math.max(1, Math.min(9, maxTier));
+  // v1.9.0: raised cap 9 → 19 so Sequence-tier enemies can spawn at endgame (population caps below keep them scarce)
+  maxTier = Math.max(1, Math.min(19, maxTier));
   // Weighted tier: bias toward player rank (challenging fights, not pushovers)
   const minTier = Math.max(1, _pRank - 2);
-  const tier = minTier + Math.floor(Math.random()*Math.max(1, maxTier - minTier + 1));
+  let tier = minTier + Math.floor(Math.random()*Math.max(1, maxTier - minTier + 1));
+  // v1.9.0: enforce Sequence population caps so the late-game stays scarce & meaningful.
+  // Per-path counts: only 1 Seq-0 (rank 19), up to 3 Seq-1 (rank 18), up to 5 Seq-2 (rank 17).
+  if (tier >= 17){
+    let c17=0, c18=0, c19=0;
+    for (const en of G.enemies){
+      if (en._dead || !en.sp || en.sp.path !== sp.path) continue;
+      if (en.rank===17) c17++;
+      else if (en.rank===18) c18++;
+      else if (en.rank===19) c19++;
+    }
+    // also count player if same path & high rank
+    if (G.player && G.player.sp && G.player.sp.path === sp.path){
+      if (G.player.rank===17) c17++;
+      else if (G.player.rank===18) c18++;
+      else if (G.player.rank===19) c19++;
+    }
+    if (tier===19 && (c19>=1 || (G.thrones && G.thrones[sp.path]))) tier = 18;
+    if (tier===18 && c18>=3) tier = 17;
+    if (tier===17 && c17>=5) tier = 16;
+  }
   for (let r=1;r<tier;r++){
     const b=RANK_BONUS[r-1]; e.zhenyuan+=b.zy; e.daohen+=b.dh;
   }
   e.rank = tier;
   recalcStats(e); e.hp=e.maxHp; e.sta=e.maxSta;
   e.nid = ++G._nidSeq;
+  // v1.9.0: spawned Seq-0 claims the throne for its path
+  if (e.rank===19 && G.thrones && !G.thrones[sp.path]){
+    G.thrones[sp.path] = e;
+    pushKillFeed(`★ The ${sp.path.toUpperCase()} Throne is seized by ${e.name||e.sp.name}!`, '#ffd66b');
+  }
   G.enemies.push(e);
 }
 
@@ -1519,6 +1599,10 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
   if (attacker && attacker.darkT>0 && Math.random()<0.5){ final*=2; isCrit=true; }
   final = Math.max(1, Math.round(final));
   target.hp -= final;
+  // v1.9.0: track "struck by higher creature" for species rite quests
+  if (attacker && attacker !== target && target.q && attacker.rank > target.rank && final>0){
+    target.q.hitByHigher = (target.q.hitByHigher||0) + 1;
+  }
   addFloat(target.x, target.y-target.r, ''+final, isCrit?'#ffeb40':color, isCrit?16:12, 0.7);
   // 進階能力：吸血
   if (ap && ap.lifesteal>0 && attacker.hp>0 && attacker!==target){
@@ -1582,6 +1666,11 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
 function onKill(attacker, target){
   if (target.hp<=0 && target._dead) return;
   target._dead = true;
+  // v1.9.0: throne becomes vacant when the Seq-0 holder dies
+  if (target.rank===19 && target.sp && G.thrones && G.thrones[target.sp.path] === target){
+    G.thrones[target.sp.path] = null;
+    pushKillFeed(`★ The ${target.sp.path.toUpperCase()} Throne is VACANT — ascend now!`, '#ffd66b');
+  }
   playSound('kill');
   // Kill feed
   if (attacker){
@@ -1595,6 +1684,14 @@ function onKill(attacker, target){
     attacker.q.kills++;
     if (target.rank>=3) attacker.q.killHighTier++;
     if (target.rank>=5) attacker.q.killEpic++;
+    // v1.9.0: sequence-tier kill trackers
+    if (target.rank>=10) attacker.q.killSequenced = (attacker.q.killSequenced||0) + 1;
+    if (target.rank>=18 && target.sp && attacker.sp && target.sp.path !== attacker.sp.path){
+      attacker.q.killSeq1Rival = (attacker.q.killSeq1Rival||0) + 1;
+    }
+    if (target.rank===19 && target.sp && attacker.sp && target.sp.path === attacker.sp.path){
+      attacker.q.killThrone = (attacker.q.killThrone||0) + 1;
+    }
     let qiReward = 5 + target.rank*4;
     // v1.8.1: STRATEGY — penalize farming much-weaker enemies (must hunt up your weight class)
     if (target.rank < attacker.rank - 1){
