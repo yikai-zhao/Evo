@@ -1,4 +1,4 @@
-// Lands End — Prototype v1.8.2 (Compact UI + slower XP + denser enemies)
+// Lands End — Prototype v1.8.3 (Quest-gated promotion + slow XP, banked Qi capped)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -380,8 +380,8 @@ const BIOMES = {
 // 道具
 // =====================================================================
 const PICKUPS = [
-  { id:'spirit',   name:'Qi',     color:'#bb88ff', icon:'✦', rare:false, weight:60, qi:8 },
-  { id:'bigspirit',name:'Qi Orb',   color:'#dd99ff', icon:'✧', rare:true,  weight:8,  qi:40 },
+  { id:'spirit',   name:'Qi',     color:'#bb88ff', icon:'✦', rare:false, weight:60, qi:3 },
+  { id:'bigspirit',name:'Qi Orb',   color:'#dd99ff', icon:'✧', rare:true,  weight:8,  qi:18 },
   { id:'heal',     name:'Healing Fruit',   color:'#ff5566', icon:'❤', rare:false, weight:25, heal:60 },
   { id:'bighp',    name:'Blood Pill',   color:'#ff2244', icon:'♥', rare:true,  weight:5,  bighp:80 },
   { id:'sta',      name:'Stamina Fruit',   color:'#7fd07f', icon:'⚡', rare:false, weight:20, sta:50 },
@@ -1094,9 +1094,14 @@ function tryPromote(p){
   while (p.rank < 19 && safety-->0){
     if (!QI_THR[p.rank] || p.qi < QI_THR[p.rank]) break;
     const q = currentQuest(p);
-    // v0.8.0: 修為溢出寬限 — 達到 1.8 倍門檻則無視任務直接突破
-    const grace = p.qi >= QI_THR[p.rank] * 1.8;
-    if (q && !q.req(p) && !grace) break;
+    // v1.8.3: STRICT — quest is mandatory, no grace bypass. XP without quest = stuck (intentional gate)
+    if (q && !q.req(p)){
+      if (p.isPlayer && (!p._questTipT || G.time - p._questTipT > 6)){
+        p._questTipT = G.time;
+        pushKillFeed('★ Qi full — complete quest to break through: '+q.desc, '#ff88cc');
+      }
+      break;
+    }
     // v0.9.0: 成神試煉（rank 8→9） — v1.7.0: SAN gate removed
     if (p.rank===8){
       if (p.q.bossKilled<1 || p.q.riftsUsed<4){
@@ -1123,6 +1128,8 @@ function tryPromote(p){
     }
     const b = RANK_BONUS[p.rank-1];
     p.rank++;
+    // v1.8.3: SUBTRACT qi on promotion — each tier costs its threshold (was free, allowed multi-level cascades)
+    p.qi = Math.max(0, p.qi - QI_THR[p.rank-1]);
     p.zhenyuan += b.zy;
     p.daohen += b.dh;
     recalcStats(p);
@@ -1204,7 +1211,7 @@ function spawnPickup(){
   G.pickups.push({...def, x:rand(80,WORLD.w-80), y:rand(80,WORLD.h-80), pulse:Math.random()*Math.PI*2});
 }
 function spawnSpirit(){
-  G.spirits.push({x:rand(80,WORLD.w-80), y:rand(80,WORLD.h-80), pulse:Math.random()*Math.PI*2, qi:5});
+  G.spirits.push({x:rand(80,WORLD.w-80), y:rand(80,WORLD.h-80), pulse:Math.random()*Math.PI*2, qi:2});
 }
 function spawnEnemy(initial=false){
   const keys = Object.keys(SPECIES);
@@ -1951,15 +1958,16 @@ function autoPickup(p){
   G.authorities = G.authorities.filter(a=>!a._gone);
   for (const qs of G.qiSprings){
     if (dist(p, qs) < qs.r){
-      p.qi += 12 * (1/60);
+      // v1.8.3: slower passive Qi (was 12/s — too fast)
+      p.qi += 4 * (1/60);
       if (!qs._floatT || G.time - qs._floatT > 0.8){ addFloat(p.x,p.y-30,'Qi Spring +Qi','#bb88ff',12,0.8); qs._floatT = G.time; }
     }
     qs.tcd -= 1/60;
     if (qs.tcd<=0){
-      qs.tcd = 3;
+      qs.tcd = 4;
       for (let i=0;i<2;i++){
         const ang = Math.random()*Math.PI*2, dd = rand(20, qs.r*0.9);
-        G.spirits.push({x:qs.x+Math.cos(ang)*dd, y:qs.y+Math.sin(ang)*dd, pulse:Math.random()*Math.PI*2, qi:6});
+        G.spirits.push({x:qs.x+Math.cos(ang)*dd, y:qs.y+Math.sin(ang)*dd, pulse:Math.random()*Math.PI*2, qi:3});
       }
     }
   }
@@ -4151,13 +4159,13 @@ async function startGame(){
   recalcStats(G.player);
   G.player.hp = G.player.maxHp; G.player.sta = G.player.maxSta;
   G.player.invuln = 10; // 10s spawn protection
-  // v1.6.0 retention bonus: consume banked Qi from previous run
+  // v1.6.0 retention bonus: consume banked Qi from previous run — v1.8.3: DISABLED auto-apply (was instant level on start). Banked Qi now stays as a small comeback boost capped at 30.
   try {
-    const _bonus = consumeQiBank();
+    const _bonus = Math.min(30, consumeQiBank());
     if (_bonus>0){
       G.player.qi = (G.player.qi||0) + _bonus;
       logMsg('★ Welcome back! +'+_bonus+' Qi from your last run', 'promote');
-      try{ addFloat(G.player.x, G.player.y-40, '+'+_bonus+' Qi (banked)', '#bb88ff', 18, 2.0); }catch(e){}
+      try{ addFloat(G.player.x, G.player.y-40, '+'+_bonus+' Qi (banked, capped)', '#bb88ff', 18, 2.0); }catch(e){}
     }
   } catch(e){}
   // Camera snap to player
