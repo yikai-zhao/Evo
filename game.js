@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.0.0 (9-level redesign: per-species chains + cultivator + bat + throne uniqueness)
+// Lands End — Prototype v2.1.0 (rift capture-and-hold, world-unique authority fruits drop on death, dead-attack fix)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -674,11 +674,19 @@ function onBossDeath(b){
     G.bossDefeated++;
     G.timeline.push({t:G.time, text:'Slay Star-Touching Eye'});
     // 掉一個隨機權柄
-    if (G.player.authoritySlots.length<6 && AUTHORITIES.length>0){
-      const a = AUTHORITIES[(Math.random()*AUTHORITIES.length)|0];
-      G.authorities.push({...a, x:b.x, y:b.y, pulse:0});
-      pushKillFeed('★ Outer God dropped: '+a.name, a.color);
-    }
+    // v2.1.0: only restore a globally-missing authority (world-unique)
+    try {
+      const heldIds = new Set([
+        ...G.authorities.map(x=>x.id),
+        ...((G.player && G.player.authoritySlots) ? G.player.authoritySlots.map(x=>x.id) : [])
+      ]);
+      const missing = AUTHORITIES.filter(a=>!heldIds.has(a.id));
+      if (missing.length){
+        const a = missing[(Math.random()*missing.length)|0];
+        G.authorities.push({...a, x:b.x, y:b.y, pulse:0, droppedT:G.time});
+        pushKillFeed('★ Outer God restored Authority: '+a.name, a.color);
+      }
+    } catch(e){}
   }
   for (let i=0;i<160;i++) G.particles.push({x:b.x,y:b.y,vx:rand(-600,600),vy:rand(-600,600),life:2,color:'#aa44ff',r:4});
   G.shockwaves.push({x:b.x,y:b.y,r:0,max:800,life:1.5,color:'#aa44ff'});
@@ -947,7 +955,8 @@ function generateNodes(){
   for (let i=0;i<riftDefs.length;i++){
     const ang = (i/riftDefs.length)*Math.PI*2 + Math.PI/8;
     const D = i<4 ? 3000 : 4400;
-    G.rifts.push({ ...riftDefs[i], x: cx + Math.cos(ang)*D, y: cy + Math.sin(ang)*D, r: 70, used:false, pulse: Math.random()*Math.PI*2 });
+    // v2.1.0: capture zones (radius 220) with progress + ownership + guardian spawn
+    G.rifts.push({ ...riftDefs[i], x: cx + Math.cos(ang)*D, y: cy + Math.sin(ang)*D, r: 220, used:false, cap:0, owner:null, ownerName:'', ownT:0, contested:false, guardT:0, pulse: Math.random()*Math.PI*2 });
   }
 }
 
@@ -1018,31 +1027,51 @@ function drawQiSprings(){
 function drawRifts(){
   for (const rf of G.rifts){
     rf.pulse += 0.05;
+    const r = rf.r;
+    // owned-state: faint banner with countdown
     if (rf.used){
-      ctx.fillStyle = '#221122aa';
-      ctx.beginPath(); ctx.arc(rf.x, rf.y, rf.r*0.5, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#888'; ctx.font='12px sans-serif'; ctx.textAlign='center';
-      ctx.fillText(rf.name, rf.x, rf.y - 8);
-      ctx.fillStyle = '#aaa'; ctx.font='10px sans-serif';
-      ctx.fillText('Reviving '+((rf.respawnT||0)|0)+'s', rf.x, rf.y + 8);
+      ctx.fillStyle = (rf.color||'#888')+'22';
+      ctx.beginPath(); ctx.arc(rf.x, rf.y, r*0.55, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = (rf.color||'#888')+'55'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(rf.x, rf.y, r, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle = rf.color||'#aaa'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(rf.name, rf.x, rf.y - 18);
+      ctx.fillStyle = '#fff'; ctx.font='12px sans-serif';
+      ctx.fillText('Held by '+(rf.ownerName||'a cultivator'), rf.x, rf.y);
+      ctx.fillStyle = '#aaa'; ctx.font='11px sans-serif';
+      ctx.fillText('Reopens in '+Math.max(0,(rf.ownT||0)|0)+'s', rf.x, rf.y + 18);
       continue;
     }
-    const r = rf.r;
-    const g = ctx.createRadialGradient(rf.x,rf.y,0,rf.x,rf.y,r*1.8);
-    g.addColorStop(0, rf.color+'aa'); g.addColorStop(0.4, rf.color+'55'); g.addColorStop(1, rf.color+'00');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(rf.x,rf.y,r*1.8,0,Math.PI*2); ctx.fill();
+    // open-state: aura + arcane arcs
+    const gg = ctx.createRadialGradient(rf.x,rf.y,0,rf.x,rf.y,r*1.4);
+    gg.addColorStop(0, rf.color+'77'); gg.addColorStop(0.5, rf.color+'33'); gg.addColorStop(1, rf.color+'00');
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(rf.x,rf.y,r*1.4,0,Math.PI*2); ctx.fill();
+    // boundary ring
+    ctx.strokeStyle = rf.color+'cc'; ctx.lineWidth = 3;
+    ctx.setLineDash([10,8]); ctx.lineDashOffset = -rf.pulse*10;
+    ctx.beginPath(); ctx.arc(rf.x, rf.y, r, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
     for (let i=0;i<6;i++){
       const a = rf.pulse*0.8 + i*Math.PI/3;
-      const rr = r*0.9 + Math.sin(rf.pulse*2 + i)*8;
+      const rr = r*0.55 + Math.sin(rf.pulse*2 + i)*8;
       ctx.strokeStyle = rf.color; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(rf.x, rf.y, rr, a, a + Math.PI/4); ctx.stroke();
     }
+    // capture progress arc
+    const cap = Math.max(0, Math.min(100, rf.cap||0));
+    if (cap>0){
+      ctx.strokeStyle = rf.contested ? '#ff4466' : '#7cff7c';
+      ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.arc(rf.x, rf.y, r+12, -Math.PI/2, -Math.PI/2 + (cap/100)*Math.PI*2); ctx.stroke();
+    }
     ctx.fillStyle = rf.color; ctx.font='bold 26px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(rf.icon, rf.x, rf.y);
-    ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif';
-    ctx.fillText(rf.name, rf.x, rf.y - r - 10);
-    ctx.fillStyle=rf.color; ctx.font='11px sans-serif';
-    ctx.fillText('Approach to trigger', rf.x, rf.y + r + 14);
+    ctx.fillStyle='#fff'; ctx.font='bold 14px sans-serif';
+    ctx.fillText(rf.name, rf.x, rf.y - r - 18);
+    ctx.fillStyle = rf.contested ? '#ff6688' : rf.color;
+    ctx.font='12px sans-serif';
+    const status = rf.contested ? 'CONTESTED · clear foes!' : (cap>0 ? 'Channeling '+(cap|0)+'%' : 'Stand inside to channel (no foes in zone)');
+    ctx.fillText(status, rf.x, rf.y + r + 16);
   }
 }
 
@@ -1557,7 +1586,9 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
     addFloat(target.x, target.y - (target.r||14) - 10, '-'+d, color||'#fff', 12, 0.5);
     return d;
   }
-  if (!target || target.hp<=0) return;
+  if (!target || target.hp<=0 || target._dead) return;
+  // v2.1.0: attacker must be alive too
+  if (attacker && (attacker._dead || (attacker.hp!==undefined && attacker.hp<=0) ) && !attacker._isRemotePeer && !attacker.isRemotePeerAttacker) return;
   // v1.0.0: Stars Align，所有非玩家攻擊者 +30%
   if (G.event && G.event.type==='aligned' && attacker && !attacker.isPlayer) dmg *= 1.3;
   // v0.9.0: 外神 Boss 走自有結算
@@ -1733,11 +1764,17 @@ function onKill(attacker, target){
     const def = weightedPickup();
     G.pickups.push({...def, x:target.x, y:target.y, pulse:0});
   }
-  // v1.7.0: Authority fruit drop chance from rank 3+ kills
-  if (target.rank>=3 && Math.random()<0.18 && typeof AUTHORITIES!=='undefined' && AUTHORITIES.length){
+  // v2.1.0: drop the target's held Authorities at death location (world-unique fruits)
+  if (target.authoritySlots && target.authoritySlots.length){
     try {
-      const a = AUTHORITIES[(Math.random()*AUTHORITIES.length)|0];
-      G.pickups.push({...a, x:target.x, y:target.y, pulse:0});
+      for (const a of target.authoritySlots){
+        if (!a || !a.id) continue;
+        G.authorities.push({...a, x:target.x+rand(-40,40), y:target.y+rand(-40,40), pulse:0, droppedT:G.time});
+        const who = target.isPlayer ? 'You' : ((target.sp && target.sp.name) || 'A creature');
+        pushKillFeed('★ '+who+' dropped Authority ['+a.name+']', a.color||'#ffaa30');
+      }
+      target.authoritySlots = [];
+      target.authCdT = [];
     } catch(e){}
   }
   for (let i=0;i<15;i++) G.particles.push({x:target.x,y:target.y,vx:rand(-220,220),vy:rand(-220,220),life:0.6,color:target.color,r:2});
@@ -2063,9 +2100,41 @@ function autoPickup(p){
       }
     }
   }
+  // v2.1.0: capture-and-hold rifts — stand inside (no enemies) to channel; takes ~8s; contested if foes inside
   for (const rf of G.rifts){
     if (rf.used) continue;
-    if (dist(p, rf) < rf.r){ rf.used = true; rf.respawnT = 300; p.q.riftsUsed++; p.sanity = Math.min(p.maxSanity, p.sanity+25); G.timeline.push({t:G.time, text:'Opening '+rf.name}); grantRiftReward(p, rf); }
+    const inside = dist(p, rf) < rf.r;
+    if (!inside){
+      // slow decay when no one channeling
+      rf.cap = Math.max(0, (rf.cap||0) - 6*(1/60));
+      rf.contested = false;
+      continue;
+    }
+    // count hostile enemies inside zone (alive)
+    let foes = 0;
+    for (const e of G.enemies){ if (!e._dead && e.hp>0 && Math.hypot(e.x-rf.x,e.y-rf.y) < rf.r) foes++; }
+    if (foes > 0){
+      rf.contested = true;
+      rf.cap = Math.max(0, (rf.cap||0) - 4*foes*(1/60));
+    } else {
+      rf.contested = false;
+      // channel: 8s clear = 12.5/s -> use 15/s for snappier feel
+      rf.cap = Math.min(100, (rf.cap||0) + 15*(1/60));
+      // light passive while channeling
+      p.qi += 0.5;
+      if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p.maxHp*0.002);
+    }
+    if (rf.cap >= 100){
+      rf.cap = 0;
+      rf.used = true;
+      rf.owner = p;
+      rf.ownerName = p.name || 'You';
+      rf.ownT = 90; // ownership/cooldown 90s before reopens
+      p.q.riftsUsed++;
+      p.sanity = Math.min(p.maxSanity, p.sanity+25);
+      G.timeline.push({t:G.time, text:'Captured '+rf.name});
+      grantRiftReward(p, rf);
+    }
   }
   // v1.7.0: SAN system removed — pin sanity full so legacy quest gates never block
   p.sanity = p.maxSanity;
@@ -2441,8 +2510,9 @@ function update(dt){
     G.player.x = WORLD.w/2; G.player.y = WORLD.h/2; G.player.vx=0; G.player.vy=0;
     pushKillFeed('⚠ Position reset', '#ff8888');
   }
-  for (const e of G.enemies){ try{ aiUpdate(e, dt); }catch(err){ e.hp=0; console.warn('ai err',err);} }
-  for (const m of G.minions){ try{ aiUpdate(m, dt); }catch(err){ m.hp=0;} m.life-=dt; if (m.life<=0) m.hp=0; }
+  // v2.1.0: defensive skip — dead creatures must not run AI/attack even before filter runs
+  for (const e of G.enemies){ if (e._dead || e.hp<=0) continue; try{ aiUpdate(e, dt); }catch(err){ e.hp=0; console.warn('ai err',err);} }
+  for (const m of G.minions){ if (m._dead || m.hp<=0) { m.life=0; continue; } try{ aiUpdate(m, dt); }catch(err){ m.hp=0;} m.life-=dt; if (m.life<=0) m.hp=0; }
   updateProjectiles(dt);
   updateHazards(dt);
   // 粒子
@@ -2470,8 +2540,18 @@ function update(dt){
   // v1.0.0: 大地圖敵人數量隨階段提升 — v1.8.2: denser, especially mid-game
   const enemyCap = [180, 240, 300, 360, 460][G.stage-1] || 180;
   while (G.enemies.length < enemyCap) spawnEnemy();
-  // v0.9.0: 秘境復活
-  for (const rf of G.rifts){ if (rf.used && rf.respawnT){ rf.respawnT -= dt; if (rf.respawnT<=0){ rf.used=false; rf.respawnT=0; pushKillFeed("★ Sanctum revived: "+rf.name, rf.color); } } }
+  // v2.1.0: rift ownership countdown (was simple respawn)
+  for (const rf of G.rifts){
+    if (rf.used){
+      // support legacy respawnT field
+      if (rf.respawnT){ rf.ownT = Math.max(rf.ownT||0, rf.respawnT); rf.respawnT = 0; }
+      rf.ownT = (rf.ownT||0) - dt;
+      if (rf.ownT <= 0){
+        rf.used = false; rf.ownT = 0; rf.cap = 0; rf.owner = null; rf.ownerName=''; rf.contested = false;
+        pushKillFeed('★ Sanctum reopens: '+rf.name, rf.color);
+      }
+    }
+  }
   // v0.9.0: 世界 Boss
   if (G.boss && G.boss.hp<=0){ onBossDeath(G.boss); G.boss=null; G.bossSpawnT=300; }
   if (!G.boss){ G.bossSpawnT -= dt; if (G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=300; } }
