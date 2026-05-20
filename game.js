@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.2.0 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
+// Lands End — Prototype v2.2.1 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -3092,8 +3092,6 @@ function drawCreature(c){
   drawShape(c);
   ctx.globalAlpha = 1;
   ctx.restore();
-  // icon
-  ctx.fillStyle = '#000'; ctx.font =
   // v2.2.0: shield bubble visual
   if ((c.shieldHp||0)>0 && (c.shieldT||0)>0){
     ctx.strokeStyle = '#88ccff';
@@ -3112,7 +3110,9 @@ function drawCreature(c){
     ctx.lineWidth = 2; ctx.setLineDash([6,6]); ctx.lineDashOffset = -G.time*30;
     ctx.beginPath(); ctx.arc(c.x, c.y, c.r+14, 0, Math.PI*2); ctx.stroke();
     ctx.setLineDash([]);
-  } `bold ${Math.floor(c.r*0.8)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  }
+  // icon
+  ctx.fillStyle = '#000'; ctx.font = `bold ${Math.floor(c.r*0.8)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(c.sp.icon, c.x, c.y);
   // HP bar
   if (!isP){
