@@ -41,7 +41,7 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 .pathHeader { font-size:15px; font-weight:700; margin:8px 0 6px; padding-bottom:4px; border-bottom:1px dashed #444; }
 
 /* HUD */
-#hud { position: fixed; left:10px; top:10px; width: 260px; z-index: 10; pointer-events:none; }
+#hud { position: fixed; left:10px; top:10px; width: 240px; z-index: 10; pointer-events:none; }
 #hud.hidden { display:none; }
 .bar { display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:12px; }
 .bar .lbl { width:34px; color:#bbb; }

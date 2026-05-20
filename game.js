@@ -1,4 +1,4 @@
-// Lands End — Prototype v1.8.0 (Monetization push: rewarded-ad sinks, lucky spin, login streak, weekly challenge, character mastery, opposing-path Qi bonus)
+// Lands End — Prototype v1.8.1 (Difficulty rebalance + UI cleanup + epic era transitions)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -170,11 +170,12 @@ const RANK_BONUS = [
   { hp:5800,atk:950,def:300,spd:50, sta:100,life:2100,zy:3.80, dh:3.80 },
   { hp:8500,atk:1400,def:420,spd:55,sta:120,life:2800,zy:5.00, dh:5.00 },
 ];
-// 修為門檻（rank N 需要 QI_THR[N]）— v0.7.0 再次收斂，玩起來更爽
+// 修為門檻（rank N 需要 QI_THR[N]）— v0.7.0 再次收斂
 // v1.1.0: 擴張到 19 階（rank 1-9 凡途；10-19 = 序列 9→0 神途）
-// v1.7.0: ranks 1-9 ~1.7x slower for a longer, more meaningful evolution arc
-const QI_THR = [0, 25, 70, 160, 290, 480, 760, 1150, 1700, 5500,
-                10000, 17000, 26000, 38000, 53000, 72000, 95000, 125000, 300000];
+// v1.7.0: ranks 1-9 ~1.7x slower
+// v1.8.1: STRATEGIC progression — early ranks now require real effort (no more instant levels)
+const QI_THR = [0, 60, 200, 460, 850, 1400, 2200, 3300, 4800, 8500,
+                14000, 22000, 33000, 47000, 65000, 88000, 116000, 150000, 320000];
 
 // v1.1.0: 22 序列風格神途（rank 10-19 對應 序列 9 → 序列 0；參考《詭秘之主》序列觀）
 const SEQUENCES = [
@@ -812,15 +813,41 @@ function drawStageBanner(){
   if (G.stageBannerT<=0) return;
   const W = window.innerWidth, H = window.innerHeight;
   const t = G.stageBannerT;
-  const a = t > 4 ? (5-t) : Math.min(1, t/0.8);
-  ctx.fillStyle = 'rgba(0,0,0,'+(0.5*a)+')';
-  ctx.fillRect(0, H*0.35, W, 130);
-  ctx.fillStyle = 'rgba(255,221,102,'+a+')';
-  ctx.font = 'bold 44px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-  ctx.fillText(G.stageBannerText, W/2, H*0.35 + 55);
-  ctx.fillStyle = 'rgba(255,255,255,'+(a*0.8)+')';
-  ctx.font = '18px sans-serif';
-  ctx.fillText(G.stageBannerSub, W/2, H*0.35 + 90);
+  // v1.8.1: epic banner — full-screen darkening + gradient + huge text + glow + sub-banner
+  const a = t > 7 ? (8-t) : Math.min(1, t/1.2);
+  // Full-screen vignette darken
+  ctx.fillStyle = 'rgba(0,0,0,'+(0.55*a)+')';
+  ctx.fillRect(0, 0, W, H);
+  // Gold/purple radial halo behind text
+  const cy = H*0.40;
+  const g = ctx.createRadialGradient(W/2, cy, 0, W/2, cy, Math.max(W,H)*0.45);
+  g.addColorStop(0, 'rgba(255,221,102,'+(0.35*a)+')');
+  g.addColorStop(0.5, 'rgba(180,80,200,'+(0.18*a)+')');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // Top + bottom gold bars
+  ctx.fillStyle = 'rgba(255,221,102,'+(0.7*a)+')';
+  ctx.fillRect(0, cy-90, W, 3); ctx.fillRect(0, cy+70, W, 3);
+  // Huge title with glow
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,221,102,'+(0.9*a)+')'; ctx.shadowBlur = 32;
+  ctx.fillStyle = 'rgba(255,235,150,'+a+')';
+  ctx.font = 'bold 64px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.fillText(G.stageBannerText, W/2, cy);
+  ctx.restore();
+  // Subtitle
+  ctx.fillStyle = 'rgba(220,220,255,'+(a*0.9)+')';
+  ctx.font = 'italic 22px sans-serif';
+  ctx.fillText(G.stageBannerSub, W/2, cy + 42);
+  // Animated sparks beneath
+  const sparks = 18;
+  for (let i=0;i<sparks;i++){
+    const phase = (G.time*1.5 + i*0.7) % (Math.PI*2);
+    const sx = W/2 + Math.cos(phase + i)* (180 + Math.sin(phase*2)*40);
+    const sy = cy + 55 + Math.sin(phase*1.7)*8;
+    ctx.fillStyle = 'rgba(255,221,102,'+(a*(0.4+0.4*Math.abs(Math.sin(phase))))+')';
+    ctx.beginPath(); ctx.arc(sx, sy, 2.5, 0, Math.PI*2); ctx.fill();
+  }
 }
 function drawWorldEventFX(){
   if (!G.event || G.event.type!=='aligned') return;
@@ -1188,18 +1215,27 @@ function spawnEnemy(initial=false){
   do { x=rand(100,WORLD.w-100); y=rand(100,WORLD.h-100); tries++; }
   while (G.player && dist({x,y},G.player) < safeDist && tries<20);
   const e = makeCreature(sp, x, y, false);
-  // v1.6.2 onboarding: gentle first 90s — enemies max rank 1
+  // v1.8.1: enemies scale with PLAYER rank — no more easy farming once you climb
   let maxTier;
+  const _pRank = (G.player && G.player.rank) || 1;
   if (G.player){
     const d = dist({x,y},G.player);
-    if (G.time < 90){
-      maxTier = 1;
-    } else if (d < 2500) maxTier = 1;
-    else if (d < 3800) maxTier = 1 + Math.floor((G.time-90)/90);
-    else maxTier = 2 + Math.floor((G.time-90)/60);
+    if (G.time < 60){
+      maxTier = 1; // gentle 60s tutorial window
+    } else if (G.time < 120){
+      maxTier = Math.min(2, _pRank);
+    } else {
+      // After tutorial: enemies match player ±1 tier, with elite spawns far from player
+      const baseTier = Math.max(1, _pRank - 1);
+      const farBonus = d > 3800 ? 2 : (d > 2500 ? 1 : 0);
+      const timeBonus = Math.floor((G.time - 120) / 180); // +1 max tier per 3min
+      maxTier = baseTier + farBonus + timeBonus;
+    }
   } else maxTier = 1;
-  maxTier = Math.max(1, Math.min(7, maxTier));
-  const tier = 1 + Math.floor(Math.random()*maxTier);
+  maxTier = Math.max(1, Math.min(9, maxTier));
+  // Weighted tier: bias toward player rank (challenging fights, not pushovers)
+  const minTier = Math.max(1, _pRank - 2);
+  const tier = minTier + Math.floor(Math.random()*Math.max(1, maxTier - minTier + 1));
   for (let r=1;r<tier;r++){
     const b=RANK_BONUS[r-1]; e.zhenyuan+=b.zy; e.daohen+=b.dh;
   }
@@ -1552,8 +1588,17 @@ function onKill(attacker, target){
     attacker.q.kills++;
     if (target.rank>=3) attacker.q.killHighTier++;
     if (target.rank>=5) attacker.q.killEpic++;
-    let qiReward = 8 + target.rank*6;
-    // v1.8.0: opposing-path bonus — kill enemies of a different path → +50% Qi (encourages strategic enemy selection / team battles)
+    let qiReward = 5 + target.rank*4;
+    // v1.8.1: STRATEGY — penalize farming much-weaker enemies (must hunt up your weight class)
+    if (target.rank < attacker.rank - 1){
+      const _diff = attacker.rank - target.rank;
+      qiReward = Math.max(1, Math.floor(qiReward * Math.max(0.15, 1 - _diff*0.35)));
+    }
+    // v1.8.1: bonus for killing UP (hunting stronger prey = big reward)
+    if (target.rank > attacker.rank){
+      qiReward = Math.floor(qiReward * (1 + (target.rank - attacker.rank) * 0.6));
+    }
+    // v1.8.0: opposing-path bonus — kill enemies of a different path → +50% Qi
     let _oppMul = 1;
     if (target.sp && attacker.sp && target.sp.path && attacker.sp.path && target.sp.path !== attacker.sp.path){
       _oppMul = 1.5;
@@ -2346,14 +2391,28 @@ function update(dt){
   for (let i=0;i<stageThresholds.length;i++) if (G.time >= stageThresholds[i]) newStage = i+2;
   if (newStage !== G.stage){
     G.stage = newStage;
-    G.stageBannerT = 5; G.stageBannerText = '★ Chapter '+newStage+' Era · '+stageNames[newStage-1];
+    // v1.8.1: EPIC era transitions — bigger banner, screen shake, particle storm, mass spawn, forced bosses
+    G.stageBannerT = 8; G.stageBannerText = '★ CHAPTER '+newStage+' · '+stageNames[newStage-1].toUpperCase()+' ★';
     G.stageBannerSub  = stageSubs[newStage-1];
-    try{ flash('#ffdd66', 0.5); shake(15); playSound('promote'); }catch(e){}
-    pushKillFeed('☄ Era shift: '+stageNames[newStage-1]+' ☄','#ffdd66');
+    try{ flash('#ffdd66', 1.2); shake(45); playSound('promote'); }catch(e){}
+    // Particle storm around player
+    if (G.player){
+      for (let i=0;i<260;i++){
+        const a = Math.random()*Math.PI*2, sp = rand(180, 720);
+        G.particles.push({x:G.player.x, y:G.player.y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:2.2, color: newStage>=4?'#aa44ff':(newStage>=3?'#88ccff':'#ffdd66'), r: rand(2,5)});
+      }
+      G.shockwaves.push({x:G.player.x,y:G.player.y,r:0,max:1400,life:2.0,color:newStage>=4?'#aa44ff':'#ffdd66'});
+    }
+    pushKillFeed('☄☄☄ ERA SHIFT — '+stageNames[newStage-1]+' ☄☄☄','#ffdd66');
     logMsg('★★★ '+G.stageBannerText+' — '+G.stageBannerSub,'promote');
     G.timeline.push({t:G.time, text:'Entered '+stageNames[newStage-1]});
-    if (newStage===4){ G.bossSpawnT = Math.min(G.bossSpawnT, 60); }
-    if (newStage===5){ G.bossSpawnT = Math.min(G.bossSpawnT, 30); G.minibossSpawnT = Math.min(G.minibossSpawnT, 20); G.eventCdT = Math.min(G.eventCdT, 30); }
+    // Mass spawn wave (more enemies, scaled by era)
+    const waveSize = 8 + newStage*6;
+    for (let i=0;i<waveSize;i++){ try { spawnEnemy(false); } catch(e){} }
+    // v1.8.1: era 3+ force a miniboss; era 4+ force an Outer God immediately for epic feel
+    if (newStage>=3 && !G.miniboss){ try { spawnMiniboss(); G.minibossSpawnT = 150; } catch(e){} }
+    if (newStage>=4 && !G.boss){ try { spawnBoss(); G.bossSpawnT = 300; } catch(e){} }
+    if (newStage===5){ G.eventCdT = Math.min(G.eventCdT, 15); }
   }
   if (G.stageBannerT>0) G.stageBannerT -= dt;
   if (G.revealT>0) G.revealT -= dt;
@@ -3305,7 +3364,8 @@ function drawKillFeed(){
 }
 function drawLeaderboard(){
   if (!G.leaderboard || !G.leaderboard.length) return;
-  const lx = 12, ly = 12, lw = 240;
+  // v1.8.1: moved to top-RIGHT to avoid overlap with HUD bars/stats/quest on left
+  const lw = 240, lx = (window.innerWidth || canvas.width) - lw - 12, ly = 12;
   ctx.fillStyle = '#000b'; ctx.fillRect(lx, ly, lw, 12 + G.leaderboard.length*22 + 6);
   ctx.strokeStyle = '#ffd66b88'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, 12 + G.leaderboard.length*22 + 6);
   const _oc=(window.Net&&Net.online)?Net.peers.size+1:0;
@@ -3346,8 +3406,9 @@ function updateHUD(){
   setW('lifeFill', p.life/p.maxLife); set('lifeTxt', `${p.life|0}s`);
   const need = QI_THR[p.rank] || QI_THR[8];
   const prev = QI_THR[p.rank-1] || 0;
-  setW('evoFill', (p.qi-prev)/Math.max(1,need-prev));
-  set('evoTxt', `${p.qi}/${need}`);
+  const _qiSafe = Number.isFinite(p.qi) ? p.qi : 0;
+  setW('evoFill', (_qiSafe-prev)/Math.max(1,need-prev));
+  set('evoTxt', `${_qiSafe|0}/${need}`);
   // 階位 / 任務 / 解鎖
   const q = currentQuest(p);
   const statsEl = document.getElementById('stats');
