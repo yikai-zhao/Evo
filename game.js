@@ -1,4 +1,4 @@
-// Lands End — Prototype v1.9.0 (Sequence quest chain + Throne uniqueness + Species rites)
+// Lands End — Prototype v2.0.0 (9-level redesign: per-species chains + cultivator + bat + throne uniqueness)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -121,12 +121,20 @@ const PATHS = {
   },
 };
 function tierName(p){
-  if (p.rank>=10){ const sq=sequenceData(p); return sq?sq.sname:'True God'; }
-  return (p.path.tiers[p.rank-1] && p.path.tiers[p.rank-1].name) || 'Mortal';
+  // v2.0: each species has its own 9-stage chain title (overrides path tier name)
+  const titles = SPECIES_TITLES[p.species];
+  const idx = Math.max(0, Math.min(8, p.rank-1));
+  if (titles && titles[idx]) return titles[idx];
+  return (p.path.tiers[idx] && p.path.tiers[idx].name) || 'Mortal';
 }
 function tierData(p){
-  if (p.rank>=10){ const sq=sequenceData(p); return sq?{name:sq.sname, pname:sq.pname, pdesc:sq.pdesc, p:sq.p}:null; }
-  return p.path.tiers[p.rank-1];
+  // v2.0: tier perks always come from path.tiers (1..9); name override via SPECIES_TITLES
+  const idx = Math.max(0, Math.min(8, p.rank-1));
+  const base = p.path.tiers[idx];
+  if (!base) return null;
+  const titles = SPECIES_TITLES[p.species];
+  if (titles && titles[idx]) return { ...base, name: titles[idx] };
+  return base;
 }
 function aggregatePerks(p){
   const out = { atk:1, def:1, hp:1, spd:1, sta:1, size:1, range:1, vision:1,
@@ -135,8 +143,7 @@ function aggregatePerks(p){
                 reflect:0, aoeOnHit:0, slowAura:0, dotAura:0, pushAura:0, revive:0 };
   const accumTiers = [];
   for (let i=0;i<Math.min(p.rank,9);i++) if (p.path.tiers[i]) accumTiers.push(p.path.tiers[i]);
-  // v1.1.0: 序列加成（rank 10 = SEQUENCES[0]、...、rank 19 = SEQUENCES[9]）
-  for (let i=10;i<=p.rank && i<=19;i++) accumTiers.push(SEQUENCES[i-10]);
+  // v2.0: cultivator species has its OWN tier perks (caster-leaning) that overlay the path perks
   for (const t of accumTiers){
     if (!t||!t.p) continue;
     for (const k in t.p){
@@ -148,49 +155,42 @@ function aggregatePerks(p){
   return out;
 }
 
-// 每階加成（rank N→N+1 用 index N-1）— v1.1.0 擴張到 18 階（rank 1→19 = 18 次晉階）
+// v2.0: 9-level system. RANK_BONUS index N = bonus when promoting rank (N+1)→(N+2). 8 entries cover 1→2 ... 8→9.
 const RANK_BONUS = [
-  { hp:30, atk:5,  def:2, spd:4,  sta:8,  life:30, zy:0.10, dh:0.10 },
-  { hp:40, atk:7,  def:3, spd:5,  sta:10, life:35, zy:0.12, dh:0.12 },
-  { hp:55, atk:10, def:4, spd:6,  sta:12, life:45, zy:0.15, dh:0.15 },
-  { hp:75, atk:14, def:6, spd:7,  sta:14, life:55, zy:0.18, dh:0.18 },
-  { hp:100,atk:20, def:9, spd:8,  sta:16, life:70, zy:0.22, dh:0.22 },
-  { hp:140,atk:30, def:13,spd:10, sta:20, life:90, zy:0.28, dh:0.28 },
-  { hp:200,atk:45, def:18,spd:12, sta:24, life:120,zy:0.35, dh:0.35 },
-  { hp:300,atk:70, def:25,spd:15, sta:30, life:180,zy:0.50, dh:0.50 },
-  // v1.1.0: 神途序列（rank 9→10 起）— 屬性加幅遞增
-  { hp:450, atk:100,def:35, spd:18, sta:36, life:240, zy:0.65, dh:0.65 },
-  { hp:650, atk:140,def:50, spd:22, sta:42, life:320, zy:0.80, dh:0.80 },
-  { hp:900, atk:190,def:65, spd:26, sta:48, life:420, zy:1.00, dh:1.00 },
-  { hp:1250,atk:250,def:85, spd:30, sta:56, life:560, zy:1.25, dh:1.25 },
-  { hp:1700,atk:320,def:110,spd:34, sta:64, life:740, zy:1.55, dh:1.55 },
-  { hp:2300,atk:420,def:140,spd:38, sta:72, life:960, zy:1.90, dh:1.90 },
-  { hp:3100,atk:550,def:180,spd:42, sta:80, life:1240,zy:2.40, dh:2.40 },
-  { hp:4200,atk:720,def:230,spd:46, sta:90, life:1600,zy:3.00, dh:3.00 },
-  { hp:5800,atk:950,def:300,spd:50, sta:100,life:2100,zy:3.80, dh:3.80 },
-  { hp:8500,atk:1400,def:420,spd:55,sta:120,life:2800,zy:5.00, dh:5.00 },
+  { hp:60,   atk:9,    def:3,   spd:5,  sta:10,  life:45,   zy:0.18, dh:0.18 },
+  { hp:110,  atk:16,   def:5,   spd:6,  sta:14,  life:70,   zy:0.26, dh:0.26 },
+  { hp:190,  atk:28,   def:9,   spd:8,  sta:18,  life:110,  zy:0.38, dh:0.38 },
+  { hp:340,  atk:48,   def:15,  spd:10, sta:22,  life:180,  zy:0.55, dh:0.55 },
+  { hp:600,  atk:85,   def:25,  spd:13, sta:28,  life:300,  zy:0.80, dh:0.80 },
+  { hp:1100, atk:155,  def:45,  spd:16, sta:36,  life:480,  zy:1.20, dh:1.20 },
+  { hp:2000, atk:280,  def:75,  spd:20, sta:46,  life:780,  zy:1.80, dh:1.80 },
+  { hp:3800, atk:520,  def:130, spd:25, sta:58,  life:1250, zy:2.70, dh:2.70 },
 ];
-// 修為門檻（rank N 需要 QI_THR[N]）— v0.7.0 再次收斂
-// v1.1.0: 擴張到 19 階（rank 1-9 凡途；10-19 = 序列 9→0 神途）
-// v1.7.0: ranks 1-9 ~1.7x slower
-// v1.8.1: STRATEGIC progression — early ranks now require real effort (no more instant levels)
-const QI_THR = [0, 60, 200, 460, 850, 1400, 2200, 3300, 4800, 8500,
-                14000, 22000, 33000, 47000, 65000, 88000, 116000, 150000, 320000];
+// v2.0: 9-level qi thresholds. Index N = qi required to promote to rank (N+1). [0]=unused, [8]=throne.
+const QI_THR = [0, 80, 280, 720, 1800, 4200, 9500, 20000, 42000];
 
-// v1.1.0: 22 序列風格神途（rank 10-19 對應 序列 9 → 序列 0；參考《詭秘之主》序列觀）
-const SEQUENCES = [
-  { sname:'Seq 9 · Demigod Arrival', pname:'Nascent Divinity', pdesc:'HP+30% ATK+30% DEF+20% Range+15%', p:{hp:1.30, atk:1.30, def:1.20, range:1.15} },
-  { sname:'Seq 8 · Divinity Apprentice', pname:'Potion Refinement', pdesc:'Lifesteal+15%, ATK+25%',                  p:{lifesteal:0.15, atk:1.25} },
-  { sname:'Seq 7 · Divine Apostle', pname:'Divine Oracle', pdesc:'HP+45% Regen+3/s Crit+15%',          p:{hp:1.45, regen:3, crit:0.15} },
-  { sname:'Seq 6 · High Priest', pname:'Divine Radiance', pdesc:'ATK+35% Crit+25% SPD+15%',         p:{atk:1.35, crit:0.25, spd:1.15} },
-  { sname:'Seq 5 · Sequence Lord', pname:'Sequence Authority', pdesc:'Stats+30%, Poison + Slow Auras',           p:{atk:1.30, hp:1.30, dotAura:1, slowAura:1} },
-  { sname:'Seq 4 · Higher Servant', pname:'Servant Blessing', pdesc:'DEF+55%, Pierce 30%, KB Res +80%',   p:{def:1.55, pierce:0.30, knockRes:0.8} },
-  { sname:'Seq 3 · Demigod King', pname:'King Aura', pdesc:'ATK+45% Size+15% Range+25%',          p:{atk:1.45, size:1.15, range:1.25} },
-  { sname:'Seq 2 · Ancient God Acolyte', pname:'Ancient Covenant', pdesc:'HP+55% ATK+50%, Poison Aura',          p:{hp:1.55, atk:1.50, dotAura:1} },
-  { sname:'Seq 1 · Shadow of True God', pname:'Divine Manifestation', pdesc:'ATK+60%, Reflect, Revive Once',         p:{atk:1.60, reflect:1, revive:1} },
-  { sname:'Seq 0 · Fool, the True God', pname:'Weaver of Fate', pdesc:'All Submit: Stats x2, All Auras, Pierce 50%', p:{atk:2.0, hp:2.0, def:1.50, slowAura:1, dotAura:1, pushAura:1, pierce:0.50, killheal:0.50} },
-];
-function sequenceData(p){ return p.rank>=10 ? SEQUENCES[p.rank-10] : null; }
+// v2.0: per-species chain titles (9 stages, index 0–8 = rank 1–9)
+const SPECIES_TITLES = {
+  // Path of Humanity — two chains
+  swordsman:  ['Warrior','Battle General','Grey Knight','Paladin','Twilight Giant','Holy Emperor','Avatar of the War God','Lance of Fate','True God · Conqueror'],
+  cultivator: ['Qi Refining','Foundation Establishment','Golden Core','Nascent Soul','Spirit Transformation','True Immortal','Daluo Immortal','Heavenly Dao','True God · Wuji Daoist'],
+  // Path of Dragons
+  longSnake:  ['Hatchling Jiao','Twin-Horned Hui','Cloud-Riding Hui','Coiled Dragon King','Storm Ying Long','All-Seeing Zhu Long','Primordial Dragon Lord','True Dragon Sovereign','True God · Primal Divine Dragon'],
+  // Path of Beasts
+  lizard:     ['Lizard Pup','Spiny Stalker','Shed-Skin Lizard','Spirit Lizard','Tail-Regrowing Beast','Demon Lizard','Saint Lizard','Primordial Saurian','True God · Lizard God'],
+  croc:       ['Crocodile Cub','River Snapper','Bloody-Jaw','Death-Rolling Crocodile','Bloodriver Crocodile','Marshlord','Saint Crocodile','Primordial Sebek','True God · Crocodile God'],
+  dino:       ['Newborn Saurus','Pack Hunter','Ridge-Back','Tyrant Stomper','Ancient Saurus','Saurian Lord','World-Shaker','Primordial Tyrant','True God · Tyrant God'],
+  wolf:       ['Wolf Pup','Pack Wolf','Lone Hunter','Alpha','Shadowfang','Moon Wolf','Spirit Wolf','Primordial Fenrir','True God · Wolf God'],
+  // Path of Feathers
+  eagle:      ['Fledgling Eagle','Sky Glider','Wind Rider','Cloud-Piercing Eagle','Storm Eagle','Wind God Eagle','Roc','Thunder Emperor Eagle','True God · Immortal Phoenix'],
+  owl:        ['Owlet','Night Hunter','Shadow Owl','Silent Reaper','Moonwatcher','Night God Owl','Death Owl','Eternal Night Owl','True God · Underworld Phoenix'],
+  bat:        ['Bat Pup','Echo-Caller','Blood Drinker','Vampire Bat','Shadow Wing','Moonbat','Phantom Bat','Primordial Camazotz','True God · Bat God'],
+  // Path of Scales
+  shark:      ['Sharklet','Bloodscent Shark','Megalodon Cub','Reef Tyrant','Abyssal Shark','Ocean Hunter','Titan Shark','Primordial Megalodon','True God · Shark God'],
+  electroEel: ['Spark Eel','Lightning Eel','Stormcoil','Thunder Eel','Sky-Thunder Eel','Lord of Bolts','Storm God Eel','Primordial Thunder Serpent','True God · Eel God'],
+  // Path of Insects
+  scorpion:   ['Larva Scorpion','Stinger','Venom Caller','Queen Scorpion','Toxic Empress','Plague Bringer','Saint Scorpion','Primordial Selket','True God · Scorpion God'],
+};
 
 // =====================================================================
 // v1.9.0 — 物種專屬進階儲式（覆蓋 PATH_QUESTS 某些 rank slot，增加可玩性）
@@ -198,6 +198,8 @@ function sequenceData(p){ return p.rank>=10 ? SEQUENCES[p.rank-10] : null; }
 // =====================================================================
 const SPECIES_QUESTS = {
   swordsman: { 1: { desc:'Sword Will: Endure 3 strikes from a superior creature', req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
+  cultivator:{ 1: { desc:'Dao Heart: Endure 3 strikes from a higher creature',    req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
+  bat:       { 1: { desc:'Echo Trial: Survive 3 strikes from a higher predator', req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
   lizard:    { 1: { desc:'Tail Regrown: Survive 3 hits from a higher predator',   req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
   croc:      { 1: { desc:'Scaled Patience: Endure 4 strikes from your elder',     req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
   wolf:      { 1: { desc:'Lone Wolf: Take 4 hits while hunting upward',           req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
@@ -211,30 +213,8 @@ const SPECIES_QUESTS = {
 };
 
 // =====================================================================
-// v1.9.0 — 序列升進任務鐘（rank 9→10 ... 18→19，index = rank-9）
-// rank 9→10 ：凡人登天變為半神，需刬序列者
-// rank 17→18： Seq 2 → Seq 1，需擊殺别的種族的 Seq 1 以上
-// rank 18→19： Seq 1 → Seq 0，本種族的神位必須空缺，或寒你擊殺現任神位持有者后窃位
+// v2.0 — SEQUENCE_QUESTS removed (9-level system folds endgame into PATH_QUESTS + Apotheosis Trial)
 // =====================================================================
-const SEQUENCE_QUESTS = [
-  { desc:'Demigod Arrival: Slay 1 Sequenced (Tier 10+)',                req:p=>p.q.killSequenced>=1, show:p=>`Sequenced ${Math.min(p.q.killSequenced,1)}/1` },
-  { desc:'Divinity Apprentice: Slay 3 Sequenced total',                 req:p=>p.q.killSequenced>=3, show:p=>`Sequenced ${Math.min(p.q.killSequenced,3)}/3` },
-  { desc:'Divine Oracle: Channel Authority 8 times in this life',       req:p=>p.q.casts>=8,         show:p=>`Casts ${Math.min(p.q.casts,8)}/8` },
-  { desc:'High Priest: Slay 5 Sequenced and seize 5 Authorities',       req:p=>p.q.killSequenced>=5 && p.q.authorities>=5, show:p=>`Seq ${Math.min(p.q.killSequenced,5)}/5 · Auth ${Math.min(p.q.authorities,5)}/5` },
-  { desc:'Sequence Lord: Slay 1 Outer God',                             req:p=>p.q.bossKilled>=1,    show:p=>`Outer Gods ${Math.min(p.q.bossKilled,1)}/1` },
-  { desc:'Higher Servant: Slay 8 Sequenced total',                      req:p=>p.q.killSequenced>=8, show:p=>`Sequenced ${Math.min(p.q.killSequenced,8)}/8` },
-  { desc:'Demigod King: Slay 1 rival-path Sequence (Tier 18+)',         req:p=>p.q.killSeq1Rival>=1, show:p=>`Rival Seq-1+ ${Math.min(p.q.killSeq1Rival,1)}/1` },
-  { desc:'Ancient Acolyte: Slay 3 Outer Gods total',                    req:p=>p.q.bossKilled>=3,    show:p=>`Outer Gods ${Math.min(p.q.bossKilled,3)}/3` },
-  { desc:'Shadow of True God: Slay 2 rival-path Sequence-1 (Tier 18+)', req:p=>p.q.killSeq1Rival>=2, show:p=>`Rival Seq-1+ ${Math.min(p.q.killSeq1Rival,2)}/2` },
-  { desc:'Usurp the Throne: this path\u2019s Seq-0 must fall (or be vacant)', req:p=>{
-      const t = G.thrones && G.thrones[p.pathKey];
-      return (!t || t === p) || p.q.killThrone>=1;
-    }, show:p=>{
-      const t = G.thrones && G.thrones[p.pathKey];
-      if (!t || t === p) return 'Throne vacant — ascend!';
-      return p.q.killThrone>=1 ? 'Throne usurped' : `Throne held by ${t.name||t.sp.name} — slay them`;
-    } },
-];
 
 const SPECIES = {
   // Path of Humanity
@@ -242,71 +222,85 @@ const SPECIES = {
     base:{hp:130,atk:15,def:5,spd:185,sta:90,life:240, r:18, atkR:55, atkCd:0.4, rngR:480, rngCd:0.8, rngDmg:12, rngSpd:540},
     skillQ:{name:'Triple Arrow', cd:3.5, type:'arrow3', desc:'Fan 3 arrows, x0.7 dmg each'},
     skillE:{name:'Sword Will Slash', cd:6,  type:'cleave',  desc:'Forward 180 deg fan slash, x3 dmg', unlockRank:3},
-    skillR:{name:'Myriad Swords', cd:18, type:'sword_rain', desc:'24 swords orbit and fire at nearest', unlockRank:6},
+    skillR:{name:'Myriad Swords', cd:18, type:'sword_rain', desc:'24 swords orbit and fire at nearest', unlockRank:5},
+  },
+  // v2.0: Cultivator — second human chain (caster-leaning: range, crit, stealth, sky-lightning)
+  cultivator: { path:'human', name:'Cultivator', icon:'🧘', color:'#cba6ff', shape:'humanoid',
+    base:{hp:105,atk:11,def:3,spd:170,sta:140,life:230, r:17, atkR:50, atkCd:0.5, rngR:560, rngCd:0.55, rngDmg:14, rngSpd:600},
+    skillQ:{name:'Qi Bolt Fan', cd:3.5, type:'arrow3', desc:'Fan 3 Qi bolts, x0.7 dmg each'},
+    skillE:{name:'Dao Heart Meditation', cd:8, type:'darkness', desc:'8s phase-stealth + 50% crit', unlockRank:3},
+    skillR:{name:'Heavenly Tribulation', cd:22, type:'sky_lightning', desc:'15 random bolts smite enemies', unlockRank:5},
   },
   lizard: { path:'beast', name:'Lizard', icon:'🦎', color:'#7fd07f', shape:'reptile',
     base:{hp:150,atk:16,def:6,spd:170,sta:80,life:200, r:20, atkR:58, atkCd:0.42},
     skillQ:{name:'Whirlwind Slash', cd:3, type:'spin', desc:'360 deg spin slash, x2 + KB'},
     skillE:{name:'Tail Sweep', cd:5,  type:'tail',  desc:'280 deg tail sweep knockup', unlockRank:3},
-    skillR:{name:'Berserk Form', cd:18, type:'rage', desc:'10s AS x2 DEF x2', unlockRank:6},
+    skillR:{name:'Berserk Form', cd:18, type:'rage', desc:'10s AS x2 DEF x2', unlockRank:5},
   },
   croc: { path:'beast', name:'Crocodile', icon:'🐊', color:'#6aa86a', shape:'reptile',
     base:{hp:170,atk:18,def:8,spd:155,sta:80,life:240, r:22, atkR:55, atkCd:0.5},
     skillQ:{name:'Death Roll', cd:3.5, type:'roll', desc:'Charge bite, x2 dmg + bleed'},
     skillE:{name:'Lockjaw', cd:6, type:'grab', desc:'Grab nearest 2s, bite every 0.3s', unlockRank:3},
-    skillR:{name:'Blood River', cd:22, type:'bloodpool', desc:'Blood pool, enemies bleed', unlockRank:6},
+    skillR:{name:'Blood River', cd:22, type:'bloodpool', desc:'Blood pool, enemies bleed', unlockRank:5},
   },
   dino: { path:'dragon', name:'Dinosaur', icon:'🦖', color:'#7a8a3a', shape:'beast',
     base:{hp:180,atk:20,def:10,spd:150,sta:80,life:260, r:26, atkR:65, atkCd:0.5},
     skillQ:{name:'Stomp', cd:3, type:'stomp', desc:'250r AoE wave + stun 1s'},
     skillE:{name:'Tail Slam', cd:6, type:'tail',  desc:'Huge 320 deg tail slam x3 dmg', unlockRank:3},
-    skillR:{name:'Tyrant Roar', cd:20, type:'roar', desc:'Push all + stun 3s', unlockRank:6},
+    skillR:{name:'Tyrant Roar', cd:20, type:'roar', desc:'Push all + stun 3s', unlockRank:5},
   },
   wolf: { path:'beast', name:'Wolf', icon:'🐺', color:'#a0a0a0', shape:'beast',
     base:{hp:130,atk:15,def:5,spd:195,sta:100,life:200, r:18, atkR:55, atkCd:0.388},
     skillQ:{name:'Pounce', cd:2.5, type:'pounce', desc:'Lunge + bite x2 dmg'},
     skillE:{name:'Wolf Pack', cd:8, type:'summon_wolf', desc:'Summon 3 phantom wolves 15s', unlockRank:3},
-    skillR:{name:'Bloodlust', cd:20, type:'frenzy', desc:'12s AS x2 + full heal on kill', unlockRank:6},
+    skillR:{name:'Bloodlust', cd:20, type:'frenzy', desc:'12s AS x2 + full heal on kill', unlockRank:5},
   },
   // 龍
   longSnake: { path:'dragon', name:'Jiao Serpent', icon:'🐉', color:'#88e0ff', shape:'dragon',
     base:{hp:160,atk:17,def:7,spd:170,sta:90,life:260, r:22, atkR:60, atkCd:0.45, rngR:460, rngCd:1.1, rngDmg:18, rngSpd:520},
     skillQ:{name:'Dragon Breath', cd:3, type:'breath', desc:'400px flame cone x0.6/tick'},
     skillE:{name:'Coil', cd:6, type:'whirl', desc:'Energy ribbon 3s', unlockRank:3},
-    skillR:{name:'True Dragon Descend', cd:25, type:'dragon_form', desc:'15s Size x1.5 ATK +100%', unlockRank:6},
+    skillR:{name:'True Dragon Descend', cd:25, type:'dragon_form', desc:'15s Size x1.5 ATK +100%', unlockRank:5},
   },
   // 羽
   eagle: { path:'bird', name:'Eagle', icon:'🦅', color:'#cce0ff', shape:'bird',
     base:{hp:110,atk:13,def:4,spd:200,sta:120,life:200, r:16, atkR:50, atkCd:0.38, rngR:540, rngCd:0.6, rngDmg:10, rngSpd:640},
     skillQ:{name:'Dive', cd:3, type:'dive', desc:'Dash to cursor, x3 dmg'},
     skillE:{name:'Storm Feather Tempest', cd:6, type:'feather_storm', desc:'Fire 12 quills x0.5', unlockRank:3},
-    skillR:{name:'Thunder Pierce', cd:20, type:'thunder_dive', desc:'Sky lightning pierces all', unlockRank:6},
+    skillR:{name:'Thunder Pierce', cd:20, type:'thunder_dive', desc:'Sky lightning pierces all', unlockRank:5},
   },
   owl: { path:'bird', name:'Night Owl', icon:'🦉', color:'#aabbcc', shape:'bird',
     base:{hp:115,atk:14,def:4,spd:190,sta:100,life:220, r:16, atkR:52, atkCd:0.4, rngR:520, rngCd:0.7, rngDmg:14, rngSpd:580},
     skillQ:{name:'Shadow Arrow', cd:3, type:'shadow_arrow', desc:'Piercing arrow x2 dmg'},
     skillE:{name:'Veil of Night', cd:8, type:'darkness', desc:'8s stealth + 50% crit', unlockRank:3},
-    skillR:{name:'Death Gaze', cd:20, type:'death_gaze', desc:'Lock 1.5s, then 999 true dmg', unlockRank:6},
+    skillR:{name:'Death Gaze', cd:20, type:'death_gaze', desc:'Lock 1.5s, then 999 true dmg', unlockRank:5},
+  },
+  // v2.0: Bat — echo/blood flyer (sonar stun, blood lunge, phantom swarm)
+  bat: { path:'bird', name:'Bat', icon:'🦇', color:'#9a76d0', shape:'bird',
+    base:{hp:100,atk:11,def:3,spd:210,sta:110,life:200, r:14, atkR:45, atkCd:0.32, rngR:380, rngCd:0.45, rngDmg:7, rngSpd:680},
+    skillQ:{name:'Sonar Pulse', cd:3, type:'shock', desc:'250r echo shock + stun 0.5s'},
+    skillE:{name:'Blood Lunge', cd:6, type:'pounce', desc:'Lunge bite + lifesteal x2', unlockRank:3},
+    skillR:{name:'Echo Swarm', cd:20, type:'summon_wolf', desc:'Summon 3 phantom bats 15s', unlockRank:5},
   },
   // 鱗
   shark: { path:'fish', name:'Shark', icon:'🦈', color:'#88c0ff', shape:'fish',
     base:{hp:220,atk:24,def:8,spd:170,sta:100,life:220, r:24, atkR:60, atkCd:0.4},
     skillQ:{name:'Triple Bite', cd:3, type:'combo3', desc:'3 bites x0.8 + bleed'},
     skillE:{name:'Blood Frenzy', cd:6, type:'bloodrage', desc:'Sense low-HP 6s + AS x1.5', unlockRank:3},
-    skillR:{name:'Abyss Call', cd:22, type:'abyss', desc:'Summon 5 phantom sharks', unlockRank:6},
+    skillR:{name:'Abyss Call', cd:22, type:'abyss', desc:'Summon 5 phantom sharks', unlockRank:5},
   },
   electroEel: { path:'fish', name:'Eel', icon:'🐍', color:'#aaffe0', shape:'fish',
     base:{hp:120,atk:13,def:4,spd:170,sta:120,life:200, r:18, atkR:50, atkCd:0.4, rngR:480, rngCd:0.5, rngDmg:9, rngSpd:660},
     skillQ:{name:'Discharge', cd:3, type:'shock', desc:'250r shock + stun 0.5s'},
     skillE:{name:'Lightning Chain', cd:6, type:'chain', desc:'8-jump chain x0.6 each', unlockRank:3},
-    skillR:{name:'Heavenly Thunder', cd:20, type:'sky_lightning', desc:'15 random bolts', unlockRank:6},
+    skillR:{name:'Heavenly Thunder', cd:20, type:'sky_lightning', desc:'15 random bolts', unlockRank:5},
   },
   // 蟲
   scorpion: { path:'insect', name:'Scorpion', icon:'🦂', color:'#c0ff60', shape:'insect',
     base:{hp:140,atk:15,def:7,spd:160,sta:90,life:220, r:18, atkR:55, atkCd:0.42, rngR:430, rngCd:0.9, rngDmg:12, rngSpd:500},
     skillQ:{name:'Venom Tail', cd:3, type:'poison_sting', desc:'Spear lunge, 6s DOT 5/s'},
     skillE:{name:'Venom Mist', cd:7, type:'poison_cloud', desc:'200r venom cloud 6s DOT', unlockRank:3},
-    skillR:{name:'Imperial Venom', cd:22, type:'plague', desc:'All poisoned 10s, 30/s', unlockRank:6},
+    skillR:{name:'Imperial Venom', cd:22, type:'plague', desc:'All poisoned 10s, 30/s', unlockRank:5},
   },
 };
 
@@ -1084,9 +1078,9 @@ function makeCreature(speciesKey, x, y, isPlayer=false){
     q:{ kills:0, killHighTier:0, killEpic:0, casts:0, terrains:new Set(), enteredEnd:false, authorities:0, bossKilled:0, riftsUsed:0,
         // v1.9.0 trackers
         hitByHigher:0,         // hits taken from creatures of higher rank (species rites)
-        killSequenced:0,       // kills of rank>=10 creatures
-        killSeq1Rival:0,       // kills of rank>=18 creatures of a DIFFERENT path
-        killThrone:0,          // kills of rank===19 creatures of the SAME path (throne usurpation)
+        killSequenced:0,       // v2.0: kills of rank>=6 creatures (legendary)
+        killSeq1Rival:0,       // v2.0: kills of rank>=8 creatures of a DIFFERENT path
+        killThrone:0,          // v2.0: kills of rank===9 creatures of the SAME path (throne usurpation)
       },
     sanity:100, maxSanity:100,
     aiState:'wander', aiTarget:null, aiTimer:0,
@@ -1135,15 +1129,22 @@ function recalcStats(p){
 // =====================================================================
 // 修為晉階
 // =====================================================================
-function currentQuest(p){ if (p.rank>=9) return null; /* v1.1.0: 序列升級無任務需求，只看修為與True God試煉 */ const list = PATH_QUESTS[p.pathKey] || PATH_QUESTS.human; return list[p.rank-1]; }
+function currentQuest(p){
+  if (p.rank>=9) return null; // v2.0: 9-level cap; rank 9 = True God
+  // v2.0: species-specific override at given rank (e.g. rank-2 endurance rites)
+  const sq = SPECIES_QUESTS[p.species];
+  if (sq && sq[p.rank-1]) return sq[p.rank-1];
+  const list = PATH_QUESTS[p.pathKey] || PATH_QUESTS.human;
+  return list[p.rank-1];
+}
 function tryPromote(p){
   let promoted = false;
-  let safety = 12;
-  // v1.1.0: 上限 19 階（含 10 序列）
-  while (p.rank < 19 && safety-->0){
+  let safety = 9;
+  // v2.0: 9-level cap (rank 9 = True God throne)
+  while (p.rank < 9 && safety-->0){
     if (!QI_THR[p.rank] || p.qi < QI_THR[p.rank]) break;
     const q = currentQuest(p);
-    // v1.8.3: STRICT — quest is mandatory, no grace bypass. XP without quest = stuck (intentional gate)
+    // v1.8.3: STRICT — quest is mandatory, no grace bypass.
     if (q && !q.req(p)){
       if (p.isPlayer && (!p._questTipT || G.time - p._questTipT > 6)){
         p._questTipT = G.time;
@@ -1151,26 +1152,21 @@ function tryPromote(p){
       }
       break;
     }
-    // v0.9.0: 成神試煉（rank 8→9） — v1.7.0: SAN gate removed
+    // v2.0: Apotheosis Trial — rank 8→9 ascension to True God throne.
+    // Requires Outer God slain + rifts opened + (if throne occupied) killing the holder.
     if (p.rank===8){
-      if (p.q.bossKilled<1 || p.q.riftsUsed<4){
+      const throneHolder = G.thrones && G.thrones[p.pathKey];
+      const needBoss = p.q.bossKilled<2;
+      const needRifts = p.q.riftsUsed<4;
+      const needUsurp = throneHolder && throneHolder!==p && p.q.killThrone<1;
+      if (needBoss || needRifts || needUsurp){
         if (p.isPlayer && (!p._godTipT || G.time - p._godTipT > 8)){
           p._godTipT = G.time;
-          const need=[]; if (p.q.bossKilled<1) need.push(`Slay Outer God ${p.q.bossKilled}/1`);
-          if (p.q.riftsUsed<4) need.push(`Open Sanctums ${p.q.riftsUsed}/4`);
-          pushKillFeed('★ Apotheosis Trial incomplete: '+need.join(' / '),'#ff88cc');
-        }
-        break;
-      }
-    }
-    // v1.1.0: True God試煉（rank 18→19，序列 0 愚者True God） — v1.7.0: SAN gate removed
-    if (p.rank===18){
-      if (p.q.bossKilled<5 || p.q.riftsUsed<8){
-        if (p.isPlayer && (!p._trueGodTipT || G.time - p._trueGodTipT > 10)){
-          p._trueGodTipT = G.time;
-          const need=[]; if (p.q.bossKilled<5) need.push(`Slay Outer God ${p.q.bossKilled}/5`);
-          if (p.q.riftsUsed<8) need.push(`Open Sanctums ${p.q.riftsUsed}/8`);
-          pushKillFeed('★ True God Trial incomplete (Seq 0): '+need.join(' / '),'#ffd66b');
+          const need=[];
+          if (needBoss) need.push(`Slay Outer God ${p.q.bossKilled}/2`);
+          if (needRifts) need.push(`Open Sanctums ${p.q.riftsUsed}/4`);
+          if (needUsurp) need.push(`Usurp ${p.pathKey.toUpperCase()} Throne (kill the True God)`);
+          pushKillFeed('★ Apotheosis Trial incomplete: '+need.join(' / '),'#ffd66b');
         }
         break;
       }
@@ -1182,8 +1178,8 @@ function tryPromote(p){
     p.zhenyuan += b.zy;
     p.daohen += b.dh;
     recalcStats(p);
-    // v1.9.0: register as Throne holder when ascending to Seq 0 (rank 19). Uniqueness already enforced by quest gate.
-    if (p.rank === 19 && G.thrones && !G.thrones[p.pathKey]){
+    // v2.0: register as Throne holder when ascending to True God (rank 9).
+    if (p.rank === 9 && G.thrones && !G.thrones[p.pathKey]){
       G.thrones[p.pathKey] = p;
       pushKillFeed(`★ The ${p.pathKey.toUpperCase()} Throne is claimed by ${p.isPlayer?'You':(p.name||p.sp.name)}!`, '#ffd66b');
     }
@@ -1203,7 +1199,7 @@ function tryPromote(p){
       addFloat(p.x, p.y-30, `Level Up! ${title}`, p.path.color, 24, 2);
     }
   }
-  if (promoted && p.isPlayer && p.rank>=19){ winGame(); }
+  if (promoted && p.isPlayer && p.rank>=9){ winGame(); }
 }
 
 // =====================================================================
@@ -1293,30 +1289,29 @@ function spawnEnemy(initial=false){
       maxTier = baseTier + farBonus + timeBonus;
     }
   } else maxTier = 1;
-  // v1.9.0: raised cap 9 → 19 so Sequence-tier enemies can spawn at endgame (population caps below keep them scarce)
-  maxTier = Math.max(1, Math.min(19, maxTier));
+  // v2.0: 9-level cap. Per-path population caps keep the True God tier scarce.
+  maxTier = Math.max(1, Math.min(9, maxTier));
   // Weighted tier: bias toward player rank (challenging fights, not pushovers)
   const minTier = Math.max(1, _pRank - 2);
   let tier = minTier + Math.floor(Math.random()*Math.max(1, maxTier - minTier + 1));
-  // v1.9.0: enforce Sequence population caps so the late-game stays scarce & meaningful.
-  // Per-path counts: only 1 Seq-0 (rank 19), up to 3 Seq-1 (rank 18), up to 5 Seq-2 (rank 17).
-  if (tier >= 17){
-    let c17=0, c18=0, c19=0;
+  // v2.0: endgame population caps per path: only 1 rank-9 (True God), up to 3 rank-8, up to 5 rank-7.
+  if (tier >= 7){
+    let c7=0, c8=0, c9=0;
     for (const en of G.enemies){
       if (en._dead || !en.sp || en.sp.path !== sp.path) continue;
-      if (en.rank===17) c17++;
-      else if (en.rank===18) c18++;
-      else if (en.rank===19) c19++;
+      if (en.rank===7) c7++;
+      else if (en.rank===8) c8++;
+      else if (en.rank===9) c9++;
     }
     // also count player if same path & high rank
     if (G.player && G.player.sp && G.player.sp.path === sp.path){
-      if (G.player.rank===17) c17++;
-      else if (G.player.rank===18) c18++;
-      else if (G.player.rank===19) c19++;
+      if (G.player.rank===7) c7++;
+      else if (G.player.rank===8) c8++;
+      else if (G.player.rank===9) c9++;
     }
-    if (tier===19 && (c19>=1 || (G.thrones && G.thrones[sp.path]))) tier = 18;
-    if (tier===18 && c18>=3) tier = 17;
-    if (tier===17 && c17>=5) tier = 16;
+    if (tier===9 && (c9>=1 || (G.thrones && G.thrones[sp.path]))) tier = 8;
+    if (tier===8 && c8>=3) tier = 7;
+    if (tier===7 && c7>=5) tier = 6;
   }
   for (let r=1;r<tier;r++){
     const b=RANK_BONUS[r-1]; e.zhenyuan+=b.zy; e.daohen+=b.dh;
@@ -1324,8 +1319,8 @@ function spawnEnemy(initial=false){
   e.rank = tier;
   recalcStats(e); e.hp=e.maxHp; e.sta=e.maxSta;
   e.nid = ++G._nidSeq;
-  // v1.9.0: spawned Seq-0 claims the throne for its path
-  if (e.rank===19 && G.thrones && !G.thrones[sp.path]){
+  // v2.0: spawned True God (rank 9) claims the throne for its path
+  if (e.rank===9 && G.thrones && !G.thrones[sp.path]){
     G.thrones[sp.path] = e;
     pushKillFeed(`★ The ${sp.path.toUpperCase()} Throne is seized by ${e.name||e.sp.name}!`, '#ffd66b');
   }
@@ -1666,8 +1661,8 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
 function onKill(attacker, target){
   if (target.hp<=0 && target._dead) return;
   target._dead = true;
-  // v1.9.0: throne becomes vacant when the Seq-0 holder dies
-  if (target.rank===19 && target.sp && G.thrones && G.thrones[target.sp.path] === target){
+  // v2.0: throne becomes vacant when the True God (rank 9) holder dies
+  if (target.rank===9 && target.sp && G.thrones && G.thrones[target.sp.path] === target){
     G.thrones[target.sp.path] = null;
     pushKillFeed(`★ The ${target.sp.path.toUpperCase()} Throne is VACANT — ascend now!`, '#ffd66b');
   }
@@ -1684,12 +1679,12 @@ function onKill(attacker, target){
     attacker.q.kills++;
     if (target.rank>=3) attacker.q.killHighTier++;
     if (target.rank>=5) attacker.q.killEpic++;
-    // v1.9.0: sequence-tier kill trackers
-    if (target.rank>=10) attacker.q.killSequenced = (attacker.q.killSequenced||0) + 1;
-    if (target.rank>=18 && target.sp && attacker.sp && target.sp.path !== attacker.sp.path){
+    // v2.0: high-tier kill trackers (legendary / cross-path / throne usurpation)
+    if (target.rank>=6) attacker.q.killSequenced = (attacker.q.killSequenced||0) + 1;
+    if (target.rank>=8 && target.sp && attacker.sp && target.sp.path !== attacker.sp.path){
       attacker.q.killSeq1Rival = (attacker.q.killSeq1Rival||0) + 1;
     }
-    if (target.rank===19 && target.sp && attacker.sp && target.sp.path === attacker.sp.path){
+    if (target.rank===9 && target.sp && attacker.sp && target.sp.path === attacker.sp.path){
       attacker.q.killThrone = (attacker.q.killThrone||0) + 1;
     }
     let qiReward = 5 + target.rank*4;
