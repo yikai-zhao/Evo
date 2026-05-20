@@ -1,4 +1,4 @@
-// Lands End — Prototype v1.7.0 (Evolution Brawl: SAN removed, slower XP, stronger fruits, death drops, currency + character locks, daily quest)
+// Lands End — Prototype v1.8.0 (Monetization push: rewarded-ad sinks, lucky spin, login streak, weekly challenge, character mastery, opposing-path Qi bonus)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -1035,6 +1035,15 @@ function recalcStats(p){
   p.maxSta = Math.floor(sta*zy*perk.sta);
   p.maxLife = Math.floor(life*zy);
   p.atk = Math.floor(atk*zy*p.bonusAtkMult*perk.atk);
+  // v1.8.0: Character Mastery permanent bonuses (player only)
+  if (p.isPlayer && typeof masteryAtkBonus === 'function'){
+    try {
+      const sk = G.selectedSpecies;
+      const ma = masteryAtkBonus(sk), mh = masteryHpBonus(sk);
+      if (ma>0) p.atk = Math.floor(p.atk * (1+ma));
+      if (mh>0) p.maxHp = Math.floor(p.maxHp * (1+mh));
+    } catch(e){}
+  }
   p.def = Math.floor(def*zy*p.bonusDefMult*perk.def);
   p.spd = Math.floor(spd*zy*p.bonusSpdMult*perk.spd);
   p.r = p.base.r * (p.bonusSizeMult||1) * perk.size * (1 + (p.rank-1)*0.05);
@@ -1536,7 +1545,6 @@ function onKill(attacker, target){
     const an = attacker.isPlayer?'You':(attacker.name||attacker.sp.name);
     const tn = target.isPlayer?'You':(target.name||target.sp.name);
     pushKillFeed(`${an} killed ${tn}`, attacker.isPlayer ? '#ffd66b' : (target.isPlayer ? '#ff4040' : '#aaa'));
-    // 記錄玩家死亡原因
     if (target.isPlayer) G.deathBy = `Killed by ${attacker.sp.name} (${tierName(attacker)})`;
   }
   // 玩家擊殺
@@ -1544,10 +1552,16 @@ function onKill(attacker, target){
     attacker.q.kills++;
     if (target.rank>=3) attacker.q.killHighTier++;
     if (target.rank>=5) attacker.q.killEpic++;
-    const qiReward = 8 + target.rank*6;
+    let qiReward = 8 + target.rank*6;
+    // v1.8.0: opposing-path bonus — kill enemies of a different path → +50% Qi (encourages strategic enemy selection / team battles)
+    let _oppMul = 1;
+    if (target.sp && attacker.sp && target.sp.path && attacker.sp.path && target.sp.path !== attacker.sp.path){
+      _oppMul = 1.5;
+      qiReward = Math.floor(qiReward * _oppMul);
+    }
     attacker.qi += qiReward;
-    addFloat(target.x, target.y-20, `+${qiReward} Qi`, '#bb88ff', 14, 1.2);
-    logMsg(`Killed ${target.sp.name} (${tierName(target)}) +${qiReward} Qi`);
+    addFloat(target.x, target.y-20, `+${qiReward} Qi${_oppMul>1?' ⚔':''}`, _oppMul>1?'#ff88cc':'#bb88ff', 14, 1.2);
+    logMsg(`Killed ${target.sp.name} (${tierName(target)}) +${qiReward} Qi${_oppMul>1?' [rival path bonus]':''}`);
     const _preRank = attacker.rank;
     tryPromote(attacker);
     if (window.SDK && attacker.rank>_preRank) SDK.happyTime(Math.min(1, attacker.rank/15));
@@ -2128,6 +2142,33 @@ function die(reason){
       };
     } else {
       _revive.classList.add('hidden');
+    }
+  }
+  // v1.8.0: rewarded-ad Double-Coins button (one-shot per run)
+  const _cdb = document.getElementById('coinDoubleBtn');
+  if (_cdb){
+    if (_coinsEarned>0 && !G._coinDoubleUsed && window.SDK && SDK.ready && typeof SDK.rewardedBreak==='function'){
+      _cdb.classList.remove('hidden');
+      _cdb.disabled = false;
+      _cdb.textContent = `▶ Watch Ad: 🪙 Double Coins! (+${_coinsEarned} more)`;
+      _cdb.onclick = async ()=>{
+        if (G._coinDoubleUsed) return;
+        G._coinDoubleUsed = true;
+        _cdb.disabled = true; _cdb.textContent = 'Loading ad…';
+        let ok = false;
+        try { ok = await SDK.rewardedBreak(); } catch(e){}
+        if (ok !== false){
+          addCoins(_coinsEarned);
+          try { bumpLifetime(0,0,0,_coinsEarned); } catch(e){}
+          _cdb.textContent = `✓ +${_coinsEarned} bonus coins! (Total: ${getCoins()})`;
+          const _ds = document.getElementById('deathStats');
+          if (_ds) _ds.textContent = _ds.textContent + ` → 🪙 +${_coinsEarned} bonus!`;
+        } else {
+          _cdb.textContent = 'Ad failed — try again next run';
+        }
+      };
+    } else {
+      _cdb.classList.add('hidden');
     }
   }
   // v1.0.0: 死亡時間軸
@@ -3469,6 +3510,10 @@ function awardRunCoins(){
       }
     }
     if (earned > 0) addCoins(earned);
+    // v1.8.0: weekly challenge progress + mastery + lifetime
+    try { progressWeekly(kills, 1, qi, rank); } catch(e){}
+    try { addMasteryKills(G.selectedSpecies, kills); } catch(e){}
+    try { bumpLifetime(1, kills, qi, earned); } catch(e){}
   } catch(e){}
   return earned;
 }
@@ -3489,6 +3534,144 @@ function getDailyQuest(){
   const q = {...pool[(Math.random()*pool.length)|0], date:today, done:false};
   try{ localStorage.setItem(EVO_DAILY_QUEST_KEY, JSON.stringify(q)); }catch(e){}
   return q;
+}
+
+// =====================================================================
+// v1.8.0: Weekly Challenge, Login Streak, Lucky Spin, Character Mastery
+// =====================================================================
+const EVO_WEEKLY_KEY  = 'evo_weekly_q';
+const EVO_STREAK_KEY  = 'evo_login_streak';
+const EVO_SPIN_KEY    = 'evo_spin_today';
+const EVO_MASTERY_KEY = 'evo_mastery';
+const EVO_LIFETIME_KEY = 'evo_lifetime_stats';  // total runs / kills / coins ever
+const EVO_CRATE_USED_KEY = '__crate_used_run'; // session-only, reset per run
+
+function _utcDay(){ return new Date().toISOString().slice(0,10); }
+function _utcWeek(){
+  const d = new Date(); d.setUTCHours(0,0,0,0);
+  const day = (d.getUTCDay()+6)%7;  // ISO week starts Mon
+  d.setUTCDate(d.getUTCDate()-day);
+  return d.toISOString().slice(0,10);
+}
+
+// ---- Weekly Challenge (Mon-reset, larger reward) ----
+function getWeeklyChallenge(){
+  const week = _utcWeek();
+  try {
+    const cur = JSON.parse(localStorage.getItem(EVO_WEEKLY_KEY)||'null');
+    if (cur && cur.week===week) return cur;
+  } catch(e){}
+  const pool = [
+    {type:'totalKills', target:300, reward:400, desc:'Score 300 cumulative kills this week'},
+    {type:'totalRuns',  target:15,  reward:350, desc:'Complete 15 runs this week'},
+    {type:'highRank',   target:7,   reward:500, desc:'Reach Tier 7 in any single run'},
+    {type:'totalQi',    target:8000, reward:450, desc:'Bank 8,000 cumulative Qi this week'},
+  ];
+  const q = {...pool[(Math.random()*pool.length)|0], week, progress:0, done:false};
+  try{ localStorage.setItem(EVO_WEEKLY_KEY, JSON.stringify(q)); }catch(e){}
+  return q;
+}
+function progressWeekly(deltaKills, deltaRuns, deltaQi, runRank){
+  const w = getWeeklyChallenge(); if (!w || w.done) return 0;
+  if (w.type==='totalKills') w.progress += deltaKills|0;
+  else if (w.type==='totalRuns') w.progress += deltaRuns|0;
+  else if (w.type==='totalQi') w.progress += deltaQi|0;
+  else if (w.type==='highRank') w.progress = Math.max(w.progress||0, runRank|0);
+  let earned = 0;
+  if (w.progress >= w.target){ earned = w.reward|0; w.done = true; addCoins(earned); }
+  try{ localStorage.setItem(EVO_WEEKLY_KEY, JSON.stringify(w)); }catch(e){}
+  return earned;
+}
+
+// ---- Login Streak (7-day chain, resets if a day missed) ----
+const STREAK_REWARDS = [50, 80, 120, 180, 250, 350, 600];  // day 1..7, day 7 = jackpot
+function checkLoginStreak(){
+  // returns { day, reward, alreadyClaimed }
+  const today = _utcDay();
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(EVO_STREAK_KEY)||'{}') || {}; } catch(e){ s={}; }
+  if (s.lastClaim === today) return { day:s.day||1, reward:0, alreadyClaimed:true };
+  const yest = new Date(); yest.setUTCDate(yest.getUTCDate()-1);
+  const ystr = yest.toISOString().slice(0,10);
+  let day = (s.lastClaim===ystr) ? Math.min(7,(s.day||0)+1) : 1;
+  const reward = STREAK_REWARDS[day-1] || 50;
+  addCoins(reward);
+  s.day = day; s.lastClaim = today;
+  try{ localStorage.setItem(EVO_STREAK_KEY, JSON.stringify(s)); }catch(e){}
+  return { day, reward, alreadyClaimed:false };
+}
+function getStreakState(){
+  try { return JSON.parse(localStorage.getItem(EVO_STREAK_KEY)||'{}') || {}; } catch(e){ return {}; }
+}
+
+// ---- Lucky Spin (1 free per day + 3 ad-bought) ----
+const SPIN_PRIZES = [
+  {coins:25,  weight:30, label:'25 🪙'},
+  {coins:50,  weight:25, label:'50 🪙'},
+  {coins:100, weight:18, label:'100 🪙'},
+  {coins:200, weight:12, label:'200 🪙'},
+  {coins:0,   weight:10, label:'Try again!'},
+  {coins:500, weight:4,  label:'JACKPOT 500 🪙'},
+  {coins:1000,weight:1,  label:'🌟 MEGA 1000 🪙'},
+];
+function getSpinState(){
+  const today = _utcDay();
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(EVO_SPIN_KEY)||'{}') || {}; } catch(e){}
+  if (s.date !== today){ s = {date:today, freeUsed:false, adSpinsUsed:0}; try{ localStorage.setItem(EVO_SPIN_KEY, JSON.stringify(s)); }catch(e){} }
+  return s;
+}
+function doSpin(){
+  let w = 0; for (const p of SPIN_PRIZES) w += p.weight;
+  let r = Math.random()*w;
+  for (const p of SPIN_PRIZES){ r -= p.weight; if (r<=0){ if (p.coins>0) addCoins(p.coins); return p; } }
+  return SPIN_PRIZES[0];
+}
+function trySpinFree(){
+  const s = getSpinState(); if (s.freeUsed) return null;
+  s.freeUsed = true; try{ localStorage.setItem(EVO_SPIN_KEY, JSON.stringify(s)); }catch(e){}
+  return doSpin();
+}
+function trySpinAd(){
+  const s = getSpinState(); if ((s.adSpinsUsed|0) >= 3) return null;
+  s.adSpinsUsed = (s.adSpinsUsed|0)+1; try{ localStorage.setItem(EVO_SPIN_KEY, JSON.stringify(s)); }catch(e){}
+  return doSpin();
+}
+
+// ---- Character Mastery (per-species kill counter → permanent +ATK) ----
+function getMastery(){
+  try { return JSON.parse(localStorage.getItem(EVO_MASTERY_KEY)||'{}') || {}; } catch(e){ return {}; }
+}
+function addMasteryKills(sk, n){
+  if (!sk || !n) return;
+  const m = getMastery();
+  m[sk] = (m[sk]||0) + (n|0);
+  try { localStorage.setItem(EVO_MASTERY_KEY, JSON.stringify(m)); } catch(e){}
+}
+function masteryAtkBonus(sk){
+  const m = getMastery();
+  const kills = m[sk]||0;
+  // +1% ATK per 50 kills, capped at +20%
+  return Math.min(0.20, Math.floor(kills/50) * 0.01);
+}
+function masteryHpBonus(sk){
+  const m = getMastery();
+  const kills = m[sk]||0;
+  // +1% HP per 100 kills, capped at +10%
+  return Math.min(0.10, Math.floor(kills/100) * 0.01);
+}
+
+// ---- Lifetime stats (for analytics / weekly hooks) ----
+function bumpLifetime(deltaRuns, deltaKills, deltaQi, deltaCoins){
+  try {
+    const s = JSON.parse(localStorage.getItem(EVO_LIFETIME_KEY)||'{}') || {};
+    s.runs   = (s.runs||0)   + (deltaRuns|0);
+    s.kills  = (s.kills||0)  + (deltaKills|0);
+    s.qi     = (s.qi||0)     + (deltaQi|0);
+    s.coins  = (s.coins||0)  + (deltaCoins|0);
+    s.firstPlay = s.firstPlay || Date.now();
+    localStorage.setItem(EVO_LIFETIME_KEY, JSON.stringify(s));
+  } catch(e){}
 }
 
 // =====================================================================
@@ -3538,6 +3721,88 @@ function setupTouch(canvas){
     for (const t of e.changedTouches){ if (t.identifier===jTid) jClear(); }
   }, {passive:false});
   document.addEventListener('touchcancel', e=>{
+
+  // v1.8.0: rich meta panel — login streak, weekly challenge, lucky spin
+  let metaPanel = document.getElementById('metaPanel');
+  if (!metaPanel){
+    metaPanel = document.createElement('div'); metaPanel.id='metaPanel';
+    metaPanel.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 0 12px;font-size:12px;';
+    list.parentNode.insertBefore(metaPanel, list);
+  }
+  // 1) Login streak
+  const _streak = getStreakState();
+  const _streakClaimedToday = (_streak.lastClaim === _utcDay());
+  const _streakDay = _streak.day || 0;
+  const _streakNext = _streakClaimedToday ? null : STREAK_REWARDS[Math.min(7, (_streakDay)+(_streak.lastClaim===new Date(Date.now()-86400000).toISOString().slice(0,10)?1:1))-1];
+  // 2) Weekly challenge
+  const _wk = getWeeklyChallenge();
+  const _wkPct = Math.min(100, Math.floor(((_wk.progress||0)/_wk.target)*100));
+  // 3) Lucky spin
+  const _spin = getSpinState();
+  const _freeAvail = !_spin.freeUsed;
+  const _adAvail = (3-(_spin.adSpinsUsed||0));
+  metaPanel.innerHTML = `
+    <div style="padding:8px;background:rgba(80,140,200,0.12);border:1px solid #6699cc;border-radius:6px;">
+      <div style="font-weight:700;color:#9fc7ee">📅 Login Streak: Day ${_streakDay||0}/7</div>
+      <div style="color:#aaa;font-size:11px;margin-top:2px">${_streakClaimedToday?`<span style="color:#7fd07f">✓ +${STREAK_REWARDS[_streakDay-1]||0} coins claimed today</span>`:`<button id="claimStreakBtn" style="margin-top:4px;padding:4px 10px;background:#3a6b3a;color:#ccffcc;border:1px solid #7fd07f;border-radius:4px;cursor:pointer;font-weight:700">▶ Claim +${_streakNext||50} 🪙</button>`}</div>
+    </div>
+    <div style="padding:8px;background:rgba(180,80,160,0.12);border:1px solid #cc66aa;border-radius:6px;">
+      <div style="font-weight:700;color:#ee9fcc">📜 Weekly Challenge</div>
+      <div style="color:#ddd;font-size:11px;margin-top:2px">${_wk.desc}</div>
+      <div style="margin-top:4px;background:#222;border-radius:3px;height:6px;overflow:hidden"><div style="background:linear-gradient(90deg,#cc66aa,#ff88cc);height:100%;width:${_wkPct}%"></div></div>
+      <div style="color:#aaa;font-size:10px;margin-top:2px">${_wk.done?`<span style="color:#7fd07f">✓ +${_wk.reward} coins claimed</span>`:`${_wk.progress||0}/${_wk.target} → +${_wk.reward} 🪙`}</div>
+    </div>
+    <div style="padding:8px;background:rgba(200,160,60,0.14);border:1px solid #ddaa44;border-radius:6px;">
+      <div style="font-weight:700;color:#ffd66b">🎰 Lucky Spin</div>
+      <div style="color:#aaa;font-size:11px;margin-top:2px">Free: ${_freeAvail?'1 available':'used today'} · Ad spins left: ${_adAvail}/3</div>
+      <div id="spinResult" style="color:#ffd66b;font-size:11px;margin-top:2px;min-height:14px"></div>
+      <div style="display:flex;gap:4px;margin-top:4px;">
+        <button id="spinFreeBtn" ${_freeAvail?'':'disabled'} style="flex:1;padding:4px;background:${_freeAvail?'#3a6b3a':'#333'};color:${_freeAvail?'#ccffcc':'#666'};border:1px solid ${_freeAvail?'#7fd07f':'#555'};border-radius:4px;cursor:${_freeAvail?'pointer':'not-allowed'};font-weight:700;font-size:11px">Free Spin</button>
+        <button id="spinAdBtn" ${_adAvail>0?'':'disabled'} style="flex:1;padding:4px;background:${_adAvail>0?'#6b3a3a':'#333'};color:${_adAvail>0?'#ffcccc':'#666'};border:1px solid ${_adAvail>0?'#d07f7f':'#555'};border-radius:4px;cursor:${_adAvail>0?'pointer':'not-allowed'};font-weight:700;font-size:11px">▶ Ad Spin</button>
+      </div>
+    </div>`;
+  // Wire buttons
+  const _csb = document.getElementById('claimStreakBtn');
+  if (_csb){
+    _csb.onclick = ()=>{
+      const r = checkLoginStreak();
+      try{ playSound('promote'); }catch(e){}
+      buildMenu();
+    };
+  }
+  const _sfb = document.getElementById('spinFreeBtn');
+  if (_sfb){
+    _sfb.onclick = ()=>{
+      const prize = trySpinFree();
+      if (prize){
+        document.getElementById('spinResult').textContent = '🎲 ' + prize.label;
+        try{ playSound(prize.coins>=200?'promote':'pickup'); }catch(e){}
+        setTimeout(buildMenu, 1200);
+      }
+    };
+  }
+  const _sab = document.getElementById('spinAdBtn');
+  if (_sab){
+    _sab.onclick = async ()=>{
+      if (!window.SDK || !SDK.ready || typeof SDK.rewardedBreak!=='function'){
+        // Fallback: still allow but no real ad
+        const prize = trySpinAd();
+        if (prize){ document.getElementById('spinResult').textContent = '🎲 ' + prize.label; setTimeout(buildMenu, 1200); }
+        return;
+      }
+      _sab.disabled = true; _sab.textContent = 'Loading…';
+      let ok = false;
+      try { ok = await SDK.rewardedBreak(); } catch(e){}
+      if (ok !== false){
+        const prize = trySpinAd();
+        if (prize){
+          document.getElementById('spinResult').textContent = '🎲 ' + prize.label;
+          try{ playSound(prize.coins>=200?'promote':'pickup'); }catch(e){}
+          setTimeout(buildMenu, 1200);
+        }
+      } else { _sab.disabled = false; _sab.textContent = '▶ Ad Spin'; }
+    };
+  }
     for (const t of e.changedTouches){ if (t.identifier===jTid) jClear(); }
   }, {passive:false});
 
@@ -3610,7 +3875,17 @@ function buildMenu(){
       }
       div.innerHTML = `${lockBadge}<div style="font-weight:700;color:${sp.color}">${sp.icon} ${sp.name}</div>
         <div class="nums">HP ${sp.base.hp} · ATK ${sp.base.atk} · SPD ${sp.base.spd} ${sp.base.rngDmg?`· Ranged ${sp.base.rngDmg}`:'(melee only)'}</div>
-        <div class="skills">Q ${sp.skillQ.name} · E ${sp.skillE.name} (tier ${sp.skillE.unlockRank}) · R ${sp.skillR.name} (tier ${sp.skillR.unlockRank})</div>`;
+        <div class="skills">Q ${sp.skillQ.name} · E ${sp.skillE.name} (tier ${sp.skillE.unlockRank}) · R ${sp.skillR.name} (tier ${sp.skillR.unlockRank})</div>${(()=>{
+          // v1.8.0: mastery progress bar
+          try {
+            const mk = (getMastery()[sk]||0);
+            const ab = masteryAtkBonus(sk), hb = masteryHpBonus(sk);
+            if (mk<=0) return '';
+            const nextStep = mk - (mk % 50) + 50;
+            const pct = Math.floor(((mk%50)/50)*100);
+            return `<div style="margin-top:4px;font-size:10px;color:#9fd09f">⚔ Mastery: ${mk} kills (+${(ab*100).toFixed(0)}% ATK, +${(hb*100).toFixed(0)}% HP) <span style="color:#888">→ ${nextStep}</span><div style="background:#222;border-radius:2px;height:3px;margin-top:1px"><div style="background:#7fd07f;height:100%;width:${pct}%"></div></div></div>`;
+          } catch(e){ return ''; }
+        })()}`;
       div.onclick = ()=>{
         // v1.7.0: locked species — try to unlock first
         if (SPECIES_LOCKS[sk]>0 && !isUnlocked(sk)){
@@ -3699,7 +3974,7 @@ function drawRemotePeers(){
     ctx.save();
     ctx.globalAlpha = 0.35;
     ctx.fillStyle = flash>0 ? '#ff5566' : (peer.color || '#88ccff');
-    ctx.beginPath(); ctx.arc(drawX, drawY, r+6, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(drawX, drawY, r*2.2, 0, Math.PI*2); ctx.fill();
     ctx.restore();
     // v1.5.0: render with drawShape when species known
     const _spDef = (peer.species && typeof SPECIES!=='undefined') ? SPECIES[peer.species] : null;
@@ -3884,7 +4159,8 @@ async function restartGame(){
   document.getElementById('death').classList.add('hidden');
   document.getElementById('win').classList.add('hidden');
   const _rev = document.getElementById('reviveBtn'); if (_rev) _rev.classList.add('hidden');
-  G.started=false; G.selectedSpecies=null; G._reviveUsed=false;
+  const _cdb = document.getElementById('coinDoubleBtn'); if (_cdb) _cdb.classList.add('hidden');
+  G.started=false; G.selectedSpecies=null; G._reviveUsed=false; G._coinDoubleUsed=false; G._crateUsed=false;
   G.killFeed=[]; G.leaderboard=[]; G.deathBy=''; G.errorCount=0;
   if (window.SDK && SDK.ready){ try { await SDK.commercialBreak(); } catch(e){} }
   document.getElementById('menu').classList.remove('hidden');
