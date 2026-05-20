@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.1.0 (rift capture-and-hold, world-unique authority fruits drop on death, dead-attack fix)
+// Lands End — Prototype v2.2.0 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -6,7 +6,7 @@
 // =====================================================================
 // 常數
 // =====================================================================
-const WORLD = { w: 14000, h: 14000 };  // v1.1.0 群星海洋（更廣闊；中心 7000,7000）
+const WORLD = { w: 20000, h: 20000 };  // v2.2.0 team-god-war arena (was 14000; center 10000,10000)
 const TILE = 256;
 const KEYS = {};
 const MOUSE = { x:0, y:0, wx:0, wy:0, ldown:false, rdown:false };
@@ -220,87 +220,88 @@ const SPECIES = {
   // Path of Humanity
   swordsman: { path:'human', name:'Swordsman', icon:'🗡️', color:'#ffd66b', shape:'humanoid',
     base:{hp:130,atk:15,def:5,spd:185,sta:90,life:240, r:18, atkR:55, atkCd:0.4, rngR:480, rngCd:0.8, rngDmg:12, rngSpd:540},
-    skillQ:{name:'Triple Arrow', cd:3.5, type:'arrow3', desc:'Fan 3 arrows, x0.7 dmg each'},
-    skillE:{name:'Sword Will Slash', cd:6,  type:'cleave',  desc:'Forward 180 deg fan slash, x3 dmg', unlockRank:3},
-    skillR:{name:'Myriad Swords', cd:18, type:'sword_rain', desc:'24 swords orbit and fire at nearest', unlockRank:5},
+    skillQ:{name:'Triple Arrow', cd:3.5, type:'arrow3', desc:'Fan 3 arrows, x0.7 dmg each', unlockRank:2},
+    skillE:{name:'Sword Will Slash', cd:6,  type:'cleave',  desc:'Forward 180 deg fan slash, x3 dmg', unlockRank:4},
+    skillR:{name:'Myriad Swords', cd:18, type:'sword_rain', desc:'24 swords orbit and fire at nearest', unlockRank:6},
   },
-  // v2.0: Cultivator — second human chain (caster-leaning: range, crit, stealth, sky-lightning)
+  // v2.0: Cultivator — caster + protective: bolts, Dao Aegis shield, sky lightning
   cultivator: { path:'human', name:'Cultivator', icon:'🧘', color:'#cba6ff', shape:'humanoid',
     base:{hp:105,atk:11,def:3,spd:170,sta:140,life:230, r:17, atkR:50, atkCd:0.5, rngR:560, rngCd:0.55, rngDmg:14, rngSpd:600},
-    skillQ:{name:'Qi Bolt Fan', cd:3.5, type:'arrow3', desc:'Fan 3 Qi bolts, x0.7 dmg each'},
-    skillE:{name:'Dao Heart Meditation', cd:8, type:'darkness', desc:'8s phase-stealth + 50% crit', unlockRank:3},
-    skillR:{name:'Heavenly Tribulation', cd:22, type:'sky_lightning', desc:'15 random bolts smite enemies', unlockRank:5},
+    skillQ:{name:'Qi Bolt Fan', cd:3.5, type:'arrow3', desc:'Fan 3 Qi bolts, x0.7 dmg each', unlockRank:2},
+    skillE:{name:'Dao Aegis', cd:10, type:'shield', desc:'8s arcane shield absorbs heavy damage', unlockRank:4},
+    skillR:{name:'Heavenly Tribulation', cd:22, type:'sky_lightning', desc:'15 random bolts smite enemies', unlockRank:6},
   },
   lizard: { path:'beast', name:'Lizard', icon:'🦎', color:'#7fd07f', shape:'reptile',
     base:{hp:150,atk:16,def:6,spd:170,sta:80,life:200, r:20, atkR:58, atkCd:0.42},
-    skillQ:{name:'Whirlwind Slash', cd:3, type:'spin', desc:'360 deg spin slash, x2 + KB'},
-    skillE:{name:'Tail Sweep', cd:5,  type:'tail',  desc:'280 deg tail sweep knockup', unlockRank:3},
-    skillR:{name:'Berserk Form', cd:18, type:'rage', desc:'10s AS x2 DEF x2', unlockRank:5},
+    skillQ:{name:'Whirlwind Slash', cd:3, type:'spin', desc:'360 deg spin slash, x2 + KB', unlockRank:2},
+    skillE:{name:'Tail Sweep', cd:5,  type:'tail',  desc:'280 deg tail sweep knockup', unlockRank:4},
+    skillR:{name:'Berserk Form', cd:18, type:'rage', desc:'10s AS x2 DEF x2', unlockRank:6},
   },
   croc: { path:'beast', name:'Crocodile', icon:'🐊', color:'#6aa86a', shape:'reptile',
     base:{hp:170,atk:18,def:8,spd:155,sta:80,life:240, r:22, atkR:55, atkCd:0.5},
-    skillQ:{name:'Death Roll', cd:3.5, type:'roll', desc:'Charge bite, x2 dmg + bleed'},
-    skillE:{name:'Lockjaw', cd:6, type:'grab', desc:'Grab nearest 2s, bite every 0.3s', unlockRank:3},
-    skillR:{name:'Blood River', cd:22, type:'bloodpool', desc:'Blood pool, enemies bleed', unlockRank:5},
+    skillQ:{name:'Death Roll', cd:3.5, type:'roll', desc:'Charge bite, x2 dmg + bleed', unlockRank:2},
+    skillE:{name:'Lockjaw', cd:6, type:'grab', desc:'Grab nearest 2s, bite every 0.3s', unlockRank:4},
+    skillR:{name:'Blood River', cd:22, type:'bloodpool', desc:'Blood pool, enemies bleed', unlockRank:6},
   },
+  // v2.2.0: Dinosaur — tyrant tank: stomp, dmg-transfer bond, push-roar
   dino: { path:'dragon', name:'Dinosaur', icon:'🦖', color:'#7a8a3a', shape:'beast',
     base:{hp:180,atk:20,def:10,spd:150,sta:80,life:260, r:26, atkR:65, atkCd:0.5},
-    skillQ:{name:'Stomp', cd:3, type:'stomp', desc:'250r AoE wave + stun 1s'},
-    skillE:{name:'Tail Slam', cd:6, type:'tail',  desc:'Huge 320 deg tail slam x3 dmg', unlockRank:3},
-    skillR:{name:'Tyrant Roar', cd:20, type:'roar', desc:'Push all + stun 3s', unlockRank:5},
+    skillQ:{name:'Stomp', cd:3, type:'stomp', desc:'250r AoE wave + stun 1s', unlockRank:2},
+    skillE:{name:'Tyrant Bond', cd:10, type:'dmg_transfer', desc:'8s: redirect 70% incoming dmg to highest-HP nearby foe', unlockRank:4},
+    skillR:{name:'Tyrant Roar', cd:20, type:'roar', desc:'Push all + stun 3s', unlockRank:6},
   },
   wolf: { path:'beast', name:'Wolf', icon:'🐺', color:'#a0a0a0', shape:'beast',
     base:{hp:130,atk:15,def:5,spd:195,sta:100,life:200, r:18, atkR:55, atkCd:0.388},
-    skillQ:{name:'Pounce', cd:2.5, type:'pounce', desc:'Lunge + bite x2 dmg'},
-    skillE:{name:'Wolf Pack', cd:8, type:'summon_wolf', desc:'Summon 3 phantom wolves 15s', unlockRank:3},
-    skillR:{name:'Bloodlust', cd:20, type:'frenzy', desc:'12s AS x2 + full heal on kill', unlockRank:5},
+    skillQ:{name:'Pounce', cd:2.5, type:'pounce', desc:'Lunge + bite x2 dmg', unlockRank:2},
+    skillE:{name:'Wolf Pack', cd:8, type:'summon_wolf', desc:'Summon 3 phantom wolves 15s', unlockRank:4},
+    skillR:{name:'Bloodlust', cd:20, type:'frenzy', desc:'12s AS x2 + full heal on kill', unlockRank:6},
   },
   // 龍
   longSnake: { path:'dragon', name:'Jiao Serpent', icon:'🐉', color:'#88e0ff', shape:'dragon',
     base:{hp:160,atk:17,def:7,spd:170,sta:90,life:260, r:22, atkR:60, atkCd:0.45, rngR:460, rngCd:1.1, rngDmg:18, rngSpd:520},
-    skillQ:{name:'Dragon Breath', cd:3, type:'breath', desc:'400px flame cone x0.6/tick'},
-    skillE:{name:'Coil', cd:6, type:'whirl', desc:'Energy ribbon 3s', unlockRank:3},
-    skillR:{name:'True Dragon Descend', cd:25, type:'dragon_form', desc:'15s Size x1.5 ATK +100%', unlockRank:5},
+    skillQ:{name:'Dragon Breath', cd:3, type:'breath', desc:'400px flame cone x0.6/tick', unlockRank:2},
+    skillE:{name:'Coil', cd:6, type:'whirl', desc:'Energy ribbon 3s', unlockRank:4},
+    skillR:{name:'True Dragon Descend', cd:25, type:'dragon_form', desc:'15s Size x1.5 ATK +100%', unlockRank:6},
   },
   // 羽
   eagle: { path:'bird', name:'Eagle', icon:'🦅', color:'#cce0ff', shape:'bird',
     base:{hp:110,atk:13,def:4,spd:200,sta:120,life:200, r:16, atkR:50, atkCd:0.38, rngR:540, rngCd:0.6, rngDmg:10, rngSpd:640},
-    skillQ:{name:'Dive', cd:3, type:'dive', desc:'Dash to cursor, x3 dmg'},
-    skillE:{name:'Storm Feather Tempest', cd:6, type:'feather_storm', desc:'Fire 12 quills x0.5', unlockRank:3},
-    skillR:{name:'Thunder Pierce', cd:20, type:'thunder_dive', desc:'Sky lightning pierces all', unlockRank:5},
+    skillQ:{name:'Dive', cd:3, type:'dive', desc:'Dash to cursor, x3 dmg', unlockRank:2},
+    skillE:{name:'Storm Feather Tempest', cd:6, type:'feather_storm', desc:'Fire 12 quills x0.5', unlockRank:4},
+    skillR:{name:'Thunder Pierce', cd:20, type:'thunder_dive', desc:'Sky lightning pierces all', unlockRank:6},
   },
   owl: { path:'bird', name:'Night Owl', icon:'🦉', color:'#aabbcc', shape:'bird',
     base:{hp:115,atk:14,def:4,spd:190,sta:100,life:220, r:16, atkR:52, atkCd:0.4, rngR:520, rngCd:0.7, rngDmg:14, rngSpd:580},
-    skillQ:{name:'Shadow Arrow', cd:3, type:'shadow_arrow', desc:'Piercing arrow x2 dmg'},
-    skillE:{name:'Veil of Night', cd:8, type:'darkness', desc:'8s stealth + 50% crit', unlockRank:3},
-    skillR:{name:'Death Gaze', cd:20, type:'death_gaze', desc:'Lock 1.5s, then 999 true dmg', unlockRank:5},
+    skillQ:{name:'Shadow Arrow', cd:3, type:'shadow_arrow', desc:'Piercing arrow x2 dmg', unlockRank:2},
+    skillE:{name:'Veil of Night', cd:8, type:'darkness', desc:'8s stealth + 50% crit', unlockRank:4},
+    skillR:{name:'Death Gaze', cd:20, type:'death_gaze', desc:'Lock 1.5s, then 999 true dmg', unlockRank:6},
   },
-  // v2.0: Bat — echo/blood flyer (sonar stun, blood lunge, phantom swarm)
+  // v2.2.0: Bat — echo/blood: sonar stun, vampire aura, phantom swarm
   bat: { path:'bird', name:'Bat', icon:'🦇', color:'#9a76d0', shape:'bird',
     base:{hp:100,atk:11,def:3,spd:210,sta:110,life:200, r:14, atkR:45, atkCd:0.32, rngR:380, rngCd:0.45, rngDmg:7, rngSpd:680},
-    skillQ:{name:'Sonar Pulse', cd:3, type:'shock', desc:'250r echo shock + stun 0.5s'},
-    skillE:{name:'Blood Lunge', cd:6, type:'pounce', desc:'Lunge bite + lifesteal x2', unlockRank:3},
-    skillR:{name:'Echo Swarm', cd:20, type:'summon_wolf', desc:'Summon 3 phantom bats 15s', unlockRank:5},
+    skillQ:{name:'Sonar Pulse', cd:3, type:'shock', desc:'250r echo shock + stun 0.5s', unlockRank:2},
+    skillE:{name:'Vampire Embrace', cd:9, type:'lifesteal_aura', desc:'8s aura: heal 40% of dmg dealt', unlockRank:4},
+    skillR:{name:'Echo Swarm', cd:20, type:'summon_wolf', desc:'Summon 3 phantom bats 15s', unlockRank:6},
   },
   // 鱗
   shark: { path:'fish', name:'Shark', icon:'🦈', color:'#88c0ff', shape:'fish',
     base:{hp:220,atk:24,def:8,spd:170,sta:100,life:220, r:24, atkR:60, atkCd:0.4},
-    skillQ:{name:'Triple Bite', cd:3, type:'combo3', desc:'3 bites x0.8 + bleed'},
-    skillE:{name:'Blood Frenzy', cd:6, type:'bloodrage', desc:'Sense low-HP 6s + AS x1.5', unlockRank:3},
-    skillR:{name:'Abyss Call', cd:22, type:'abyss', desc:'Summon 5 phantom sharks', unlockRank:5},
+    skillQ:{name:'Triple Bite', cd:3, type:'combo3', desc:'3 bites x0.8 + bleed', unlockRank:2},
+    skillE:{name:'Blood Frenzy', cd:6, type:'bloodrage', desc:'Sense low-HP 6s + AS x1.5', unlockRank:4},
+    skillR:{name:'Abyss Call', cd:22, type:'abyss', desc:'Summon 5 phantom sharks', unlockRank:6},
   },
   electroEel: { path:'fish', name:'Eel', icon:'🐍', color:'#aaffe0', shape:'fish',
     base:{hp:120,atk:13,def:4,spd:170,sta:120,life:200, r:18, atkR:50, atkCd:0.4, rngR:480, rngCd:0.5, rngDmg:9, rngSpd:660},
-    skillQ:{name:'Discharge', cd:3, type:'shock', desc:'250r shock + stun 0.5s'},
-    skillE:{name:'Lightning Chain', cd:6, type:'chain', desc:'8-jump chain x0.6 each', unlockRank:3},
-    skillR:{name:'Heavenly Thunder', cd:20, type:'sky_lightning', desc:'15 random bolts', unlockRank:5},
+    skillQ:{name:'Discharge', cd:3, type:'shock', desc:'250r shock + stun 0.5s', unlockRank:2},
+    skillE:{name:'Lightning Chain', cd:6, type:'chain', desc:'8-jump chain x0.6 each', unlockRank:4},
+    skillR:{name:'Heavenly Thunder', cd:20, type:'sky_lightning', desc:'15 random bolts', unlockRank:6},
   },
   // 蟲
   scorpion: { path:'insect', name:'Scorpion', icon:'🦂', color:'#c0ff60', shape:'insect',
     base:{hp:140,atk:15,def:7,spd:160,sta:90,life:220, r:18, atkR:55, atkCd:0.42, rngR:430, rngCd:0.9, rngDmg:12, rngSpd:500},
-    skillQ:{name:'Venom Tail', cd:3, type:'poison_sting', desc:'Spear lunge, 6s DOT 5/s'},
-    skillE:{name:'Venom Mist', cd:7, type:'poison_cloud', desc:'200r venom cloud 6s DOT', unlockRank:3},
-    skillR:{name:'Imperial Venom', cd:22, type:'plague', desc:'All poisoned 10s, 30/s', unlockRank:5},
+    skillQ:{name:'Venom Tail', cd:3, type:'poison_sting', desc:'Spear lunge, 6s DOT 5/s', unlockRank:2},
+    skillE:{name:'Venom Mist', cd:7, type:'poison_cloud', desc:'200r venom cloud 6s DOT', unlockRank:4},
+    skillR:{name:'Imperial Venom', cd:22, type:'plague', desc:'All poisoned 10s, 30/s', unlockRank:6},
   },
 };
 
@@ -1103,6 +1104,7 @@ function makeCreature(speciesKey, x, y, isPlayer=false){
     authoritySlots:[], authCdT:[],
     defending:false,
     bleed:0, poison:0, slow:0, freeze:0, stun:0, invuln:0, rageT:0, titanT:0, darkT:0,
+    shieldHp:0, shieldT:0, lifestealT:0, lifestealPct:0, dmgTransferT:0, dmgTransferPct:0,
     bonusAtkMult:1, bonusSpdMult:1, bonusDefMult:1, bonusSizeMult:1,
     q:{ kills:0, killHighTier:0, killEpic:0, casts:0, terrains:new Set(), enteredEnd:false, authorities:0, bossKilled:0, riftsUsed:0,
         // v1.9.0 trackers
@@ -1452,6 +1454,10 @@ function updatePlayer(p, dt){
   if (p.rageT>0){ p.rageT-=dt; if (p.rageT<=0){ p.bonusAtkMult/=2; p.bonusDefMult/=2; recalcStats(p);} }
   if (p.titanT>0){ p.titanT-=dt; if (p.titanT<=0){ p.bonusAtkMult/=2.5; p.bonusDefMult/=2; p.bonusSizeMult/=2.2; recalcStats(p);} }
   if (p.darkT>0) p.darkT-=dt;
+  // v2.2.0: utility skill timers
+  if (p.shieldT>0){ p.shieldT-=dt; if (p.shieldT<=0){ p.shieldHp=0; } }
+  if (p.lifestealT>0) p.lifestealT-=dt;
+  if (p.dmgTransferT>0) p.dmgTransferT-=dt;
 
   // 壽命扣減（玩家）
   if (p.isPlayer){ p.life -= dt; if (p.life<=0){ die('Lifespan exhausted'); return; } }
@@ -1505,9 +1511,9 @@ function updatePlayer(p, dt){
   }
 
   // 技能
-  if (KEYS['q'] && p.skillQT<=0){ castSkill(p, p.sp.skillQ); p.skillQT = p.sp.skillQ.cd; }
-  if (KEYS['e'] && p.skillET<=0 && p.rank>=(p.sp.skillE.unlockRank||1)){ castSkill(p, p.sp.skillE); p.skillET = p.sp.skillE.cd; }
-  if (KEYS['r'] && p.skillRT<=0 && p.rank>=(p.sp.skillR.unlockRank||1)){ castSkill(p, p.sp.skillR); p.skillRT = p.sp.skillR.cd; }
+  if (KEYS['q'] && p.skillQT<=0 && p.rank>=(p.sp.skillQ.unlockRank||1)){ castSkill(p, p.sp.skillQ, 'Q'); p.skillQT = _skillCd(p, p.sp.skillQ, 'Q'); }
+  if (KEYS['e'] && p.skillET<=0 && p.rank>=(p.sp.skillE.unlockRank||1)){ castSkill(p, p.sp.skillE, 'E'); p.skillET = _skillCd(p, p.sp.skillE, 'E'); }
+  if (KEYS['r'] && p.skillRT<=0 && p.rank>=(p.sp.skillR.unlockRank||1)){ castSkill(p, p.sp.skillR, 'R'); p.skillRT = _skillCd(p, p.sp.skillR, 'R'); }
 
   // 權柄
   if (KEYS['1'] && p.authoritySlots[0] && p.authCdT[0]<=0){ castAuthority(p,0); p.authCdT[0] = p.authoritySlots[0].cd; }
@@ -1624,6 +1630,30 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
   // 暗夜暴擊
   if (attacker && attacker.darkT>0 && Math.random()<0.5){ final*=2; isCrit=true; }
   final = Math.max(1, Math.round(final));
+  // v2.2.0: Tyrant Bond — redirect % of dmg to highest-HP nearby foe of target
+  if (target.dmgTransferT>0 && target.dmgTransferPct>0 && attacker && attacker!==target){
+    const list = (target.isPlayer ? G.enemies : [G.player, ...G.enemies.filter(e=>e!==target)]);
+    let best=null, bh=-1;
+    for (const c of list){ if (!c||c.hp<=0||c._dead||c===attacker) continue; if (Math.hypot(c.x-target.x,c.y-target.y)<420 && c.hp>bh){ bh=c.hp; best=c; } }
+    if (best){
+      const redir = Math.max(1, Math.round(final * target.dmgTransferPct));
+      final -= redir;
+      best.hp -= redir;
+      addFloat(best.x, best.y-best.r, `Bond ${redir}`, '#ff8844', 13, 0.7);
+      G.particles.push({x:target.x,y:target.y,vx:(best.x-target.x)*2,vy:(best.y-target.y)*2,life:0.4,color:'#ff8844',r:2});
+      if (best.hp<=0) onKill(attacker, best);
+      if (final<=0) final = 0;
+    }
+  }
+  // v2.2.0: Dao Aegis shield absorbs damage before HP
+  if (target.shieldT>0 && (target.shieldHp||0)>0 && final>0){
+    const absorb = Math.min(target.shieldHp, final);
+    target.shieldHp -= absorb;
+    final -= absorb;
+    addFloat(target.x, target.y-target.r-6, `∩${absorb|0}`, '#88ccff', 12, 0.5);
+    if (target.shieldHp<=0){ target.shieldHp=0; target.shieldT=0; if (target.isPlayer) addFloat(target.x,target.y-30,'Shield broken','#88ccff',12,1); }
+  }
+  if (final<=0){ if ((target.shieldHp||0)>0 || (target.dmgTransferT||0)>0){ return; } final = 1; }
   target.hp -= final;
   // v1.9.0: track "struck by higher creature" for species rite quests
   if (attacker && attacker !== target && target.q && attacker.rank > target.rank && final>0){
@@ -1635,6 +1665,12 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
     const heal = Math.max(1, Math.round(final*ap.lifesteal));
     attacker.hp = Math.min(attacker.maxHp, attacker.hp+heal);
     if (attacker.isPlayer) addFloat(attacker.x, attacker.y-attacker.r-10, `+${heal}`, '#ff80c0', 11, 0.5);
+  }
+  // v2.2.0: Vampire Embrace aura on attacker
+  if (attacker && attacker.lifestealT>0 && (attacker.lifestealPct||0)>0 && attacker.hp>0 && attacker!==target){
+    const heal = Math.max(1, Math.round(final * attacker.lifestealPct));
+    attacker.hp = Math.min(attacker.maxHp, attacker.hp+heal);
+    if (attacker.isPlayer) addFloat(attacker.x, attacker.y-attacker.r-10, `♥+${heal}`, '#cc1133', 12, 0.5);
   }
   // 進階能力：命中附加 DOT
   if (ap && ap.dot>0){ target.bleed = Math.max(target.bleed||0, 4); }
@@ -1785,11 +1821,35 @@ function onKill(attacker, target){
 // =====================================================================
 // 技能執行
 // =====================================================================
-function castSkill(p, s){
-  const dh = p.daohen;
+// v2.2.0: per-species sequence chain — rank gates and enhancement tiers
+// Rank 2: unlock skill1(Q). 3: enhance Q.
+// Rank 4: unlock skill2(E). 5: enhance E.
+// Rank 6: unlock skill3(R). 7: enhance R.
+// Rank 8: all skills enhanced. Rank 9: all skills greatly enhanced.
+function _skillBoost(p, slot){
+  const r = p.rank||1; let mult = 1;
+  if (slot==='Q' && r>=3) mult *= 1.30;
+  if (slot==='E' && r>=5) mult *= 1.30;
+  if (slot==='R' && r>=7) mult *= 1.30;
+  if (r>=8) mult *= 1.50;
+  if (r>=9) mult *= 1.70; // stacks: total ~3.0x at rank 9
+  return mult;
+}
+function _skillCd(p, s, slot){
+  const r = p.rank||1; let cdMult = 1;
+  if (slot==='Q' && r>=3) cdMult *= 0.88;
+  if (slot==='E' && r>=5) cdMult *= 0.88;
+  if (slot==='R' && r>=7) cdMult *= 0.88;
+  if (r>=8) cdMult *= 0.80;
+  if (r>=9) cdMult *= 0.70;
+  return Math.max(0.5, (s.cd||3) * cdMult);
+}
+function castSkill(p, s, slot){
+  const boost = _skillBoost(p, slot||'Q');
+  const dh = (p.daohen||1) * boost;
   const type = s.type;
   shake(4);
-  if (p.isPlayer) logMsg(`▶ ${s.name}`);
+  if (p.isPlayer) logMsg(`▶ ${s.name}${boost>1?` (×${boost.toFixed(2)})`:''}`);
   switch(type){
     case 'arrow3': for (let i=-1;i<=1;i++) fireProjectile(p, p.facing+i*0.25, p.rngDmg*0.7*dh, p.rngSpd, p.color); break;
     case 'cleave': aoeSlash(p, 200, Math.PI, p.atk*3*dh, '#ffe080'); break;
@@ -1825,6 +1885,29 @@ function castSkill(p, s){
     case 'poison_sting': fireProjectile(p, p.facing, p.atk*1.5*dh, 600, '#aaff00', 1); break;
     case 'poison_cloud': G.hazards.push({type:'poison', x:p.x, y:p.y, r:200, life:6, dmg:p.atk*0.3*dh, color:'#88ff44', tick:0, owner:p}); break;
     case 'plague': for (const e of G.enemies){ if (dist(e,p)<3000){ e.poison = 10; }} flash('#88ff44',0.4); break;
+    // v2.2.0 new utility skills
+    case 'shield': {
+      const amount = (p.maxHp||100) * 0.6 * boost + 80;
+      p.shieldHp = Math.max(p.shieldHp||0, amount);
+      p.shieldT = 8;
+      flash('#88ccff', 0.35); shake(6);
+      G.shockwaves.push({x:p.x,y:p.y,r:0,max:p.r*4,life:0.5,color:'#88ccff'});
+      if (p.isPlayer) addFloat(p.x, p.y-30, `Shield +${amount|0}`, '#88ccff', 16, 1.4);
+    } break;
+    case 'lifesteal_aura': {
+      p.lifestealT = 8;
+      p.lifestealPct = 0.4 * boost;
+      flash('#cc1133', 0.35);
+      G.shockwaves.push({x:p.x,y:p.y,r:0,max:p.r*4,life:0.5,color:'#cc1133'});
+      if (p.isPlayer) addFloat(p.x, p.y-30, `Vampire ${(p.lifestealPct*100)|0}% ×8s`, '#cc1133', 16, 1.4);
+    } break;
+    case 'dmg_transfer': {
+      p.dmgTransferT = 8;
+      p.dmgTransferPct = Math.min(0.85, 0.7 * boost);
+      flash('#ff8844', 0.35);
+      G.shockwaves.push({x:p.x,y:p.y,r:0,max:p.r*5,life:0.6,color:'#ff8844'});
+      if (p.isPlayer) addFloat(p.x, p.y-30, `Bond → ${(p.dmgTransferPct*100)|0}% ×8s`, '#ff8844', 16, 1.4);
+    } break;
   }
 }
 function aoeSlash(p, radius, arc, dmg, color){
@@ -2216,7 +2299,7 @@ function aiUpdate(e, dt){
       e.vx=Math.cos(ang)*sp; e.vy=Math.sin(ang)*sp;
     }
     // AI 技能釋放機率大幅下調（1/8 以下）
-    if (e.skillQT<=0 && td<380 && Math.random()<0.0012 && !(tgt && tgt.isPlayer && tgt.invuln>0)){ try{ castSkill(e, e.sp.skillQ); }catch(err){ console.warn('AI skill err', err);} e.skillQT = e.sp.skillQ.cd * 1.5; }
+    if (e.skillQT<=0 && td<380 && Math.random()<0.0012 && !(tgt && tgt.isPlayer && tgt.invuln>0) && e.rank>=(e.sp.skillQ.unlockRank||1)){ try{ castSkill(e, e.sp.skillQ, 'Q'); }catch(err){ console.warn('AI skill err', err);} e.skillQT = e.sp.skillQ.cd * 1.5; }
   }
   e.x = clamp(e.x+e.vx*dt, 20, WORLD.w-20);
   e.y = clamp(e.y+e.vy*dt, 20, WORLD.h-20);
@@ -2538,7 +2621,8 @@ function update(dt){
   G.enemies = G.enemies.filter(e=>e.hp>0 && isFinite(e.x) && isFinite(e.y));
   G.minions = G.minions.filter(m=>m.hp>0);
   // v1.0.0: 大地圖敵人數量隨階段提升 — v1.8.2: denser, especially mid-game
-  const enemyCap = [180, 240, 300, 360, 460][G.stage-1] || 180;
+  // v2.2.0: denser team-god-war map (was [180,240,300,360,460])
+  const enemyCap = [260, 340, 440, 540, 680][G.stage-1] || 260;
   while (G.enemies.length < enemyCap) spawnEnemy();
   // v2.1.0: rift ownership countdown (was simple respawn)
   for (const rf of G.rifts){
@@ -2553,8 +2637,8 @@ function update(dt){
     }
   }
   // v0.9.0: 世界 Boss
-  if (G.boss && G.boss.hp<=0){ onBossDeath(G.boss); G.boss=null; G.bossSpawnT=300; }
-  if (!G.boss){ G.bossSpawnT -= dt; if (G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=300; } }
+  if (G.boss && G.boss.hp<=0){ onBossDeath(G.boss); G.boss=null; G.bossSpawnT=150; }
+  if (!G.boss){ G.bossSpawnT -= dt; if (G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=150; } }
   if (G.boss) updateBoss(G.boss, dt);
   // v1.0.0: 階段進程
   // v1.1.0: 5 紀元（Era of God War加入）
@@ -2591,7 +2675,7 @@ function update(dt){
     for (let i=0;i<waveSize;i++){ try { spawnEnemy(false); } catch(e){} }
     // v1.8.1: era 3+ force a miniboss; era 4+ force an Outer God immediately for epic feel
     if (newStage>=3 && !G.miniboss){ try { spawnMiniboss(); G.minibossSpawnT = 150; } catch(e){} }
-    if (newStage>=4 && !G.boss){ try { spawnBoss(); G.bossSpawnT = 300; } catch(e){} }
+    if (newStage>=4 && !G.boss){ try { spawnBoss(); G.bossSpawnT = 150; } catch(e){} }
     if (newStage===5){ G.eventCdT = Math.min(G.eventCdT, 15); }
   }
   if (G.stageBannerT>0) G.stageBannerT -= dt;
@@ -3009,7 +3093,26 @@ function drawCreature(c){
   ctx.globalAlpha = 1;
   ctx.restore();
   // icon
-  ctx.fillStyle = '#000'; ctx.font = `bold ${Math.floor(c.r*0.8)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle = '#000'; ctx.font =
+  // v2.2.0: shield bubble visual
+  if ((c.shieldHp||0)>0 && (c.shieldT||0)>0){
+    ctx.strokeStyle = '#88ccff';
+    ctx.lineWidth = 3; ctx.globalAlpha = 0.45 + 0.35*Math.sin(G.time*6);
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.r+8, 0, Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  if ((c.lifestealT||0)>0){
+    ctx.strokeStyle = '#cc1133';
+    ctx.lineWidth = 2; ctx.globalAlpha = 0.35 + 0.25*Math.sin(G.time*8);
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.r+12, 0, Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  if ((c.dmgTransferT||0)>0){
+    ctx.strokeStyle = '#ff8844';
+    ctx.lineWidth = 2; ctx.setLineDash([6,6]); ctx.lineDashOffset = -G.time*30;
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.r+14, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  } `bold ${Math.floor(c.r*0.8)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(c.sp.icon, c.x, c.y);
   // HP bar
   if (!isP){
