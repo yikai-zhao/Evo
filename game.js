@@ -3485,7 +3485,9 @@ function _showDeathOverlay(){
         if (G.player){
           G.player.hp = Math.max(G.player.hp, Math.floor(G.player.maxHp * 0.6));
           G.player.sta = G.player.maxSta;
-          G.player.invuln = 5;
+          // v2.9.9: reset life timer so lifespan-exhaustion deaths don't immediately re-kill after revive
+          if (G.player.life <= 0) G.player.life = Math.ceil((G.player.maxLife||120) * 0.5);
+          G.player.invuln = 3; // reduced from 5s — enough protection without feeling "permanent"
           G.shockwaves.push({x:G.player.x,y:G.player.y,r:0,max:600,life:1.4,color:'#ffaa30'});
           for (let i=0;i<160;i++) G.particles.push({x:G.player.x,y:G.player.y,vx:rand(-600,600),vy:rand(-600,600),life:1.8,color:'#ffaa30',r:3});
           flash('#ffaa30', 0.9); shake(40); playSound('promote');
@@ -6097,8 +6099,15 @@ function drawRemotePeers(){
         color:peer.color||_spDef.color, sp:_spDef, _fp:(id*17)%100, isPlayer:false,
         rank:peer.rank||1, hp:peer.hp||1, maxHp:peer.maxHp||1,
       };
-      try { drawShape(fake); }
-      catch(e){
+      try {
+        // v2.9.9: must save/translate/rotate like drawCreature does, otherwise
+        // drawShape draws at canvas origin (0,0) instead of the peer's world position
+        ctx.save();
+        ctx.translate(drawX, drawY);
+        ctx.rotate(peer.facing||0);
+        drawShape(fake);
+        ctx.restore();
+      } catch(e){
         ctx.fillStyle = peer.color || '#88ccff';
         ctx.beginPath(); ctx.arc(drawX, drawY, r, 0, Math.PI*2); ctx.fill();
       }
