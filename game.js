@@ -2313,8 +2313,17 @@ function updatePlayer(p, dt){
   p.x = clamp(p.x + p.vx*dt, 20, WORLD.w-20);
   p.y = clamp(p.y + p.vy*dt, 20, WORLD.h-20);
 
-  // 朝向：使用滑鼠
-  p.facing = Math.atan2(MOUSE.wy - p.y, MOUSE.wx - p.x);
+  // 朝向：v2.9.7 行動裝置上跟隨移動方向（單搖桿控制），桌面用滑鼠
+  if (typeof TOUCH !== 'undefined' && TOUCH && TOUCH.joy){
+    // 搖桿啟動 → 頭朝搖桿方向
+    p.facing = TOUCH.joy.ang;
+  } else if (typeof isMobile === 'function' && isMobile() && (p.vx || p.vy)){
+    // 行動裝置且有移動 → 頭朝速度方向
+    p.facing = Math.atan2(p.vy, p.vx);
+  } else {
+    // 桌面 / 靜止 → 使用滑鼠
+    p.facing = Math.atan2(MOUSE.wy - p.y, MOUSE.wx - p.x);
+  }
 
   // 地形紀錄
   const t = terrainAt(p.x,p.y);
@@ -5714,10 +5723,17 @@ function setupTouch(canvas){
     const nx=mag>cap?dx/mag*cap:dx, ny=mag>cap?dy/mag*cap:dy;
     stick.style.transform = 'translate('+nx+'px,'+ny+'px)';
     KEYS['w']=dy<-14; KEYS['s']=dy>14; KEYS['a']=dx<-14; KEYS['d']=dx>14;
+    // v2.9.7: expose joystick vector so player facing can follow movement (one-stick control)
+    if (mag > 8){
+      TOUCH.joy = { dx, dy, mag, ang: Math.atan2(dy, dx) };
+    } else {
+      TOUCH.joy = null;
+    }
   }
   function jClear(){
     jTid=-1; stick.style.transform='translate(0,0)';
     KEYS['w']=KEYS['s']=KEYS['a']=KEYS['d']=false;
+    TOUCH.joy = null;
   }
 
   joystick.addEventListener('touchstart', e=>{
