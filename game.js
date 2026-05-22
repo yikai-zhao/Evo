@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.5.0 (early-Qi boost · form pokedex · death-card next-form canvas · share button · run metrics)
+// Lands End — Prototype v2.6.0 (visual polish: corner badge + rank crowns/stars · procedural BGM (drone+arp) · animated start-screen species previews)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -3624,9 +3624,65 @@ function drawCreature(c){
     ctx.beginPath(); ctx.arc(c.x, c.y, c.r+14, 0, Math.PI*2); ctx.stroke();
     ctx.setLineDash([]);
   }
-  // icon (v2.4.0: 用進化形態圖示)
-  ctx.fillStyle = '#000'; ctx.font = `bold ${Math.floor(c.r*0.8)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(evoIcon, c.x, c.y);
+  // icon (v2.6.0: 小角標而非蓋滿身體 — 讓程序化美術主導視覺)
+  // 只有進化形態（rank>=3）才顯示形態圖示作為右上角標
+  if (evoForm && c.rank >= 3){
+    const _bx = c.x + c.r*0.85, _by = c.y - c.r*0.85;
+    const _br = Math.max(8, c.r*0.32);
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,16,28,0.78)';
+    ctx.strokeStyle = evoColor;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(_bx, _by, _br, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `${Math.floor(_br*1.1)}px sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(evoIcon, _bx, _by+1);
+    ctx.restore();
+  }
+  // v2.6.0: 高階王冠標記（rank 5+ 三角金冠，rank 7+ 五角星，rank 9 雙環王者光）
+  if (c.rank >= 5){
+    const _cy = c.y - c.r - (isP ? 28 : 32);
+    ctx.save();
+    if (c.rank >= 9){
+      // 雙環王者光
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.6 + 0.35*Math.sin(G.time*4);
+      ctx.beginPath(); ctx.arc(c.x, _cy, 14, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(c.x, _cy, 18, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (c.rank >= 7){
+      // 五角星
+      ctx.fillStyle = '#ffd700';
+      ctx.strokeStyle = '#a87000';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let i=0;i<10;i++){
+        const a = -Math.PI/2 + i*Math.PI/5;
+        const rr = (i%2===0) ? 9 : 4;
+        const sx = c.x + Math.cos(a)*rr, sy = _cy + Math.sin(a)*rr;
+        if (i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else {
+      // 金冠
+      ctx.fillStyle = '#ffd700';
+      ctx.strokeStyle = '#7a4d00';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(c.x-10, _cy+5);
+      ctx.lineTo(c.x-10, _cy-2);
+      ctx.lineTo(c.x-5,  _cy+2);
+      ctx.lineTo(c.x,    _cy-6);
+      ctx.lineTo(c.x+5,  _cy+2);
+      ctx.lineTo(c.x+10, _cy-2);
+      ctx.lineTo(c.x+10, _cy+5);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+  }
   // HP bar
   if (!isP){
     const w = Math.max(30, c.r*2);
@@ -4558,6 +4614,103 @@ function playSound(type){
 }
 
 // =====================================================================
+// v2.6.0: 程序化 BGM（無音樂素材，純 WebAudio 合成）
+// 一個低頻 pad drone + 一個基於 G.player.rank 強度層疊的琶音
+// =====================================================================
+const BGM = { on:false, master:null, padOsc:[], padGain:null, arpInt:null, _step:0, intensity:0 };
+const BGM_SCALE = [0, 3, 5, 7, 10, 12, 15, 17];  // 小調五聲音階延伸
+function bgmBaseFreq(){ return 110; }  // A2
+
+function startBGM(){
+  if (BGM.on) return;
+  const a = ac(); if (!a) return;
+  BGM.on = true;
+  try {
+    // 主音量
+    BGM.master = a.createGain();
+    BGM.master.gain.value = 0;
+    BGM.master.connect(a.destination);
+    // pad drone — 3 個低頻三角波堆疊
+    const drone = [110, 165, 220]; // A2 / E3 / A3
+    drone.forEach(f=>{
+      const o = a.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
+      const g = a.createGain(); g.gain.value = 0.06;
+      const lp = a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=800;
+      o.connect(lp); lp.connect(g); g.connect(BGM.master);
+      o.start();
+      BGM.padOsc.push({osc:o, gain:g});
+    });
+    // 淡入 1.5 秒
+    BGM.master.gain.setValueAtTime(0, a.currentTime);
+    BGM.master.gain.linearRampToValueAtTime(0.28, a.currentTime + 1.5);
+    // 琶音序列：每 280ms 一個音符，根據強度增加層數
+    BGM._step = 0;
+    BGM.arpInt = setInterval(()=>{
+      if (!G.soundOn || !BGM.on) return;
+      try { _bgmArpTick(); } catch(e){}
+    }, 280);
+  } catch(e){ BGM.on = false; }
+}
+
+function _bgmArpTick(){
+  const a = ac(); if (!a) return;
+  // 從 G.player 取強度（rank 越高、boss 越接近，琶音越密集）
+  let intensity = 0;
+  try {
+    if (G.player && G.player.rank){
+      intensity = Math.min(1, G.player.rank / 7);
+    }
+    if (G.boss && G.boss.hp > 0) intensity = Math.min(1, intensity + 0.35);
+    if (G.killStreak >= 5) intensity = Math.min(1, intensity + 0.2);
+  } catch(e){}
+  // 每 8 步只播一次的玩家可感層；高強度時每 4 步一次
+  const period = intensity > 0.6 ? 2 : intensity > 0.3 ? 3 : 4;
+  if ((BGM._step % period) !== 0){ BGM._step++; return; }
+  const note = BGM_SCALE[BGM._step % BGM_SCALE.length];
+  const f = bgmBaseFreq() * Math.pow(2, (note + 12) / 12);  // up 1 octave for arp
+  const o = a.createOscillator();
+  o.type = 'sine';
+  o.frequency.value = f;
+  const g = a.createGain();
+  g.gain.setValueAtTime(0, a.currentTime);
+  g.gain.linearRampToValueAtTime(0.10 + intensity*0.10, a.currentTime + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.55);
+  o.connect(g); g.connect(BGM.master);
+  o.start();
+  o.stop(a.currentTime + 0.6);
+  // 高強度加八度上音（更亮）
+  if (intensity > 0.5){
+    const o2 = a.createOscillator(); o2.type='triangle'; o2.frequency.value = f*2;
+    const g2 = a.createGain();
+    g2.gain.setValueAtTime(0, a.currentTime);
+    g2.gain.linearRampToValueAtTime(0.05, a.currentTime + 0.02);
+    g2.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.45);
+    o2.connect(g2); g2.connect(BGM.master);
+    o2.start(); o2.stop(a.currentTime + 0.5);
+  }
+  BGM._step++;
+}
+
+function stopBGM(){
+  const a = ac();
+  if (!BGM.on) return;
+  BGM.on = false;
+  try {
+    if (BGM.master && a){
+      BGM.master.gain.cancelScheduledValues(a.currentTime);
+      BGM.master.gain.linearRampToValueAtTime(0, a.currentTime + 0.4);
+    }
+    if (BGM.arpInt) { clearInterval(BGM.arpInt); BGM.arpInt = null; }
+    setTimeout(()=>{
+      try {
+        BGM.padOsc.forEach(p => { try{ p.osc.stop(); }catch(e){} });
+        BGM.padOsc = [];
+      } catch(e){}
+    }, 500);
+  } catch(e){}
+}
+
+// =====================================================================
 // 存檔系統 (v1.4.0)
 // =====================================================================
 const EVO_SAVE_KEY = 'evo_save_v140';
@@ -4974,6 +5127,57 @@ function setupTouch(canvas){
 // =====================================================================
 // 選單
 // =====================================================================
+// v2.6.0: 在菜單種族卡片上跑 live preview 動畫（共用 drawShape，視覺風格一致）
+let _menuPreviewRAF = 0;
+let _menuPreviewT = 0;
+function startMenuPreviews(){
+  if (_menuPreviewRAF) return;
+  const cvsList = Array.from(document.querySelectorAll('canvas.speciesPreview'));
+  if (!cvsList.length) return;
+  const _saveCtx = ctx;
+  const loop = ()=>{
+    _menuPreviewRAF = 0;
+    const menu = document.getElementById('menu');
+    if (!menu || menu.classList.contains('hidden')){
+      try { ctx = _saveCtx; } catch(e){}
+      return;
+    }
+    _menuPreviewT += 1/60;
+    const _saveGtime = G.time;
+    try {
+      for (const cvs of cvsList){
+        const sk = cvs.dataset.sk;
+        const sp = SPECIES[sk]; if (!sp) continue;
+        const pcx = cvs.getContext('2d');
+        pcx.clearRect(0,0,cvs.width,cvs.height);
+        const grd = pcx.createRadialGradient(cvs.width/2, cvs.height/2, 4, cvs.width/2, cvs.height/2, 60);
+        grd.addColorStop(0, sp.color+'30');
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        pcx.fillStyle = grd; pcx.fillRect(0,0,cvs.width,cvs.height);
+        ctx = pcx;
+        G.time = _menuPreviewT;
+        const bob = Math.sin(_menuPreviewT*1.8 + sk.charCodeAt(0))*4;
+        const facing = Math.sin(_menuPreviewT*0.7)*0.3;
+        pcx.save();
+        pcx.translate(cvs.width/2, cvs.height/2 + bob);
+        pcx.rotate(facing);
+        const fake = {
+          x:0, y:0, r:22, facing:0, vx:0, vy:0,
+          color:sp.color, sp:sp, _fp:sk.charCodeAt(0), isPlayer:false,
+          rank:1, hp:1, maxHp:1,
+        };
+        try { drawShape(fake); } catch(e){}
+        pcx.restore();
+      }
+    } finally {
+      ctx = _saveCtx;
+      G.time = _saveGtime;
+    }
+    _menuPreviewRAF = requestAnimationFrame(loop);
+  };
+  _menuPreviewRAF = requestAnimationFrame(loop);
+}
+
 function buildMenu(){
   const list = document.getElementById('speciesList'); list.innerHTML='';
   // v1.7.0: coin banner + daily quest meta bar at top of menu
@@ -5016,6 +5220,7 @@ function buildMenu(){
         lockBadge = `<div style="float:right;padding:2px 6px;border-radius:4px;font-size:10px;background:#2a4a2a;color:#9fd09f">✓ Unlocked</div>`;
       }
       div.innerHTML = `${lockBadge}<div style="font-weight:700;color:${sp.color}">${sp.icon} ${sp.name}</div>
+        <canvas class="speciesPreview" width="120" height="80" data-sk="${sk}" style="display:block;margin:6px auto 4px;background:linear-gradient(180deg,rgba(40,30,60,0.5),rgba(20,12,32,0.6));border:1px solid #553;border-radius:6px;"></canvas>
         <div class="nums">HP ${sp.base.hp} · ATK ${sp.base.atk} · SPD ${sp.base.spd} ${sp.base.rngDmg?`· Ranged ${sp.base.rngDmg}`:'(melee only)'}</div>
         <div class="skills">Q ${sp.skillQ.name} · E ${sp.skillE.name} (tier ${sp.skillE.unlockRank}) · R ${sp.skillR.name} (tier ${sp.skillR.unlockRank})</div>${(()=>{
           // v1.8.0: mastery progress bar
@@ -5051,6 +5256,8 @@ function buildMenu(){
     }
     list.appendChild(grp);
   }
+  // v2.6.0: start live animated previews on each species card
+  try { startMenuPreviews(); } catch(e){}
   // show save info banner
   const _sv = getSave();
   let _siel = document.getElementById('saveInfo');
@@ -5232,6 +5439,8 @@ async function startGame(){
   try { bumpMetric('runs', 1); } catch(e){}
   // mark starter form as discovered (rank 1)
   try { markFormSeen(G.selectedSpecies, 1); } catch(e){}
+  // v2.6.0: 進入遊戲時啟動 BGM
+  try { startBGM(); } catch(e){}
   G.player = makeCreature(G.selectedSpecies, WORLD.w/2, WORLD.h/2 - 1500, true);
   // 玩家額外加成：基礎 +30% HP / +50% DEF（容錯）
   G.player.bonusDefMult = 1.5;
@@ -5309,6 +5518,8 @@ async function restartGame(){
   if (window.SDK && SDK.ready) SDK.gameplayStop();
   // v2.5.0: track restart (replay-rate metric for Poki/CrazyGames retention)
   try { bumpMetric('restarts', 1); } catch(e){}
+  // v2.6.0: 死亡返回菜單時停 BGM（startGame 會再啟）
+  try { stopBGM(); } catch(e){}
   document.getElementById('death').classList.add('hidden');
   document.getElementById('win').classList.add('hidden');
   const _rev = document.getElementById('reviveBtn'); if (_rev) _rev.classList.add('hidden');
@@ -5392,6 +5603,8 @@ window.addEventListener('load', async ()=>{
       G.soundOn = !G.soundOn;
       _mb.textContent = G.soundOn ? '🔊' : '🔇';
       try{ localStorage.setItem('evo_mute', G.soundOn?'0':'1'); }catch(e){}
+      // v2.6.0: BGM follows mute toggle
+      try { if (!G.soundOn) stopBGM(); else if (G.started && !G.dead) startBGM(); } catch(e){}
     };
     try{ if (localStorage.getItem('evo_mute')==='1'){ G.soundOn=false; _mb.textContent='🔇'; } }catch(e){}
   }
