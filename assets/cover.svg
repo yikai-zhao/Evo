@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 512" width="1024" height="512">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="40%" r="80%">
+      <stop offset="0%" stop-color="#3a1f5a"/>
+      <stop offset="55%" stop-color="#1a0a28"/>
+      <stop offset="100%" stop-color="#08040f"/>
+    </radialGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a3520"/>
+      <stop offset="100%" stop-color="#0a1810"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffd66b" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#ffaa30" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ffaa30" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+
+  <!-- night sky -->
+  <rect width="1024" height="512" fill="url(#sky)"/>
+  <!-- stars -->
+  <g fill="#fff" opacity="0.9">
+    <circle cx="80"  cy="60"  r="1.5"/>
+    <circle cx="180" cy="40"  r="1"/>
+    <circle cx="260" cy="80"  r="1.2"/>
+    <circle cx="340" cy="35"  r="0.8"/>
+    <circle cx="420" cy="100" r="1.4"/>
+    <circle cx="540" cy="55"  r="1"/>
+    <circle cx="640" cy="70"  r="1.5"/>
+    <circle cx="740" cy="35"  r="0.9"/>
+    <circle cx="820" cy="90"  r="1.2"/>
+    <circle cx="900" cy="50"  r="1"/>
+    <circle cx="960" cy="120" r="1.5"/>
+  </g>
+  <!-- distant mountains -->
+  <polygon points="0,320 120,200 240,290 360,180 500,300 640,220 780,310 900,210 1024,310 1024,512 0,512"
+           fill="#2a1f44" opacity="0.6"/>
+  <!-- ground -->
+  <rect x="0" y="360" width="1024" height="152" fill="url(#ground)"/>
+
+  <!-- hero glow halo -->
+  <circle cx="512" cy="300" r="260" fill="url(#glow)"/>
+
+  <!-- HERO creature — gold dragon silhouette (center, large) -->
+  <g transform="translate(512,300)">
+    <!-- aura ring -->
+    <circle cx="0" cy="0" r="120" fill="none" stroke="#ffd66b" stroke-width="3" opacity="0.7"/>
+    <circle cx="0" cy="0" r="140" fill="none" stroke="#ffaa30" stroke-width="2" opacity="0.4"/>
+    <!-- body -->
+    <ellipse cx="0" cy="20" rx="80" ry="55" fill="#3a2010" stroke="#ffd66b" stroke-width="4"/>
+    <!-- head -->
+    <ellipse cx="0" cy="-45" rx="55" ry="48" fill="#4a2818" stroke="#ffd66b" stroke-width="4"/>
+    <!-- horns -->
+    <polygon points="-32,-78 -20,-110 -10,-78" fill="#ffd66b"/>
+    <polygon points="32,-78 20,-110 10,-78" fill="#ffd66b"/>
+    <!-- eyes (glowing) -->
+    <circle cx="-18" cy="-50" r="7" fill="#ff3344"/>
+    <circle cx="18" cy="-50" r="7" fill="#ff3344"/>
+    <circle cx="-18" cy="-50" r="3" fill="#fff"/>
+    <circle cx="18" cy="-50" r="3" fill="#fff"/>
+    <!-- mouth fangs -->
+    <polygon points="-12,-25 -6,-10 -2,-25" fill="#fff"/>
+    <polygon points="12,-25 6,-10 2,-25" fill="#fff"/>
+    <!-- wings -->
+    <path d="M -75 0 Q -180 -50 -200 30 Q -160 20 -110 50 Z" fill="#5a3020" stroke="#ffd66b" stroke-width="3"/>
+    <path d="M 75 0 Q 180 -50 200 30 Q 160 20 110 50 Z" fill="#5a3020" stroke="#ffd66b" stroke-width="3"/>
+    <!-- tail -->
+    <path d="M 70 50 Q 140 70 160 30 Q 130 50 95 60 Z" fill="#3a2010" stroke="#ffd66b" stroke-width="3"/>
+  </g>
+
+  <!-- side creature 1 — purple wraith (right) -->
+  <g transform="translate(820,340)" opacity="0.92">
+    <ellipse cx="0" cy="0" rx="55" ry="60" fill="#3a1f5a" stroke="#aa44ff" stroke-width="3"/>
+    <circle cx="-14" cy="-12" r="6" fill="#ff66ff"/>
+    <circle cx="14" cy="-12" r="6" fill="#ff66ff"/>
+    <path d="M -40 50 Q -30 80 -20 50 Q -10 80 0 50 Q 10 80 20 50 Q 30 80 40 50" fill="none" stroke="#aa44ff" stroke-width="3"/>
+  </g>
+
+  <!-- side creature 2 — cyan carp (left) -->
+  <g transform="translate(200,340)" opacity="0.92">
+    <ellipse cx="0" cy="0" rx="65" ry="35" fill="#1f3a55" stroke="#66ccff" stroke-width="3"/>
+    <polygon points="55,0 90,-20 90,20" fill="#66ccff"/>
+    <circle cx="-30" cy="-8" r="6" fill="#fff"/>
+    <circle cx="-30" cy="-8" r="3" fill="#000"/>
+  </g>
+
+  <!-- title text -->
+  <text x="512" y="100" text-anchor="middle"
+        font-family="Georgia, serif" font-size="68" font-weight="bold"
+        fill="#ffd66b" stroke="#1a0a28" stroke-width="3"
+        style="letter-spacing:4px">LANDS END</text>
+  <text x="512" y="142" text-anchor="middle"
+        font-family="system-ui, sans-serif" font-size="22" fill="#ffe9b8" opacity="0.9"
+        style="letter-spacing:2px">Eat · Evolve · Ascend</text>
+
+  <!-- bottom tagline -->
+  <rect x="0" y="468" width="1024" height="44" fill="#000" opacity="0.45"/>
+  <text x="512" y="497" text-anchor="middle"
+        font-family="system-ui, sans-serif" font-size="18" fill="#ffd66b">
+    65 forms · 13 species · multiplayer · 8 biomes · cultivation roguelite
+  </text>
+
+  <!-- corner badges -->
+  <g transform="translate(50,470)">
+    <rect x="0" y="0" width="120" height="32" rx="16" fill="#ffd66b"/>
+    <text x="60" y="22" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="bold" fill="#1a0a28">.IO MULTIPLAYER</text>
+  </g>
+  <g transform="translate(854,470)">
+    <rect x="0" y="0" width="120" height="32" rx="16" fill="#aa44ff"/>
+    <text x="60" y="22" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="bold" fill="#fff">FREE TO PLAY</text>
+  </g>
+</svg>

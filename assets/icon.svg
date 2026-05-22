@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#3a1f5a"/>
+      <stop offset="100%" stop-color="#08040f"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffd66b" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ffaa30" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- rounded background -->
+  <rect width="512" height="512" rx="96" ry="96" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="220" fill="url(#glow)"/>
+  <!-- stars -->
+  <g fill="#fff" opacity="0.9">
+    <circle cx="80"  cy="100" r="2"/>
+    <circle cx="430" cy="120" r="1.5"/>
+    <circle cx="120" cy="420" r="1.8"/>
+    <circle cx="420" cy="400" r="2"/>
+    <circle cx="380" cy="80"  r="1.2"/>
+    <circle cx="100" cy="200" r="1"/>
+  </g>
+  <!-- dragon hero (centered, big) -->
+  <g transform="translate(256,260)">
+    <!-- aura -->
+    <circle cx="0" cy="0" r="180" fill="none" stroke="#ffd66b" stroke-width="6" opacity="0.6"/>
+    <!-- body -->
+    <ellipse cx="0" cy="40" rx="120" ry="80" fill="#3a2010" stroke="#ffd66b" stroke-width="8"/>
+    <!-- head -->
+    <ellipse cx="0" cy="-60" rx="85" ry="75" fill="#4a2818" stroke="#ffd66b" stroke-width="8"/>
+    <!-- horns -->
+    <polygon points="-50,-110 -30,-170 -15,-110" fill="#ffd66b"/>
+    <polygon points="50,-110 30,-170 15,-110" fill="#ffd66b"/>
+    <!-- eyes -->
+    <circle cx="-28" cy="-68" r="12" fill="#ff3344"/>
+    <circle cx="28" cy="-68" r="12" fill="#ff3344"/>
+    <circle cx="-28" cy="-68" r="5" fill="#fff"/>
+    <circle cx="28" cy="-68" r="5" fill="#fff"/>
+    <!-- fangs -->
+    <polygon points="-18,-30 -8,-5 -2,-30" fill="#fff"/>
+    <polygon points="18,-30 8,-5 2,-30" fill="#fff"/>
+    <!-- wings -->
+    <path d="M -110 10 Q -240 -60 -260 60 Q -210 40 -150 70 Z" fill="#5a3020" stroke="#ffd66b" stroke-width="6"/>
+    <path d="M 110 10 Q 240 -60 260 60 Q 210 40 150 70 Z" fill="#5a3020" stroke="#ffd66b" stroke-width="6"/>
+  </g>
+</svg>

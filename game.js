@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.7.0 (Qi→XP UI · 12s first-run tutorial · Esc/⏸ pause overlay · cartoon BONK/POW pop-text + honk SFX + confetti on rank-up · 3s share-window delay)
+// Lands End — Prototype v2.8.0 (procedural biome decorations · boss-intensity BGM bass+kick · 1.6s death slow-mo cinema · SVG cover/icon + OG meta · comprehensive QA)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -771,6 +771,154 @@ function generateTerrain(){
           tctx.fillStyle = ['#ccaaff','#aaccff','#ffccee','#ffffff'][(seed>>>4)&3];
           tctx.globalAlpha = 0.5 + ((seed>>>8)&0x7)/16;
           tctx.beginPath(); tctx.arc(px, py, rr, 0, Math.PI*2); tctx.fill();
+        }
+        tctx.globalAlpha = 1;
+      }
+      // v2.8.0: per-biome decorative scenery (baked once into the tile, zero per-frame cost)
+      // D2 retention killer fix — map no longer feels like flat color blocks
+      const _seedRand = ()=>{ seed = (seed*1664525 + 1013904223) >>> 0; return (seed>>>0); };
+      const _rndF = ()=>{ return (_seedRand() & 0xffff) / 0xffff; };
+      if (bk==='plain'){
+        // grass tufts: short green strokes
+        for (let i=0;i<40;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          const h = 3 + _rndF()*4;
+          tctx.strokeStyle = _rndF()<0.5 ? '#5a7a3a' : '#6a8a4a';
+          tctx.globalAlpha = 0.6 + _rndF()*0.3;
+          tctx.lineWidth = 1;
+          tctx.beginPath(); tctx.moveTo(px, py); tctx.lineTo(px + (_rndF()-0.5)*2, py-h); tctx.stroke();
+        }
+        // occasional small flowers
+        for (let i=0;i<6;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          tctx.fillStyle = ['#ffee66','#ff88aa','#ffffff','#aaccff'][_seedRand()&3];
+          tctx.globalAlpha = 0.9;
+          tctx.beginPath(); tctx.arc(px, py, 1.4, 0, Math.PI*2); tctx.fill();
+        }
+        tctx.globalAlpha = 1;
+      } else if (bk==='forest'){
+        // dark tree canopies
+        for (let i=0;i<14;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          const r = 6 + _rndF()*10;
+          tctx.fillStyle = _rndF()<0.5 ? '#0d2615' : '#1a3a22';
+          tctx.globalAlpha = 0.85;
+          tctx.beginPath(); tctx.arc(px, py, r, 0, Math.PI*2); tctx.fill();
+          // trunk highlight
+          tctx.fillStyle = '#3a5230';
+          tctx.globalAlpha = 0.5;
+          tctx.beginPath(); tctx.arc(px-r*0.25, py-r*0.25, r*0.3, 0, Math.PI*2); tctx.fill();
+        }
+        // tiny ferns
+        for (let i=0;i<20;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          tctx.strokeStyle = '#4a6a3a'; tctx.globalAlpha = 0.55; tctx.lineWidth = 1;
+          tctx.beginPath(); tctx.moveTo(px, py); tctx.lineTo(px+(_rndF()-0.5)*4, py-3); tctx.stroke();
+        }
+        tctx.globalAlpha = 1;
+      } else if (bk==='desert'){
+        // dune ripple lines
+        tctx.strokeStyle = '#c0a060'; tctx.globalAlpha = 0.35; tctx.lineWidth = 1;
+        for (let i=0;i<10;i++){
+          const yy = _rndF()*TILE;
+          tctx.beginPath();
+          tctx.moveTo(0, yy);
+          for (let xx=0; xx<=TILE; xx+=16) tctx.lineTo(xx, yy + Math.sin(xx*0.05 + i)*3);
+          tctx.stroke();
+        }
+        // scattered pebbles
+        for (let i=0;i<18;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          tctx.fillStyle = _rndF()<0.5 ? '#8a7038' : '#a08850';
+          tctx.globalAlpha = 0.6;
+          tctx.beginPath(); tctx.arc(px, py, 1 + _rndF()*1.5, 0, Math.PI*2); tctx.fill();
+        }
+        // rare cactus silhouette
+        if (_rndF()<0.3){
+          const cx = _rndF()*TILE, cy = _rndF()*TILE;
+          tctx.fillStyle = '#3a6a3a'; tctx.globalAlpha = 0.8;
+          tctx.fillRect(cx-1.5, cy-8, 3, 12);
+          tctx.fillRect(cx-4, cy-4, 2.5, 5);
+          tctx.fillRect(cx+1.5, cy-5, 2.5, 6);
+        }
+        tctx.globalAlpha = 1;
+      } else if (bk==='swamp'){
+        // lily pads + muck pools
+        for (let i=0;i<10;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          const r = 4 + _rndF()*5;
+          tctx.fillStyle = '#2a3a1a'; tctx.globalAlpha = 0.7;
+          tctx.beginPath(); tctx.arc(px, py, r, 0, Math.PI*2); tctx.fill();
+          tctx.fillStyle = '#5a7a3a'; tctx.globalAlpha = 0.5;
+          tctx.beginPath(); tctx.arc(px-r*0.2, py-r*0.2, r*0.5, 0, Math.PI*2); tctx.fill();
+        }
+        // bubbles
+        for (let i=0;i<14;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          tctx.strokeStyle = '#7a9a4a'; tctx.globalAlpha = 0.4; tctx.lineWidth = 0.8;
+          tctx.beginPath(); tctx.arc(px, py, 1.2 + _rndF(), 0, Math.PI*2); tctx.stroke();
+        }
+        tctx.globalAlpha = 1;
+      } else if (bk==='water'){
+        // wave caps + foam
+        tctx.strokeStyle = '#88c0e0'; tctx.lineWidth = 1;
+        for (let i=0;i<8;i++){
+          const yy = _rndF()*TILE;
+          const xx = _rndF()*TILE;
+          const w = 6 + _rndF()*10;
+          tctx.globalAlpha = 0.5 + _rndF()*0.3;
+          tctx.beginPath();
+          tctx.arc(xx, yy, w, Math.PI*1.1, Math.PI*1.9);
+          tctx.stroke();
+        }
+        // foam dots
+        for (let i=0;i<22;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          tctx.fillStyle = '#cce8ff'; tctx.globalAlpha = 0.4;
+          tctx.beginPath(); tctx.arc(px, py, 0.8, 0, Math.PI*2); tctx.fill();
+        }
+        tctx.globalAlpha = 1;
+      } else if (bk==='mtn'){
+        // rocky crags — gray polygons
+        for (let i=0;i<10;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          const r = 5 + _rndF()*10;
+          tctx.fillStyle = _rndF()<0.5 ? '#3a3a44' : '#4a4a55';
+          tctx.globalAlpha = 0.85;
+          tctx.beginPath();
+          const sides = 5 + (_seedRand()&3);
+          for (let k=0;k<sides;k++){
+            const a = (k/sides)*Math.PI*2;
+            const rr = r * (0.7 + _rndF()*0.5);
+            const xx = px + Math.cos(a)*rr;
+            const yy = py + Math.sin(a)*rr;
+            if (k===0) tctx.moveTo(xx,yy); else tctx.lineTo(xx,yy);
+          }
+          tctx.closePath(); tctx.fill();
+          // highlight
+          tctx.fillStyle = '#7a7a88'; tctx.globalAlpha = 0.5;
+          tctx.beginPath(); tctx.arc(px-r*0.3, py-r*0.3, r*0.35, 0, Math.PI*2); tctx.fill();
+        }
+        tctx.globalAlpha = 1;
+      } else if (bk==='snow'){
+        // ice crystals + snowflakes
+        for (let i=0;i<26;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          tctx.strokeStyle = '#ffffff'; tctx.globalAlpha = 0.7 + _rndF()*0.25; tctx.lineWidth = 1;
+          tctx.beginPath();
+          for (let k=0;k<3;k++){
+            const a = k*Math.PI/3;
+            const l = 2 + _rndF()*1.5;
+            tctx.moveTo(px - Math.cos(a)*l, py - Math.sin(a)*l);
+            tctx.lineTo(px + Math.cos(a)*l, py + Math.sin(a)*l);
+          }
+          tctx.stroke();
+        }
+        // pale blue shadow patches
+        for (let i=0;i<6;i++){
+          const px = _rndF()*TILE, py = _rndF()*TILE;
+          tctx.fillStyle = '#88aac8'; tctx.globalAlpha = 0.18;
+          tctx.beginPath(); tctx.arc(px, py, 6 + _rndF()*8, 0, Math.PI*2); tctx.fill();
         }
         tctx.globalAlpha = 1;
       }
@@ -2971,8 +3119,35 @@ function die(reason){
   G.dead = true;
   try { saveProgress({onDeath:true}); } catch(e){}
   playSound('death');
+  // v2.8.0: cinematic death — explosive FX + 1.6s slow-mo before overlay (short-video gold)
+  G._deathReason = reason || G.deathBy || 'Unknown cause';
+  G._deathCinT = 1.6;
+  if (G.player){
+    G.shockwaves.push({x:G.player.x,y:G.player.y,r:0,max:700, life:1.4,color:'#ff3344'});
+    G.shockwaves.push({x:G.player.x,y:G.player.y,r:0,max:1100,life:1.8,color:'#ffaa30'});
+    for (let i=0;i<160;i++){
+      G.particles.push({
+        x:G.player.x, y:G.player.y,
+        vx:rand(-700,700), vy:rand(-700,700),
+        life:1.6 + Math.random()*0.8,
+        color: i%3===0?'#ff4444':(i%3===1?'#ffaa30':'#ffffff'),
+        r: 2 + Math.random()*2,
+      });
+    }
+    try { confettiBurst(G.player.x, G.player.y, 50); } catch(e){}
+    try { popComedy(G.player.x, G.player.y-40, true); } catch(e){}
+    flash('#ff3344', 0.9); shake(55);
+    G.player._ragSpin = (Math.random()<0.5?-1:1) * 14;
+  }
+  try { stopBGM(); } catch(e){}
+}
+function _showDeathOverlay(){
+  if (!G.dead) return;
+  if (G._deathOverlayShown) return;
+  G._deathOverlayShown = true;
+  const reason = G._deathReason || G.deathBy || 'Unknown cause';
   document.getElementById('death').classList.remove('hidden');
-  document.getElementById('deathReason').textContent=reason||G.deathBy||'Unknown cause';
+  document.getElementById('deathReason').textContent = reason;
   // v1.6.2: leaderboard rank in death stats
   let _rankTxt = '';
   try {
@@ -3058,6 +3233,7 @@ function die(reason){
         try { await SDK.rewardedBreak(); } catch(e){}
         // Restore 60% HP + invuln, hide death, resume
         G.dead = false;
+        G._deathCinT = 0; G._deathOverlayShown = false; G._deathReason = null;
         document.getElementById('death').classList.add('hidden');
         if (G.player){
           G.player.hp = Math.max(G.player.hp, Math.floor(G.player.maxHp * 0.6));
@@ -3173,6 +3349,14 @@ function loop(t){
       update(dt);
       G._saveTimer += dt;
       if (G._saveTimer >= 30){ G._saveTimer = 0; saveProgress(); }
+    }
+    // v2.8.0: death-cinema — keep updating world at slow-mo speed for 1.6s before showing overlay
+    if (dt>0 && G.started && G.dead && G._deathCinT > 0){
+      G._deathCinT -= dt;
+      try { update(dt * 0.22); } catch(e){}  // slow-mo
+      if (G._deathCinT <= 0){
+        try { _showDeathOverlay(); } catch(e){}
+      }
     }
     render();
   } catch(err){
@@ -4838,6 +5022,29 @@ function _bgmArpTick(){
     o2.connect(g2); g2.connect(BGM.master);
     o2.start(); o2.stop(a.currentTime + 0.5);
   }
+  // v2.8.0: BOSS combat layer — sub-bass kick + dark sawtooth pulse every 4 steps when boss alive
+  if (G.boss && G.boss.hp > 0 && (BGM._step % 4) === 0){
+    // sub-bass kick (descending sine for that "boom" feel)
+    const k = a.createOscillator(); k.type='sine';
+    k.frequency.setValueAtTime(110, a.currentTime);
+    k.frequency.exponentialRampToValueAtTime(35, a.currentTime + 0.25);
+    const kg = a.createGain();
+    kg.gain.setValueAtTime(0, a.currentTime);
+    kg.gain.linearRampToValueAtTime(0.32, a.currentTime + 0.01);
+    kg.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.30);
+    k.connect(kg); kg.connect(BGM.master);
+    k.start(); k.stop(a.currentTime + 0.32);
+    // dark sawtooth pulse — ominous boss presence
+    const s = a.createOscillator(); s.type='sawtooth';
+    s.frequency.value = bgmBaseFreq() * 0.5;  // one octave below
+    const sg = a.createGain();
+    const slp = a.createBiquadFilter(); slp.type='lowpass'; slp.frequency.value=320;
+    sg.gain.setValueAtTime(0, a.currentTime);
+    sg.gain.linearRampToValueAtTime(0.10, a.currentTime + 0.05);
+    sg.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.7);
+    s.connect(slp); slp.connect(sg); sg.connect(BGM.master);
+    s.start(); s.stop(a.currentTime + 0.75);
+  }
   BGM._step++;
 }
 
@@ -5583,6 +5790,8 @@ async function startGame(){
   try { const _pb = document.getElementById('pauseBtn'); if (_pb) _pb.classList.add('show'); } catch(e){}
   G.enemies=[]; G.minions=[]; G.projectiles=[]; G.pickups=[]; G.spirits=[]; G.authorities=[]; G.particles=[]; G.floats=[]; G.shockwaves=[]; G.hazards=[];
   G.dead=false; G.won=false; G.time=0;
+  // v2.8.0: reset death-cinema state on new run
+  G._deathCinT = 0; G._deathOverlayShown = false; G._deathReason = null;
   G.tutorialT = 0; G.tutorialStep = 0;
   G.firstHunt = { active:true, shown:false, t:45 };
   // v2.5.0: reset per-run metric flags + bump run counter
@@ -5676,6 +5885,8 @@ async function restartGame(){
   try { stopBGM(); } catch(e){}
   // v2.7.0: clear any lingering restart-countdown interval
   try { if (G._deathRestartCdInt){ clearInterval(G._deathRestartCdInt); G._deathRestartCdInt = 0; } } catch(e){}
+  // v2.8.0: reset cinema-death state so next death plays again
+  try { G._deathCinT = 0; G._deathOverlayShown = false; G._deathReason = null; } catch(e){}
   // v2.7.0: hide pause UI when returning to menu
   try {
     const _pb = document.getElementById('pauseBtn'); if (_pb) _pb.classList.remove('show');
