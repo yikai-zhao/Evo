@@ -5,9 +5,16 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 
 .overlay {
   position: fixed; inset: 0; background: rgba(8,10,18,.95);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 24px; z-index: 50; overflow-y:auto;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px;
+  z-index: 50;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;  /* v2.9.3: smooth scroll on iOS */
 }
+/* v2.9.3: scroll-safe vertical centering — content centers when it fits,
+   scrolls naturally (top + bottom both reachable) when it overflows */
+.overlay > *:first-child { margin-top: auto; }
+.overlay > *:last-child  { margin-bottom: auto; }
 .overlay.hidden { display: none; }
 .overlay h1 { font-size: 42px; letter-spacing: 6px; margin-bottom: 4px; color:#ffd66b; text-shadow: 0 0 18px rgba(255,180,80,.4); }
 .overlay h1 .sub { display:block; font-size:14px; letter-spacing:4px; color:#999; margin-top:6px; }
