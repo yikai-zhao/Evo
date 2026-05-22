@@ -3,19 +3,22 @@ html, body { width: 100%; height: 100%; overflow: hidden; background:#000; font-
 
 canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 
+/* v2.9.4: iOS/iPad reliable scroll — block layout, NO flex on the overlay itself.
+   Flex was causing iOS Safari fixed+overflow scroll to silently break.
+   overflow-y:scroll (not auto) forces scrollbar track on all platforms. */
 .overlay {
   position: fixed; inset: 0; background: rgba(8,10,18,.95);
-  display: flex; flex-direction: column; align-items: center;
-  padding: 24px;
+  display: block;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   z-index: 50;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;  /* v2.9.3: smooth scroll on iOS */
+  padding: 32px 24px 100px;  /* generous bottom pad so Start btn is never hidden */
+  text-align: center;
 }
-/* v2.9.3: scroll-safe vertical centering — content centers when it fits,
-   scrolls naturally (top + bottom both reachable) when it overflows */
-.overlay > *:first-child { margin-top: auto; }
-.overlay > *:last-child  { margin-bottom: auto; }
 .overlay.hidden { display: none; }
+/* Centre block children horizontally */
+.overlay > * { margin-left: auto; margin-right: auto; }
 .overlay h1 { font-size: 42px; letter-spacing: 6px; margin-bottom: 4px; color:#ffd66b; text-shadow: 0 0 18px rgba(255,180,80,.4); }
 .overlay h1 .sub { display:block; font-size:14px; letter-spacing:4px; color:#999; margin-top:6px; }
 .overlay h2 { font-size:18px; margin: 16px 0 8px; color:#9cdcfe; }
