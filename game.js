@@ -5721,15 +5721,33 @@ function setupTouch(canvas){
     jApply(t.clientX, t.clientY);
   }, {passive:false});
 
+  // v2.9.5: only swallow touchmove when it's actually a game-input gesture.
+  // Previously this preventDefault'd EVERY touchmove on document → broke iPad menu scroll.
+  function _isGameTouch(target){
+    if (!target) return false;
+    // active joystick drag → always game
+    if (jTid !== -1) return true;
+    // canvas or touch UI element → game
+    if (target === canvas) return true;
+    const touchUI = document.getElementById('touch');
+    if (touchUI && touchUI.contains(target)) return true;
+    // anything else (menu overlay, inputs, buttons, scroll containers) → let it scroll/click
+    return false;
+  }
+
   document.addEventListener('touchmove', e=>{
-    e.preventDefault();
+    // Only block default (scroll) when the touch is part of game input.
+    // Lets iPad / iOS scroll the species-select menu, death screen, tutorial, etc.
+    let block = false;
     for (const t of e.changedTouches){
-      if (t.identifier===jTid){ jApply(t.clientX, t.clientY); }
-      else {
+      if (t.identifier===jTid){ jApply(t.clientX, t.clientY); block = true; }
+      else if (_isGameTouch(t.target)){
         const r=canvas.getBoundingClientRect();
         MOUSE.x=t.clientX-r.left; MOUSE.y=t.clientY-r.top;
+        block = true;
       }
     }
+    if (block) e.preventDefault();
   }, {passive:false});
 
   document.addEventListener('touchend', e=>{

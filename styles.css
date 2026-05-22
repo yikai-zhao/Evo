@@ -118,6 +118,12 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 /* Touch UI (v1.4.0) */
 #touch { position:fixed; inset:auto 0 0 0; height:250px; z-index:20; pointer-events:none; }
 #touch.hidden { display:none !important; }
+/* v2.9.5: hide in-game touch UI while any overlay (menu / death / tutorial / pause) is visible */
+body:has(.overlay:not(.hidden)) #touch { display: none !important; }
+/* v2.9.5: also hide floating top-right buttons (mute/pause) while menu overlay is visible
+   (pauseBtn is normally hidden by .show; muteBtn is always shown otherwise) */
+body:has(#menu.overlay:not(.hidden)) #muteBtn,
+body:has(#menu.overlay:not(.hidden)) #pauseBtn { display: none !important; }
 #joystick {
   position:absolute; left:16px; bottom:16px;
   width:120px; height:120px; border-radius:50%;
