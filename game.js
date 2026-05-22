@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.2.1 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
+// Lands End — Prototype v2.3.0 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -220,86 +220,86 @@ const SPECIES = {
   // Path of Humanity
   swordsman: { path:'human', name:'Swordsman', icon:'🗡️', color:'#ffd66b', shape:'humanoid',
     base:{hp:130,atk:15,def:5,spd:185,sta:90,life:240, r:18, atkR:55, atkCd:0.4, rngR:480, rngCd:0.8, rngDmg:12, rngSpd:540},
-    skillQ:{name:'Triple Arrow', cd:3.5, type:'arrow3', desc:'Fan 3 arrows, x0.7 dmg each', unlockRank:2},
+    skillQ:{name:'Triple Arrow', cd:3.5, type:'arrow3', desc:'Fan 3 arrows, x0.7 dmg each', unlockRank:1},
     skillE:{name:'Sword Will Slash', cd:6,  type:'cleave',  desc:'Forward 180 deg fan slash, x3 dmg', unlockRank:4},
     skillR:{name:'Myriad Swords', cd:18, type:'sword_rain', desc:'24 swords orbit and fire at nearest', unlockRank:6},
   },
   // v2.0: Cultivator — caster + protective: bolts, Dao Aegis shield, sky lightning
   cultivator: { path:'human', name:'Cultivator', icon:'🧘', color:'#cba6ff', shape:'humanoid',
     base:{hp:105,atk:11,def:3,spd:170,sta:140,life:230, r:17, atkR:50, atkCd:0.5, rngR:560, rngCd:0.55, rngDmg:14, rngSpd:600},
-    skillQ:{name:'Qi Bolt Fan', cd:3.5, type:'arrow3', desc:'Fan 3 Qi bolts, x0.7 dmg each', unlockRank:2},
+    skillQ:{name:'Qi Bolt Fan', cd:3.5, type:'arrow3', desc:'Fan 3 Qi bolts, x0.7 dmg each', unlockRank:1},
     skillE:{name:'Dao Aegis', cd:10, type:'shield', desc:'8s arcane shield absorbs heavy damage', unlockRank:4},
     skillR:{name:'Heavenly Tribulation', cd:22, type:'sky_lightning', desc:'15 random bolts smite enemies', unlockRank:6},
   },
   lizard: { path:'beast', name:'Lizard', icon:'🦎', color:'#7fd07f', shape:'reptile',
     base:{hp:150,atk:16,def:6,spd:170,sta:80,life:200, r:20, atkR:58, atkCd:0.42},
-    skillQ:{name:'Whirlwind Slash', cd:3, type:'spin', desc:'360 deg spin slash, x2 + KB', unlockRank:2},
+    skillQ:{name:'Whirlwind Slash', cd:3, type:'spin', desc:'360 deg spin slash, x2 + KB', unlockRank:1},
     skillE:{name:'Tail Sweep', cd:5,  type:'tail',  desc:'280 deg tail sweep knockup', unlockRank:4},
     skillR:{name:'Berserk Form', cd:18, type:'rage', desc:'10s AS x2 DEF x2', unlockRank:6},
   },
   croc: { path:'beast', name:'Crocodile', icon:'🐊', color:'#6aa86a', shape:'reptile',
     base:{hp:170,atk:18,def:8,spd:155,sta:80,life:240, r:22, atkR:55, atkCd:0.5},
-    skillQ:{name:'Death Roll', cd:3.5, type:'roll', desc:'Charge bite, x2 dmg + bleed', unlockRank:2},
+    skillQ:{name:'Death Roll', cd:3.5, type:'roll', desc:'Charge bite, x2 dmg + bleed', unlockRank:1},
     skillE:{name:'Lockjaw', cd:6, type:'grab', desc:'Grab nearest 2s, bite every 0.3s', unlockRank:4},
     skillR:{name:'Blood River', cd:22, type:'bloodpool', desc:'Blood pool, enemies bleed', unlockRank:6},
   },
   // v2.2.0: Dinosaur — tyrant tank: stomp, dmg-transfer bond, push-roar
   dino: { path:'dragon', name:'Dinosaur', icon:'🦖', color:'#7a8a3a', shape:'beast',
     base:{hp:180,atk:20,def:10,spd:150,sta:80,life:260, r:26, atkR:65, atkCd:0.5},
-    skillQ:{name:'Stomp', cd:3, type:'stomp', desc:'250r AoE wave + stun 1s', unlockRank:2},
+    skillQ:{name:'Stomp', cd:3, type:'stomp', desc:'250r AoE wave + stun 1s', unlockRank:1},
     skillE:{name:'Tyrant Bond', cd:10, type:'dmg_transfer', desc:'8s: redirect 70% incoming dmg to highest-HP nearby foe', unlockRank:4},
     skillR:{name:'Tyrant Roar', cd:20, type:'roar', desc:'Push all + stun 3s', unlockRank:6},
   },
   wolf: { path:'beast', name:'Wolf', icon:'🐺', color:'#a0a0a0', shape:'beast',
     base:{hp:130,atk:15,def:5,spd:195,sta:100,life:200, r:18, atkR:55, atkCd:0.388},
-    skillQ:{name:'Pounce', cd:2.5, type:'pounce', desc:'Lunge + bite x2 dmg', unlockRank:2},
+    skillQ:{name:'Pounce', cd:2.5, type:'pounce', desc:'Lunge + bite x2 dmg', unlockRank:1},
     skillE:{name:'Wolf Pack', cd:8, type:'summon_wolf', desc:'Summon 3 phantom wolves 15s', unlockRank:4},
     skillR:{name:'Bloodlust', cd:20, type:'frenzy', desc:'12s AS x2 + full heal on kill', unlockRank:6},
   },
   // 龍
   longSnake: { path:'dragon', name:'Jiao Serpent', icon:'🐉', color:'#88e0ff', shape:'dragon',
     base:{hp:160,atk:17,def:7,spd:170,sta:90,life:260, r:22, atkR:60, atkCd:0.45, rngR:460, rngCd:1.1, rngDmg:18, rngSpd:520},
-    skillQ:{name:'Dragon Breath', cd:3, type:'breath', desc:'400px flame cone x0.6/tick', unlockRank:2},
+    skillQ:{name:'Dragon Breath', cd:3, type:'breath', desc:'400px flame cone x0.6/tick', unlockRank:1},
     skillE:{name:'Coil', cd:6, type:'whirl', desc:'Energy ribbon 3s', unlockRank:4},
     skillR:{name:'True Dragon Descend', cd:25, type:'dragon_form', desc:'15s Size x1.5 ATK +100%', unlockRank:6},
   },
   // 羽
   eagle: { path:'bird', name:'Eagle', icon:'🦅', color:'#cce0ff', shape:'bird',
     base:{hp:110,atk:13,def:4,spd:200,sta:120,life:200, r:16, atkR:50, atkCd:0.38, rngR:540, rngCd:0.6, rngDmg:10, rngSpd:640},
-    skillQ:{name:'Dive', cd:3, type:'dive', desc:'Dash to cursor, x3 dmg', unlockRank:2},
+    skillQ:{name:'Dive', cd:3, type:'dive', desc:'Dash to cursor, x3 dmg', unlockRank:1},
     skillE:{name:'Storm Feather Tempest', cd:6, type:'feather_storm', desc:'Fire 12 quills x0.5', unlockRank:4},
     skillR:{name:'Thunder Pierce', cd:20, type:'thunder_dive', desc:'Sky lightning pierces all', unlockRank:6},
   },
   owl: { path:'bird', name:'Night Owl', icon:'🦉', color:'#aabbcc', shape:'bird',
     base:{hp:115,atk:14,def:4,spd:190,sta:100,life:220, r:16, atkR:52, atkCd:0.4, rngR:520, rngCd:0.7, rngDmg:14, rngSpd:580},
-    skillQ:{name:'Shadow Arrow', cd:3, type:'shadow_arrow', desc:'Piercing arrow x2 dmg', unlockRank:2},
+    skillQ:{name:'Shadow Arrow', cd:3, type:'shadow_arrow', desc:'Piercing arrow x2 dmg', unlockRank:1},
     skillE:{name:'Veil of Night', cd:8, type:'darkness', desc:'8s stealth + 50% crit', unlockRank:4},
     skillR:{name:'Death Gaze', cd:20, type:'death_gaze', desc:'Lock 1.5s, then 999 true dmg', unlockRank:6},
   },
   // v2.2.0: Bat — echo/blood: sonar stun, vampire aura, phantom swarm
   bat: { path:'bird', name:'Bat', icon:'🦇', color:'#9a76d0', shape:'bird',
     base:{hp:100,atk:11,def:3,spd:210,sta:110,life:200, r:14, atkR:45, atkCd:0.32, rngR:380, rngCd:0.45, rngDmg:7, rngSpd:680},
-    skillQ:{name:'Sonar Pulse', cd:3, type:'shock', desc:'250r echo shock + stun 0.5s', unlockRank:2},
+    skillQ:{name:'Sonar Pulse', cd:3, type:'shock', desc:'250r echo shock + stun 0.5s', unlockRank:1},
     skillE:{name:'Vampire Embrace', cd:9, type:'lifesteal_aura', desc:'8s aura: heal 40% of dmg dealt', unlockRank:4},
     skillR:{name:'Echo Swarm', cd:20, type:'summon_wolf', desc:'Summon 3 phantom bats 15s', unlockRank:6},
   },
   // 鱗
   shark: { path:'fish', name:'Shark', icon:'🦈', color:'#88c0ff', shape:'fish',
     base:{hp:220,atk:24,def:8,spd:170,sta:100,life:220, r:24, atkR:60, atkCd:0.4},
-    skillQ:{name:'Triple Bite', cd:3, type:'combo3', desc:'3 bites x0.8 + bleed', unlockRank:2},
+    skillQ:{name:'Triple Bite', cd:3, type:'combo3', desc:'3 bites x0.8 + bleed', unlockRank:1},
     skillE:{name:'Blood Frenzy', cd:6, type:'bloodrage', desc:'Sense low-HP 6s + AS x1.5', unlockRank:4},
     skillR:{name:'Abyss Call', cd:22, type:'abyss', desc:'Summon 5 phantom sharks', unlockRank:6},
   },
   electroEel: { path:'fish', name:'Eel', icon:'🐍', color:'#aaffe0', shape:'fish',
     base:{hp:120,atk:13,def:4,spd:170,sta:120,life:200, r:18, atkR:50, atkCd:0.4, rngR:480, rngCd:0.5, rngDmg:9, rngSpd:660},
-    skillQ:{name:'Discharge', cd:3, type:'shock', desc:'250r shock + stun 0.5s', unlockRank:2},
+    skillQ:{name:'Discharge', cd:3, type:'shock', desc:'250r shock + stun 0.5s', unlockRank:1},
     skillE:{name:'Lightning Chain', cd:6, type:'chain', desc:'8-jump chain x0.6 each', unlockRank:4},
     skillR:{name:'Heavenly Thunder', cd:20, type:'sky_lightning', desc:'15 random bolts', unlockRank:6},
   },
   // 蟲
   scorpion: { path:'insect', name:'Scorpion', icon:'🦂', color:'#c0ff60', shape:'insect',
     base:{hp:140,atk:15,def:7,spd:160,sta:90,life:220, r:18, atkR:55, atkCd:0.42, rngR:430, rngCd:0.9, rngDmg:12, rngSpd:500},
-    skillQ:{name:'Venom Tail', cd:3, type:'poison_sting', desc:'Spear lunge, 6s DOT 5/s', unlockRank:2},
+    skillQ:{name:'Venom Tail', cd:3, type:'poison_sting', desc:'Spear lunge, 6s DOT 5/s', unlockRank:1},
     skillE:{name:'Venom Mist', cd:7, type:'poison_cloud', desc:'200r venom cloud 6s DOT', unlockRank:4},
     skillR:{name:'Imperial Venom', cd:22, type:'plague', desc:'All poisoned 10s, 30/s', unlockRank:6},
   },
@@ -457,6 +457,7 @@ const G = {
   time:0, started:false, dead:false, won:false,
   selectedSpecies:null, msg:'', killFeed:[], leaderboard:[], errorCount:0, lastError:'',
   soundOn:true, lastHitTime:0, deathBy:'',
+  killStreak:0, streakBannerT:0, streakBannerText:'', streakBannerColor:'#ff8800',
   fps:60, frameAcc:0, frameN:0, mapOpen:false,
   boss:null, bossSpawnT:240, bossDefeated:0,
   miniboss:null, minibossSpawnT:180, miniDefeated:0,
@@ -1286,6 +1287,23 @@ function spawnInitialWorld(){
   }
   // 敵人（出生點 2000px 內為絕對安全區）— v1.8.2: more enemies near player for combat density
   for (let i=0;i<90;i++) spawnEnemy(true);
+  // v2.3.0 P0: spawn 16 rank-1/2 enemies within 600-1800px for immediate action
+  if (G.player){
+    const nearKeys = Object.keys(SPECIES);
+    for (let i=0;i<16;i++){
+      const sp = nearKeys[(Math.random()*nearKeys.length)|0];
+      const ang = Math.random()*Math.PI*2;
+      const d = 600 + Math.random()*1200;
+      const ex = clamp(G.player.x + Math.cos(ang)*d, 100, WORLD.w-100);
+      const ey = clamp(G.player.y + Math.sin(ang)*d, 100, WORLD.h-100);
+      const e = makeCreature(sp, ex, ey, false);
+      e.rank = i < 8 ? 1 : 2;
+      const b = RANK_BONUS[0]; if (e.rank>=2){ e.zhenyuan+=b.zy; e.daohen+=b.dh; }
+      recalcStats(e); e.hp=e.maxHp; e.sta=e.maxSta;
+      e.nid = ++G._nidSeq;
+      G.enemies.push(e);
+    }
+  }
 }
 function spawnPickup(){
   const def = weightedPickup();
@@ -1744,6 +1762,17 @@ function onKill(attacker, target){
   // 玩家擊殺
   if (attacker && attacker.isPlayer){
     attacker.q.kills++;
+    // v2.3.0 P0: kill streak system
+    G.killStreak = (G.killStreak||0) + 1;
+    const _streakMile = {3:'🔥 Killing Spree!', 5:'⚡ Rampage!', 7:'💀 Unstoppable!', 10:'👑 Godlike!', 15:'☄ Beyond Godlike!', 20:'⭐ LEGENDARY!'};
+    if (_streakMile[G.killStreak]){
+      const _sbq = G.killStreak * 8;
+      attacker.qi += _sbq;
+      G.streakBannerText = _streakMile[G.killStreak] + '  +' + _sbq + ' Qi';
+      G.streakBannerT = 3.5;
+      G.streakBannerColor = G.killStreak>=10 ? '#ffd700' : G.killStreak>=7 ? '#ff44ff' : '#ff8800';
+      pushKillFeed(G.streakBannerText, G.streakBannerColor);
+    }
     if (target.rank>=3) attacker.q.killHighTier++;
     if (target.rank>=5) attacker.q.killEpic++;
     // v2.0: high-tier kill trackers (legendary / cross-path / throne usurpation)
@@ -2389,6 +2418,7 @@ function die(reason){
     logMsg('★ Rebirth! Phoenix power lifts you again','promote');
     return;
   }
+  G.killStreak = 0;
   G.dead = true;
   try { saveProgress({onDeath:true}); } catch(e){}
   playSound('death');
@@ -2794,6 +2824,8 @@ function render(){
   try{ drawCrosshair(); }catch(e){}
   try{ drawStatusBanner(); }catch(e){}
   try{ drawKillFeed(); }catch(e){}
+  try{ drawStreakBanner(); }catch(e){}
+  try{ drawEdgeArrows(); }catch(e){}
   try{ drawLeaderboard(); }catch(e){}
   ctx.fillStyle = G.fps<30 ? '#ff6666' : (G.fps<50 ? '#ffcc66' : '#88ff88');
   ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
@@ -3071,11 +3103,22 @@ function drawHazards(){
 function drawCreature(c){
   if (!c || c.hp<=0) return;
   const isP = c.isPlayer;
-  // 階位光環
+  // v2.3.0: 階位光環 + 高階身形放大
+  if (c.rank>=5){
+    const scaleFactor = 1 + (c.rank-4)*0.06; // rank5=1.06, rank9=1.30
+    c.r = Math.round((c.sp.base.r||18) * scaleFactor);
+  }
   if (c.rank>=3){
     const aR = c.r + 6 + c.rank;
-    ctx.strokeStyle = c.path.color; ctx.lineWidth = Math.min(5, c.rank-2);
+    ctx.strokeStyle = c.path.color; ctx.lineWidth = Math.min(6, c.rank-1);
     ctx.beginPath(); ctx.arc(c.x,c.y,aR,0,Math.PI*2); ctx.stroke();
+    if (c.rank>=7){
+      // inner glow pulse for high-tier creatures
+      ctx.globalAlpha = 0.18 + 0.12*Math.sin(G.time*3 + c.x*0.01);
+      ctx.fillStyle = c.path.color;
+      ctx.beginPath(); ctx.arc(c.x,c.y,aR,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
   // 無敵盾光（出生保護或衝刺）
   if (c.invuln>0){
@@ -3630,6 +3673,73 @@ function drawMinimap(){
     ctx.fillStyle=p.color||'#88ccff';ctx.beginPath();ctx.arc(mx+p.x*sx,my+p.y*sy,4,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#fff5';ctx.lineWidth=1.5;ctx.stroke();}
 }
+// v2.3.0: kill streak banner
+function drawStreakBanner(){
+  if (!G.streakBannerT || G.streakBannerT<=0) return;
+  G.streakBannerT -= 1/60;
+  const cx = (window.innerWidth||800)/2;
+  const cy = (window.innerHeight||600)*0.28;
+  const a = Math.min(1, G.streakBannerT * 2);
+  ctx.save();
+  ctx.globalAlpha = a;
+  const scale = 1 + Math.min(0.2, (3.5 - G.streakBannerT) * 0.15);
+  ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-cx, -cy);
+  ctx.font = 'bold 36px sans-serif'; ctx.textAlign = 'center';
+  ctx.shadowColor = G.streakBannerColor; ctx.shadowBlur = 24;
+  ctx.fillStyle = '#000a';
+  const tw = ctx.measureText(G.streakBannerText).width;
+  ctx.fillRect(cx - tw/2 - 18, cy - 32, tw + 36, 50);
+  ctx.fillStyle = G.streakBannerColor;
+  ctx.fillText(G.streakBannerText, cx, cy+8);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+// v2.3.0: edge arrows pointing to boss / uncaptured rifts
+function drawEdgeArrows(){
+  if (!G.player || !G.started) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  const pad = 36;
+  const cam = G.cam;
+  function worldToScreen(wx, wy){ return { sx: wx - cam.x + W/2, sy: wy - cam.y + H/2 }; }
+  function drawArrow(sx, sy, color, label){
+    // clamp to screen edge
+    const cx = W/2, cy = H/2;
+    const dx = sx - cx, dy = sy - cy;
+    const ang = Math.atan2(dy, dx);
+    const ex = Math.cos(ang), ey = Math.sin(ang);
+    // find edge intersection
+    let t = Infinity;
+    if (ex!==0){ const tx=(dx>0?W/2-pad:-W/2+pad)/ex; if (tx>0) t=Math.min(t,tx); }
+    if (ey!==0){ const ty=(dy>0?H/2-pad:-H/2+pad)/ey; if (ty>0) t=Math.min(t,ty); }
+    const ax = cx + ex*t, ay = cy + ey*t;
+    ctx.save();
+    ctx.translate(ax, ay); ctx.rotate(ang);
+    ctx.beginPath();
+    ctx.moveTo(14,0); ctx.lineTo(-6,-8); ctx.lineTo(-6,8); ctx.closePath();
+    ctx.fillStyle = color; ctx.globalAlpha = 0.85; ctx.fill();
+    if (label){
+      ctx.rotate(-ang); ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+      ctx.fillStyle='#fff'; ctx.globalAlpha=0.9;
+      ctx.fillText(label, 0, 22);
+    }
+    ctx.restore();
+  }
+  // boss
+  if (G.boss && G.boss.hp>0){
+    const sc = worldToScreen(G.boss.x, G.boss.y);
+    if (sc.sx<0||sc.sx>W||sc.sy<0||sc.sy>H) drawArrow(sc.sx,sc.sy,'#aa44ff','BOSS');
+  }
+  // uncaptured rifts
+  let riftCount=0;
+  for (const rf of (G.rifts||[])){
+    if (rf.used) continue;
+    const sc = worldToScreen(rf.x, rf.y);
+    if (sc.sx<0||sc.sx>W||sc.sy<0||sc.sy>H){
+      riftCount++;
+      if (riftCount<=3) drawArrow(sc.sx,sc.sy, rf.color||'#44ffcc','RIFT');
+    }
+  }
+}
 function drawKillFeed(){
   let y = 220;
   for (let i=G.killFeed.length-1;i>=0;i--){
@@ -3647,25 +3757,38 @@ function drawKillFeed(){
 }
 function drawLeaderboard(){
   if (!G.leaderboard || !G.leaderboard.length) return;
-  // v1.8.1: moved to top-RIGHT to avoid overlap with HUD bars/stats/quest on left
   const lw = 240, lx = (window.innerWidth || canvas.width) - lw - 12, ly = 12;
-  ctx.fillStyle = '#000b'; ctx.fillRect(lx, ly, lw, 12 + G.leaderboard.length*22 + 6);
-  ctx.strokeStyle = '#ffd66b88'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, 12 + G.leaderboard.length*22 + 6);
   const _oc=(window.Net&&Net.online)?Net.peers.size+1:0;
+  // v2.3.0: use server LB when online, local otherwise
+  const useLB = (_oc>1 && G._serverLB && G._serverLB.length) ? G._serverLB : null;
+  const rows = useLB || G.leaderboard;
+  const rowH = 22;
+  ctx.fillStyle = '#000b'; ctx.fillRect(lx, ly, lw, 12 + rows.length*rowH + 6);
+  ctx.strokeStyle = '#ffd66b88'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, 12 + rows.length*rowH + 6);
   ctx.fillStyle='#ffd66b';ctx.font='bold 13px sans-serif';ctx.textAlign='left';
-  ctx.fillText('Qi Leaderboard'+(_oc>0?' · Online '+_oc:''),lx+8,ly+18);
-  for(let i=0;i<G.leaderboard.length;i++){
-    const c=G.leaderboard[i];
-    const yy=ly+38+i*22;
-    if(c._isPeer){
-      ctx.fillStyle='#88ccff';ctx.font='12px sans-serif';
-      ctx.fillText(`${i+1}. ● ${c.name}`,lx+8,yy);
+  ctx.fillText((useLB?'🌐 Global':'📊 Local')+' Leaderboard'+(_oc>0?' · Online '+_oc:''),lx+8,ly+18);
+  for(let i=0;i<rows.length;i++){
+    const c=rows[i];
+    const yy=ly+38+i*rowH;
+    const crown = i===0 ? '👑 ' : (i===1?'🥈 ':(i===2?'🥉 ':''));
+    if(useLB){
+      // server LB entry: {name, rank, qi, path}
+      const isMe = G.player && c.name===G.player.name;
+      ctx.fillStyle= isMe?'#ffd700':'#ddd';
+      ctx.font= isMe?'bold 12px sans-serif':'12px sans-serif';
+      ctx.textAlign='left';
+      ctx.fillText(`${crown}${i+1}. ${c.name}`,lx+8,yy);
+      ctx.fillStyle='#aaa';ctx.textAlign='right';
+      ctx.fillText(`R${c.rank} ${c.qi}qi`,lx+lw-8,yy);
+    } else if(c._isPeer){
+      ctx.fillStyle='#88ccff';ctx.font='12px sans-serif';ctx.textAlign='left';
+      ctx.fillText(`${crown}${i+1}. ● ${c.name}`,lx+8,yy);
       ctx.fillStyle=c.path.color;ctx.textAlign='right';
       ctx.fillText('R'+c.rank,lx+lw-8,yy);
     }else{
       ctx.fillStyle=c.isPlayer?'#ffffff':'#ddd';
-      ctx.font=c.isPlayer?'bold 12px sans-serif':'12px sans-serif';
-      ctx.fillText(`${i+1}. ${c.name||c.sp.name}`,lx+8,yy);
+      ctx.font=c.isPlayer?'bold 12px sans-serif':'12px sans-serif';ctx.textAlign='left';
+      ctx.fillText(`${crown}${i+1}. ${c.name||c.sp.name}`,lx+8,yy);
       ctx.fillStyle=c.path.color;ctx.textAlign='right';
       ctx.fillText(`${tierName(c)} ${c.qi}`,lx+lw-8,yy);
     }
@@ -3699,7 +3822,20 @@ function updateHUD(){
     statsEl.innerHTML = `
       <div class="pathLine"><b style="color:${p.path.color}">${p.path.name}</b> · <span style="color:${p.path.color}">${tierName(p)}</span>(Tier ${p.rank}/9)— <span style="color:#cccccc">${tierData(p)?tierData(p).pname:''}</span></div>
       <div>Essence x${p.zhenyuan.toFixed(2)} · Dao x${p.daohen.toFixed(2)}</div>
-      <div class="cdrow">Q ${p.skillQT>0?p.skillQT.toFixed(1):'★'} ${p.sp.skillQ.name} | E ${p.skillET>0?p.skillET.toFixed(1):(p.rank>=(p.sp.skillE.unlockRank||1)?'★':'?')} ${p.sp.skillE.name} | R ${p.skillRT>0?p.skillRT.toFixed(1):(p.rank>=(p.sp.skillR.unlockRank||1)?'★':'?')} ${p.sp.skillR.name}</div>
+      <div class="cdrow">
+        ${(()=>{
+          function skBadge(cd, t, name, slot, unlock, rank){
+            const rBoost = slot==='Q'&&rank>=3||slot==='E'&&rank>=5||slot==='R'&&rank>=7 ? '★' : '';
+            const mega = rank>=9?'⚡':rank>=8?'★★':rank>=7?'★':'';
+            if (rank < unlock) return `<span style="color:#555">${slot} 🔒 lv${unlock}</span>`;
+            if (t>0) return `<span style="color:#ff8866">${slot} ${t.toFixed(1)}s ${name}</span>`;
+            return `<span style="color:#88ff88">${slot}${mega} ✓ ${name}</span>`;
+          }
+          return skBadge(p.sp.skillQ.cd,p.skillQT,p.sp.skillQ.name,'Q',p.sp.skillQ.unlockRank||1,p.rank)
+            +' | '+skBadge(p.sp.skillE.cd,p.skillET,p.sp.skillE.name,'E',p.sp.skillE.unlockRank||1,p.rank)
+            +' | '+skBadge(p.sp.skillR.cd,p.skillRT,p.sp.skillR.name,'R',p.sp.skillR.unlockRank||1,p.rank);
+        })()}
+      </div>
       ${G.boss && G.boss.hp>0 ? `<div class="quest" style="background:#aa44ff33;border-left-color:#aa44ff;color:#dabbff;">☄ Outer God ${G.boss.name} · HP ${G.boss.hp|0}/${G.boss.maxHp}</div>` : `<div style="color:#888;font-size:10px;margin-top:4px">外神降臨：${(G.bossSpawnT||0)|0}s 後</div>`}
       ${q ? `<div class="quest" style="${p.qi>=QI_THR[p.rank]&&!q.req(p)?'background:#ff446644;border-left-color:#ff4466;color:#ffccdd;':''}">${p.qi>=QI_THR[p.rank]&&!q.req(p)?'⚠ Enough Qi! Complete quest or reach Qi '+(QI_THR[p.rank]*1.8|0)+' Force ascend: ':'Quest: '}${q.desc}　<span class="qprog">[${q.show(p)}]</span> ${q.req(p)?'<span class="qdone">✓</span>':''}</div>` : '<div class="quest qdone">★ Divinity achieved</div>'}
     `;

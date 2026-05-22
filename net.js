@@ -116,6 +116,10 @@
       case 'enemy_kill':
         if (Net.onEnemyKill) Net.onEnemyKill(m.nid);
         break;
+      case 'server_lb':
+        // v2.3.0: server-side global leaderboard
+        if (window.G && Array.isArray(m.lb)) window.G._serverLB = m.lb;
+        break;
     }
   }
 
@@ -138,6 +142,7 @@
         path: player.path && player.path.name,
         species: player.species,
         sanity: player.sanity|0,
+        qi: player.qi|0,
       }));
     }catch(e){}
     // GC peers (5s 未更新視為斷線)

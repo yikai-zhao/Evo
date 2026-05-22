@@ -60,6 +60,19 @@ const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
 let nextId = 1;
 const clients = new Map();   // id -> { ws, name, last }
+// v2.3.0: server-side top-10 leaderboard (in-memory)
+const serverLB = new Map();  // playerName -> { name, rank, qi, path, ts }
+
+function updateServerLB(name, rank, qi, path){
+  if (!name || typeof rank !== 'number') return;
+  const prev = serverLB.get(name);
+  if (!prev || qi > prev.qi){
+    serverLB.set(name, { name, rank, qi, path, ts: Date.now() });
+  }
+}
+function getTopLB(n=10){
+  return [...serverLB.values()].sort((a,b)=>b.qi-a.qi).slice(0,n);
+}
 
 function broadcast(obj, exceptId = null){
   const s = JSON.stringify(obj);
@@ -96,6 +109,8 @@ wss.on('connection', (ws, req) => {
     switch (msg.t){
       case 'state':      // 玩家狀態（position/hp/rank/path/species/dir）— 廣播
         if (typeof msg.name === 'string') c.name = msg.name.slice(0,16);
+        // v2.3.0: update server leaderboard
+        if (msg.name && typeof msg.qi === 'number') updateServerLB(msg.name, msg.rank||1, msg.qi, msg.path||'');
         broadcast(msg, id);
         break;
       case 'hit':        // 攻擊命中報告 {target, dmg, kind}
@@ -145,6 +160,14 @@ setInterval(() => {
     }
   }
 }, 10000);
+
+// v2.3.0: broadcast server leaderboard every 15s
+setInterval(() => {
+  const lb = getTopLB(10);
+  if (lb.length === 0) return;
+  const s = JSON.stringify({ t:'server_lb', lb });
+  for (const [, c] of clients) if (c.ws.readyState === 1) c.ws.send(s);
+}, 15000);
 
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`[Evo WS] listening on :${PORT} (path /ws)`);
