@@ -5103,6 +5103,12 @@ function applyJoystick(){
 }
 
 function drawJoystick(){
+  // v2.9.6: disabled — DOM #joystick + #touchButtons are the real touch UI.
+  // The canvas-drawn duplicates (MOVE placeholder, extra Q/⚔/🛡/🎯 round buttons) were
+  // overlapping and confusing users who tapped the dead canvas placeholder.
+  return;
+}
+function _drawJoystick_LEGACY(){
   if (!G.started || !isMobile()) return;
   const W=window.innerWidth, H=window.innerHeight;
   const btns=_getTouchBtns();
