@@ -2313,17 +2313,16 @@ function updatePlayer(p, dt){
   p.x = clamp(p.x + p.vx*dt, 20, WORLD.w-20);
   p.y = clamp(p.y + p.vy*dt, 20, WORLD.h-20);
 
-  // 朝向：v2.9.7 行動裝置上跟隨移動方向（單搖桿控制），桌面用滑鼠
+  // 朝向：v2.9.7 行動裝置上跟隨搖桿方向，桌面用滑鼠
+  // v2.9.8 fix: 搖桿閒置時保持上次朝向（不 fallback 到 MOUSE，避免頭歪向左下）
   if (typeof TOUCH !== 'undefined' && TOUCH && TOUCH.joy){
     // 搖桿啟動 → 頭朝搖桿方向
     p.facing = TOUCH.joy.ang;
-  } else if (typeof isMobile === 'function' && isMobile() && (p.vx || p.vy)){
-    // 行動裝置且有移動 → 頭朝速度方向
-    p.facing = Math.atan2(p.vy, p.vx);
-  } else {
-    // 桌面 / 靜止 → 使用滑鼠
+  } else if (!(typeof isMobile === 'function' && isMobile())){
+    // 桌面 → 使用滑鼠
     p.facing = Math.atan2(MOUSE.wy - p.y, MOUSE.wx - p.x);
   }
+  // 手機 + 搖桿閒置 → p.facing 維持上次值，不修改
 
   // 地形紀錄
   const t = terrainAt(p.x,p.y);
