@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.8.0 (procedural biome decorations · boss-intensity BGM bass+kick · 1.6s death slow-mo cinema · SVG cover/icon + OG meta · comprehensive QA)
+// Lands End — Prototype v2.9.0 (5 古神 boss rotation each with unique silhouette · 2.4s boss intro splash (AI art slot ready) · cinematic vignette + enraged letterbox + low-HP pulse · AI prompt pack for production art)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -969,20 +969,47 @@ function generateCosmos(){
 
 
 // =====================================================================
-// 世界 Boss · Elder Day · Star-Touching Eye (v0.9.0)
+// 世界 Boss · Elder Day · Star-Touching Eye (v0.9.0) — v2.9.0 expanded to 5 古神 rotation
 // =====================================================================
+// v2.9.0: Each 古神 has unique visual silhouette + signature attack flavor.
+// Rotates each spawn so players see fresh art every 5 minutes (retention + screenshot variety).
+const BOSS_POOL = [
+  { type:'eye',     name:'Elder Day · Star-Touching Eye',     color:'#aa44ff', hp:8000, atk:80, accent:'#ff44aa' },
+  { type:'maw',     name:'Ravager · Thousand-Mouth Devourer', color:'#ff4444', hp:9500, atk:95, accent:'#ffaa30' },
+  { type:'crown',   name:'Sovereign · Frozen-Abyss Crown',    color:'#66ccff', hp:8800, atk:75, accent:'#ffffff' },
+  { type:'phoenix', name:'Ashen Phoenix · Cycle-Breaker',     color:'#ffaa30', hp:8200, atk:90, accent:'#ff3344' },
+  { type:'serpent', name:'Nine-Headed Verdant Serpent',       color:'#44dd66', hp:9200, atk:85, accent:'#aa44ff' },
+];
 function spawnBoss(){
   const cx=WORLD.w/2, cy=WORLD.h/2;
+  // v2.9.0: cycle through pool (avoid repeating last one)
+  let pick;
+  do { pick = BOSS_POOL[(Math.random()*BOSS_POOL.length)|0]; } while (G._lastBossType && pick.type===G._lastBossType && BOSS_POOL.length>1);
+  G._lastBossType = pick.type;
   G.boss = {
-    isBoss:true, name:'Elder Day · Star-Touching Eye',
+    isBoss:true, type:pick.type, name:pick.name,
     x:cx, y:cy, vx:0, vy:0, r:80,
-    hp:8000, maxHp:8000, atk:80,
+    hp:pick.hp, maxHp:pick.hp, atk:pick.atk,
     atkCdT:0, projT:4, eyeT:0, phase:1,
-    color:'#aa44ff',
+    color:pick.color, accent:pick.accent,
   };
-  pushKillFeed('☄ Elder Day Arrives: Star-Touching Eye ☄','#aa44ff');
-  logMsg('★★★ Outer God arrives at map center — approach with caution ★★★','promote');
-  try{ playSound('auth'); flash('#aa44ff',0.6); shake(30); }catch(e){}
+  pushKillFeed('☄ '+pick.name+' descends ☄', pick.color);
+  logMsg('★★★ '+pick.name+' arrives at map center — approach with caution ★★★','promote');
+  try{ playSound('auth'); flash(pick.color,0.6); shake(30); }catch(e){}
+  // v2.9.0: 2.4-second cinematic intro splash (loads AI-generated art if present)
+  G._bossIntro = { t: 2.4, type: pick.type, name: pick.name, color: pick.color };
+  try { _loadBossArt(pick.type); } catch(e){}
+}
+// v2.9.0: lazy-load AI-generated boss splash PNG. Falls back to in-engine drawing if missing.
+const _bossArtCache = {};
+function _loadBossArt(type){
+  if (_bossArtCache[type] !== undefined) return _bossArtCache[type];
+  _bossArtCache[type] = null;
+  const img = new Image();
+  img.onload = ()=>{ _bossArtCache[type] = img; };
+  img.onerror = ()=>{ _bossArtCache[type] = false; };  // false = tried + failed, don't retry
+  img.src = 'assets/bosses/' + type + '.png';
+  return null;
 }
 function updateBoss(b, dt){
   b.eyeT += dt;
@@ -1052,47 +1079,259 @@ function onBossDeath(b){
 function drawBoss(){
   if (!G.boss || G.boss.hp<=0) return;
   const b = G.boss;
-  // 外光環脈動
   const pul = 1 + Math.sin(b.eyeT*3)*0.1;
-  for (let i=3;i>=1;i--){
-    const g = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*pul*(2+i*0.4));
-    g.addColorStop(0,'#aa44ff'+['66','44','22'][i-1]); g.addColorStop(1,'#00000000');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pul*(2+i*0.4),0,Math.PI*2); ctx.fill();
+  const col = b.color || '#aa44ff';
+  const acc = b.accent || '#ff44aa';
+  // v2.9.0: outer aura (all bosses) — 4 stacked radial gradient rings for halo
+  for (let i=4;i>=1;i--){
+    const g = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*pul*(2+i*0.45));
+    g.addColorStop(0, col + ['77','55','33','15'][i-1]);
+    g.addColorStop(1, '#00000000');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pul*(2+i*0.45),0,Math.PI*2); ctx.fill();
   }
-  // 黑色巨眼本體
-  ctx.fillStyle = '#0a0014'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pul,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 4; ctx.stroke();
-  // 瞳孔追玩家
-  if (G.player){
-    const ang = Math.atan2(G.player.y-b.y, G.player.x-b.x);
-    const pr = b.r*0.45;
-    const px = b.x + Math.cos(ang)*pr*0.4, py = b.y + Math.sin(ang)*pr*0.4;
-    ctx.fillStyle = '#ff44aa'; ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px,py,pr*0.4,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(px,py,pr*0.18,0,Math.PI*2); ctx.fill();
+  // v2.9.0: rune orbit ring (signature for all 古神 — gold mystic glyphs)
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.rotate(b.eyeT*0.3);
+  ctx.strokeStyle = '#ffd66b'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6;
+  for (let i=0;i<12;i++){
+    const a = (i/12)*Math.PI*2;
+    const rr = b.r*pul*1.7;
+    const x1 = Math.cos(a)*rr, y1 = Math.sin(a)*rr;
+    ctx.beginPath(); ctx.arc(x1, y1, 4 + Math.sin(b.eyeT*4+i)*2, 0, Math.PI*2); ctx.stroke();
   }
-  // 6 隻環繞觸手
-  for (let i=0;i<6;i++){
-    const a = b.eyeT*0.6 + i*Math.PI/3;
-    const x0 = b.x + Math.cos(a)*b.r*pul, y0 = b.y + Math.sin(a)*b.r*pul;
-    ctx.strokeStyle = '#220033'; ctx.lineWidth = 14; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(x0,y0);
-    for (let k=1;k<=5;k++){
-      const f = k/5;
-      const wob = Math.sin(b.eyeT*2 + i + f*4)*30*f;
-      const ex = x0 + Math.cos(a)*220*f + Math.cos(a+Math.PI/2)*wob;
-      const ey = y0 + Math.sin(a)*220*f + Math.sin(a+Math.PI/2)*wob;
-      ctx.lineTo(ex,ey);
+  ctx.restore();
+
+  if (b.type === 'maw'){
+    // === 千口噬日：紅色裂口本體 + 旋轉牙齒環 ===
+    // body
+    ctx.fillStyle = '#1a0808'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pul,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.stroke();
+    // central gaping mouth (vertical slit that pulses open)
+    const openF = 0.5 + Math.sin(b.eyeT*2)*0.5;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y, b.r*0.55*openF, b.r*0.85, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = acc; ctx.lineWidth = 2; ctx.stroke();
+    // teeth around mouth (16 fangs)
+    for (let i=0;i<16;i++){
+      const a = (i/16)*Math.PI*2 + b.eyeT*0.4;
+      const rr = b.r*0.85;
+      const fx = b.x + Math.cos(a)*rr;
+      const fy = b.y + Math.sin(a)*rr;
+      const tx = b.x + Math.cos(a)*(rr-22);
+      const ty = b.y + Math.sin(a)*(rr-22);
+      const perp = a + Math.PI/2;
+      const w = 7;
+      ctx.fillStyle = '#ffeecc';
+      ctx.beginPath();
+      ctx.moveTo(fx + Math.cos(perp)*w, fy + Math.sin(perp)*w);
+      ctx.lineTo(fx - Math.cos(perp)*w, fy - Math.sin(perp)*w);
+      ctx.lineTo(tx, ty);
+      ctx.closePath(); ctx.fill();
     }
-    ctx.stroke();
+    // tongues lashing out
+    for (let i=0;i<4;i++){
+      const a = b.eyeT*0.8 + i*Math.PI/2;
+      const len = 100 + Math.sin(b.eyeT*3+i)*60;
+      ctx.strokeStyle = acc; ctx.lineWidth = 6; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(b.x,b.y);
+      ctx.lineTo(b.x + Math.cos(a)*len, b.y + Math.sin(a)*len);
+      ctx.stroke();
+    }
+  } else if (b.type === 'crown'){
+    // === 寒淵冠冕：藍冰六邊形 + 王冠尖刺 ===
+    // hex body
+    ctx.fillStyle = '#0a1838';
+    ctx.beginPath();
+    for (let i=0;i<6;i++){
+      const a = i*Math.PI/3 + b.eyeT*0.2;
+      const x = b.x + Math.cos(a)*b.r*pul;
+      const y = b.y + Math.sin(a)*b.r*pul;
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.stroke();
+    // crown spikes (8 ice shards on top half)
+    for (let i=0;i<8;i++){
+      const a = -Math.PI + (i/7)*Math.PI;
+      const base = b.r*pul;
+      const tipLen = 50 + Math.sin(b.eyeT*1.5+i)*8;
+      const bx = b.x + Math.cos(a)*base;
+      const by = b.y + Math.sin(a)*base;
+      const tx = b.x + Math.cos(a)*(base+tipLen);
+      const ty = b.y + Math.sin(a)*(base+tipLen);
+      const perp = a + Math.PI/2;
+      const w = 8;
+      ctx.fillStyle = acc;
+      ctx.beginPath();
+      ctx.moveTo(bx + Math.cos(perp)*w, by + Math.sin(perp)*w);
+      ctx.lineTo(bx - Math.cos(perp)*w, by - Math.sin(perp)*w);
+      ctx.lineTo(tx, ty);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    // central frost eye
+    if (G.player){
+      const ang = Math.atan2(G.player.y-b.y, G.player.x-b.x);
+      const pr = b.r*0.35;
+      const px = b.x + Math.cos(ang)*pr*0.3, py = b.y + Math.sin(ang)*pr*0.3;
+      ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(px,py,pr*0.4,0,Math.PI*2); ctx.fill();
+    }
+    // snowflake particles orbiting
+    for (let i=0;i<6;i++){
+      const a = b.eyeT*0.6 + i*Math.PI/3;
+      const rr = b.r*pul*1.4;
+      const sx = b.x + Math.cos(a)*rr, sy = b.y + Math.sin(a)*rr;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+      for (let k=0;k<3;k++){
+        const ka = k*Math.PI/3;
+        ctx.beginPath();
+        ctx.moveTo(sx - Math.cos(ka)*4, sy - Math.sin(ka)*4);
+        ctx.lineTo(sx + Math.cos(ka)*4, sy + Math.sin(ka)*4);
+        ctx.stroke();
+      }
+    }
+  } else if (b.type === 'phoenix'){
+    // === 燼羽鳳神：金紅雙翼 + 火焰拖尾 ===
+    // wing sweep behind
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(Math.sin(b.eyeT*1.2)*0.15);
+    const wingSpan = b.r*pul*2.4;
+    // left wing
+    ctx.fillStyle = '#8a1a08';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-wingSpan*0.7, -b.r*0.3, -wingSpan, b.r*0.4);
+    ctx.quadraticCurveTo(-wingSpan*0.5, b.r*0.6, 0, b.r*0.2);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+    // right wing
+    ctx.fillStyle = '#8a1a08';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(wingSpan*0.7, -b.r*0.3, wingSpan, b.r*0.4);
+    ctx.quadraticCurveTo(wingSpan*0.5, b.r*0.6, 0, b.r*0.2);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+    // feather highlights — diagonal lines on wings
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.7;
+    for (let s=-1; s<=1; s+=2){
+      for (let k=1;k<=4;k++){
+        const t = k/5;
+        ctx.beginPath();
+        ctx.moveTo(s*wingSpan*0.3, b.r*0.1);
+        ctx.lineTo(s*wingSpan*t, -b.r*0.15 + k*4);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    // body — egg-shaped fiery core
+    const g = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*pul);
+    g.addColorStop(0, '#ffee88'); g.addColorStop(0.5, col); g.addColorStop(1, acc);
+    ctx.fillStyle = g; ctx.beginPath();
+    ctx.ellipse(b.x, b.y, b.r*0.85*pul, b.r*pul, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#ffeecc'; ctx.lineWidth = 4; ctx.stroke();
+    // head — small triangular beak top
+    ctx.fillStyle = '#ffd66b';
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y - b.r*pul - 20);
+    ctx.lineTo(b.x-12, b.y - b.r*pul);
+    ctx.lineTo(b.x+12, b.y - b.r*pul);
+    ctx.closePath(); ctx.fill();
+    // eyes
+    ctx.fillStyle = '#ff3344';
+    ctx.beginPath(); ctx.arc(b.x-12, b.y-b.r*pul+6, 5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(b.x+12, b.y-b.r*pul+6, 5,0,Math.PI*2); ctx.fill();
+    // tail flames (3 trailing streamers)
+    for (let i=0;i<3;i++){
+      const wob = Math.sin(b.eyeT*3+i)*15;
+      ctx.strokeStyle = i===1 ? '#ffee88' : col; ctx.lineWidth = 6; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(b.x + (i-1)*15, b.y + b.r*pul);
+      ctx.quadraticCurveTo(b.x + (i-1)*30 + wob, b.y + b.r*pul + 50, b.x + (i-1)*40, b.y + b.r*pul + 120);
+      ctx.stroke();
+    }
+  } else if (b.type === 'serpent'){
+    // === 蛇王九首：中心核 + 9 條盤旋蛇頭 ===
+    // central core
+    ctx.fillStyle = '#0a2010'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*0.65*pul,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.stroke();
+    // scale pattern on core
+    ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+    for (let i=0;i<6;i++){
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r*0.65*pul - i*10, -Math.PI*0.7, -Math.PI*0.3);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // 9 snake heads on long necks
+    for (let i=0;i<9;i++){
+      const a = (i/9)*Math.PI*2 + b.eyeT*0.4;
+      const necklen = 130 + Math.sin(b.eyeT*2+i*0.7)*30;
+      // neck (snake-like S-curve)
+      ctx.strokeStyle = '#1a4520'; ctx.lineWidth = 12; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(b.x + Math.cos(a)*b.r*0.6*pul, b.y + Math.sin(a)*b.r*0.6*pul);
+      const mid1x = b.x + Math.cos(a)*(b.r + necklen*0.4) + Math.cos(a+Math.PI/2)*15;
+      const mid1y = b.y + Math.sin(a)*(b.r + necklen*0.4) + Math.sin(a+Math.PI/2)*15;
+      const headx = b.x + Math.cos(a)*(b.r + necklen);
+      const heady = b.y + Math.sin(a)*(b.r + necklen);
+      ctx.quadraticCurveTo(mid1x, mid1y, headx, heady);
+      ctx.stroke();
+      // head (oval)
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.ellipse(headx, heady, 18, 12, a, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = acc; ctx.lineWidth = 2; ctx.stroke();
+      // glowing eye
+      ctx.fillStyle = acc;
+      ctx.beginPath(); ctx.arc(headx + Math.cos(a)*8, heady + Math.sin(a)*8, 3, 0, Math.PI*2); ctx.fill();
+    }
+  } else {
+    // === 星瞳古神 (default 'eye'): 原版巨眼 ===
+    ctx.fillStyle = '#0a0014'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pul,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.stroke();
+    if (G.player){
+      const ang = Math.atan2(G.player.y-b.y, G.player.x-b.x);
+      const pr = b.r*0.45;
+      const px = b.x + Math.cos(ang)*pr*0.4, py = b.y + Math.sin(ang)*pr*0.4;
+      ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px,py,pr*0.4,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(px,py,pr*0.18,0,Math.PI*2); ctx.fill();
+    }
+    for (let i=0;i<6;i++){
+      const a = b.eyeT*0.6 + i*Math.PI/3;
+      const x0 = b.x + Math.cos(a)*b.r*pul, y0 = b.y + Math.sin(a)*b.r*pul;
+      ctx.strokeStyle = '#220033'; ctx.lineWidth = 14; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(x0,y0);
+      for (let k=1;k<=5;k++){
+        const f = k/5;
+        const wob = Math.sin(b.eyeT*2 + i + f*4)*30*f;
+        const ex = x0 + Math.cos(a)*220*f + Math.cos(a+Math.PI/2)*wob;
+        const ey = y0 + Math.sin(a)*220*f + Math.sin(a+Math.PI/2)*wob;
+        ctx.lineTo(ex,ey);
+      }
+      ctx.stroke();
+    }
   }
-  // 名稱 + HP 條
-  ctx.fillStyle = '#aa44ff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign='center';
-  ctx.fillText(b.name, b.x, b.y - b.r*pul - 30);
-  const bw = 240, bh = 10;
-  ctx.fillStyle = '#000a'; ctx.fillRect(b.x-bw/2, b.y-b.r*pul-22, bw, bh);
-  ctx.fillStyle = '#aa44ff'; ctx.fillRect(b.x-bw/2, b.y-b.r*pul-22, bw*(b.hp/b.maxHp), bh);
-  ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.strokeRect(b.x-bw/2, b.y-b.r*pul-22, bw, bh);
+  // 名稱 + HP 條 (shared, with golden frame)
+  ctx.fillStyle = col; ctx.font = 'bold 18px sans-serif'; ctx.textAlign='center';
+  ctx.shadowColor = col; ctx.shadowBlur = 12;
+  ctx.fillText(b.name, b.x, b.y - b.r*pul - 36);
+  ctx.shadowBlur = 0;
+  const bw = 260, bh = 12;
+  ctx.fillStyle = '#000a'; ctx.fillRect(b.x-bw/2, b.y-b.r*pul-26, bw, bh);
+  const hg = ctx.createLinearGradient(b.x-bw/2, 0, b.x+bw/2, 0);
+  hg.addColorStop(0, col); hg.addColorStop(1, acc);
+  ctx.fillStyle = hg; ctx.fillRect(b.x-bw/2, b.y-b.r*pul-26, bw*(b.hp/b.maxHp), bh);
+  ctx.strokeStyle='#ffd66b'; ctx.lineWidth=1.5; ctx.strokeRect(b.x-bw/2, b.y-b.r*pul-26, bw, bh);
 }
 function applyDamageToBoss(dmg){
   if (G.boss && G.boss.hp>0){ G.boss.hp -= dmg; if (dmg>0) G.cam.hitFlash = Math.max(G.cam.hitFlash, 0.1); }
@@ -3457,6 +3696,8 @@ function update(dt){
   if (G.boss && G.boss.hp<=0){ onBossDeath(G.boss); G.boss=null; G.bossSpawnT=150; }
   if (!G.boss){ G.bossSpawnT -= dt; if (G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=150; } }
   if (G.boss) updateBoss(G.boss, dt);
+  // v2.9.0: boss intro splash timer
+  if (G._bossIntro && G._bossIntro.t > 0){ G._bossIntro.t -= dt; if (G._bossIntro.t <= 0) G._bossIntro = null; }
   // v1.0.0: 階段進程
   // v1.1.0: 5 紀元（Era of God War加入）
   const stageThresholds = [180, 480, 900, 1500];
@@ -3609,6 +3850,10 @@ function render(){
     ctx.setTransform(dpr,0,0,dpr,0,0);
   }
   try{ drawOnlineBadge(); }catch(e){}
+  // v2.9.0: vignette + boss-active chromatic frame — atmospheric cinema layer
+  try { _drawVignette(); } catch(e){}
+  // v2.9.0: 2.4s boss-arrival splash (uses AI-painted art if loaded; otherwise stylish title card)
+  try { _drawBossIntro(); } catch(e){}
   // 螢幕閃光
   if (G.cam.flash>0){
     ctx.fillStyle = G.cam.flashColor;
@@ -3738,6 +3983,112 @@ function drawDecor(x0,y0,x1,y1){
 }
 // v1.6.2: ambient motes — biome-colored floating particles (dust / fireflies / snow / starsea sparks).
 // Pure screen-space, ~120 motes, tiny perf cost, big visual upgrade.
+
+// v2.9.0: cinematic vignette + boss-aura screen edge — applied in screen-space (after world transform restored)
+// This is the post-process layer that gives the game a "premium / polished" look — front-page worthy.
+function _drawVignette(){
+  if (!ctx) return;
+  const cw = window.innerWidth, ch = window.innerHeight;
+  // Base vignette — always on (subtle dark corners)
+  let g = ctx.createRadialGradient(cw/2, ch/2, Math.min(cw,ch)*0.35, cw/2, ch/2, Math.max(cw,ch)*0.75);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,cw,ch);
+  // Boss-active extra: animated colored aura on screen edges + low-frequency pulse
+  if (G.boss && G.boss.hp>0){
+    const col = G.boss.color || '#aa44ff';
+    const pul = 0.15 + Math.abs(Math.sin((G.boss.eyeT||0)*1.6))*0.18;
+    const g2 = ctx.createRadialGradient(cw/2, ch/2, Math.min(cw,ch)*0.25, cw/2, ch/2, Math.max(cw,ch)*0.7);
+    g2.addColorStop(0, col + '00');
+    g2.addColorStop(0.7, col + Math.floor(pul*120).toString(16).padStart(2,'0'));
+    g2.addColorStop(1, col + Math.floor(pul*200).toString(16).padStart(2,'0'));
+    ctx.fillStyle = g2; ctx.fillRect(0,0,cw,ch);
+    // letter-box dark bars at low boss hp for "enraged" cinema
+    if (G.boss.hp < G.boss.maxHp * 0.3){
+      const barH = 28 + Math.sin((G.boss.eyeT||0)*4)*4;
+      ctx.fillStyle = 'rgba(0,0,0,0.65)';
+      ctx.fillRect(0, 0, cw, barH);
+      ctx.fillRect(0, ch-barH, cw, barH);
+      ctx.fillStyle = col;
+      ctx.font = 'bold 14px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('☄ ENRAGED — Final Phase ☄', cw/2, barH-8);
+    }
+  }
+  // Low-HP red pulse for the player (visceral)
+  if (G.player && !G.dead && G.player.hp < G.player.maxHp*0.25){
+    const a = 0.18 + Math.abs(Math.sin((G.time||0)*4))*0.18;
+    const gr = ctx.createRadialGradient(cw/2, ch/2, Math.min(cw,ch)*0.2, cw/2, ch/2, Math.max(cw,ch)*0.7);
+    gr.addColorStop(0, 'rgba(255,40,60,0)');
+    gr.addColorStop(1, 'rgba(255,40,60,'+a+')');
+    ctx.fillStyle = gr; ctx.fillRect(0,0,cw,ch);
+  }
+}
+
+// v2.9.0: cinematic boss intro splash — overlays AI-painted boss portrait + name for 2.4s.
+// Gracefully falls back to a stylish title card if PNG isn't present yet.
+function _drawBossIntro(){
+  const intro = G._bossIntro;
+  if (!intro || intro.t <= 0) return;
+  const cw = window.innerWidth, ch = window.innerHeight;
+  // ease-in-out fade
+  const tNorm = 1 - (intro.t / 2.4);  // 0 → 1
+  const alpha = tNorm < 0.15 ? (tNorm/0.15) : (tNorm > 0.85 ? (1-tNorm)/0.15 : 1);
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, Math.max(0, alpha));
+  // Darken background
+  ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0,0,cw,ch);
+  // Letter-box bars
+  const barH = ch*0.12;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cw, barH); ctx.fillRect(0, ch-barH, cw, barH);
+  // Try AI-painted PNG; fall back to stylized text card
+  const img = _bossArtCache[intro.type];
+  if (img && img.naturalWidth){
+    // center-fit image preserving aspect, max 60% screen height
+    const maxH = ch * 0.55, maxW = cw * 0.55;
+    const r = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
+    const iw = img.naturalWidth * r, ih = img.naturalHeight * r;
+    // glow halo behind
+    const g = ctx.createRadialGradient(cw/2, ch/2, 0, cw/2, ch/2, Math.max(iw,ih)*0.8);
+    g.addColorStop(0, intro.color + 'aa'); g.addColorStop(1, intro.color + '00');
+    ctx.fillStyle = g; ctx.fillRect(0,0,cw,ch);
+    ctx.drawImage(img, (cw-iw)/2, (ch-ih)/2 - 20, iw, ih);
+  } else {
+    // Fallback title card — large mystical glyph circle
+    const cx = cw/2, cy = ch/2 - 20;
+    const rad = Math.min(cw,ch) * 0.18;
+    // glow
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad*2.5);
+    g.addColorStop(0, intro.color + 'aa'); g.addColorStop(1, intro.color + '00');
+    ctx.fillStyle = g; ctx.fillRect(0,0,cw,ch);
+    // dark disc
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = intro.color; ctx.lineWidth = 3; ctx.stroke();
+    // rune ring
+    ctx.strokeStyle = '#ffd66b'; ctx.lineWidth = 2;
+    const t = (G.time || 0);
+    for (let i=0;i<14;i++){
+      const a = i*Math.PI*2/14 + t*0.4;
+      const rr = rad * 1.35;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a)*rr, cy + Math.sin(a)*rr, 5, 0, Math.PI*2); ctx.stroke();
+    }
+    // central glyph (depends on type)
+    ctx.fillStyle = intro.color; ctx.font = 'bold ' + (rad*1.1).toFixed(0) + 'px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.shadowColor = intro.color; ctx.shadowBlur = 24;
+    const glyph = ({eye:'☉', maw:'⚙', crown:'❄', phoenix:'☀', serpent:'§'})[intro.type] || '☄';
+    ctx.fillText(glyph, cx, cy);
+    ctx.shadowBlur = 0;
+  }
+  // Title text in lower letter-box
+  ctx.fillStyle = '#ffd66b'; ctx.font = 'bold 12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('☄  OUTER GOD DESCENDS  ☄', cw/2, ch - barH/2 - 18);
+  ctx.fillStyle = intro.color; ctx.font = 'bold 28px serif';
+  ctx.shadowColor = intro.color; ctx.shadowBlur = 16;
+  ctx.fillText(intro.name, cw/2, ch - barH/2 + 8);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
 function drawAmbientMotes(){
   if (!G.terrain) return;
   const cw = window.innerWidth, ch = window.innerHeight;
