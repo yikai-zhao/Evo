@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.9.0 (5 古神 boss rotation each with unique silhouette · 2.4s boss intro splash (AI art slot ready) · cinematic vignette + enraged letterbox + low-HP pulse · AI prompt pack for production art)
+// Lands End — Prototype v2.9.1 (real boss portrait PNGs · 5 古神 boss rotation each with unique silhouette · 2.4s boss intro splash (AI art slot ready) · cinematic vignette + enraged letterbox + low-HP pulse · AI prompt pack for production art)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
