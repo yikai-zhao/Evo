@@ -166,6 +166,28 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 #muteBtn:hover { background:rgba(60,40,100,.88); }
 @media (max-width: 600px) { #muteBtn { width:38px; height:38px; font-size:17px; line-height:36px; top:8px; right:8px; } }
 
+/* v2.7.0: pause button — placed left of muteBtn */
+#pauseBtn {
+  position:fixed; right:66px; top:14px; z-index:30;
+  width:44px; height:44px; border-radius:50%;
+  border:1.5px solid rgba(180,140,255,.5);
+  background:rgba(20,15,45,.78); color:#fff;
+  font-size:20px; line-height:42px; text-align:center;
+  cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.4);
+  user-select:none; -webkit-user-select:none; display:none;
+}
+#pauseBtn:hover { background:rgba(60,40,100,.88); }
+#pauseBtn.show { display:block; }
+@media (max-width: 600px) { #pauseBtn { width:38px; height:38px; font-size:17px; line-height:36px; top:8px; right:54px; } }
+
+/* v2.7.0: share button pulse + countdown for restart */
+#shareBtn { animation: sharePulse 1.6s ease-in-out infinite; }
+@keyframes sharePulse {
+  0%,100% { transform:scale(1); box-shadow:0 0 0 0 rgba(95,168,255,0.5); }
+  50%     { transform:scale(1.05); box-shadow:0 0 0 12px rgba(95,168,255,0); }
+}
+#restartBtn:disabled { opacity:0.6; cursor:not-allowed; }
+
 /* ============================================================
    v1.6.0 — English release: Quick Start, Tutorial, Legal,
    art polish (glow cards, gradient buttons, modern title)

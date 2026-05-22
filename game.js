@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.6.0 (visual polish: corner badge + rank crowns/stars · procedural BGM (drone+arp) · animated start-screen species previews)
+// Lands End — Prototype v2.7.0 (Qi→XP UI · 12s first-run tutorial · Esc/⏸ pause overlay · cartoon BONK/POW pop-text + honk SFX + confetti on rank-up · 3s share-window delay)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -877,9 +877,9 @@ function onBossDeath(b){
     G.player.qi += 1500;
     G.player.q.bossKilled = (G.player.q.bossKilled||0) + 1;
     G.player.sanity = Math.min(G.player.maxSanity, G.player.sanity + 40);
-    addFloat(G.player.x, G.player.y-40, 'Slay the Outer God! +1500 Qi', '#ffd66b', 22, 2.5);
+    addFloat(G.player.x, G.player.y-40, 'Slay the Outer God! +1500 XP', '#ffd66b', 22, 2.5);
     pushKillFeed('★★ You defeated ['+b.name+'】 ★★','#ffd66b');
-    logMsg('★★★ Outer God slain: +1500 Qi + SAN restored ★★★','promote');
+    logMsg('★★★ Outer God slain: +1500 XP + SAN restored ★★★','promote');
     try{ playSound('promote'); flash('#ffffff',0.9); shake(30); }catch(e){}
     G.bossDefeated++;
     G.timeline.push({t:G.time, text:'Slay Star-Touching Eye'});
@@ -967,7 +967,7 @@ function spawnMiniboss(){
     atkCdT:0, dashT:5, eyeT:0, color:'#66ccff',
   };
   pushKillFeed('☄ Ancient Wraith appears near a sanctum','#66ccff');
-  logMsg('★ Wraith mini-boss appears! Slay for +600 Qi + item rain','promote');
+  logMsg('★ Wraith mini-boss appears! Slay for +600 XP + item rain','promote');
   try{ flash('#66ccff',0.4); shake(15); playSound('auth'); }catch(e){}
 }
 function updateMiniboss(b, dt){
@@ -1000,7 +1000,7 @@ function onMinibossDeath(b){
   if (G.player){
     G.player.qi += 600;
     G.player.sanity = Math.min(G.player.maxSanity, G.player.sanity + 15);
-    addFloat(G.player.x, G.player.y-30, 'Slain Wraith! +600 Qi', '#66ccff', 18, 1.8);
+    addFloat(G.player.x, G.player.y-30, 'Slain Wraith! +600 XP', '#66ccff', 18, 1.8);
     pushKillFeed('★ You defeated the Wraith','#66ccff');
     G.miniDefeated = (G.miniDefeated||0) + 1;
     G.timeline.push({t:G.time, text:'Defeat the Wraith'});
@@ -1214,7 +1214,7 @@ function generateNodes(){
   G.rifts = [];
   // v1.0.0: 8 個秘境（4 內 + 4 外）
   const riftDefs = [
-    {name:'Qi Sanctum',  icon:'Q', color:'#bb88ff', reward:'qi'},
+    {name:'XP Sanctum',  icon:'X', color:'#bb88ff', reward:'qi'},
     {name:'Vitality Sanctum',  icon:'L', color:'#ff7080', reward:'heal'},
     {name:'Strength Sanctum',  icon:'P', color:'#ffd66b', reward:'power'},
     {name:'Outer God Sanctum',  icon:'★', color:'#aa44ff', reward:'all'},
@@ -1291,7 +1291,7 @@ function drawQiSprings(){
       ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(qs.x,qs.y,rr,0,Math.PI*2); ctx.stroke();
     }
     ctx.fillStyle='#fff'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('Qi Spring', qs.x, qs.y - r - 8);
+    ctx.fillText('XP Spring', qs.x, qs.y - r - 8);
   }
 }
 
@@ -1449,7 +1449,7 @@ function tryPromote(p){
     if (q && !q.req(p)){
       if (p.isPlayer && (!p._questTipT || G.time - p._questTipT > 6)){
         p._questTipT = G.time;
-        pushKillFeed('★ Qi full — complete quest to break through: '+q.desc, '#ff88cc');
+        pushKillFeed('★ XP full — complete quest to break through: '+q.desc, '#ff88cc');
       }
       break;
     }
@@ -1498,6 +1498,8 @@ function tryPromote(p){
       for (let i=0;i<80;i++) G.particles.push({x:p.x,y:p.y,vx:rand(-400,400),vy:rand(-400,400),life:1.4,color:p.path.color, r:3});
       G.shockwaves.push({x:p.x,y:p.y,r:0,max:280,life:0.9,color:p.path.color});
       addFloat(p.x, p.y-30, `Level Up! ${title}`, p.path.color, 24, 2);
+      // v2.7.0: confetti burst + party-horn for viral rank-up moment
+      try { confettiBurst(p.x, p.y, 60); popComedy(p.x, p.y-60, true); } catch(e){}
       // v2.4.0: 盲盒進化揭曉（rank 3/5/7/9 觸發大彈窗）
       if ([3,5,7,9].includes(p.rank)){
         const evoForm = getRankForm(p);
@@ -1675,6 +1677,121 @@ function spawnEnemy(initial=false){
 }
 
 // =====================================================================
+// v2.7.0: 暫停 / 教學 / 鬼畜搞笑特效（短影片傳播種子）
+// =====================================================================
+function togglePause(){
+  G.paused = !G.paused;
+  const overlay = document.getElementById('pauseOverlay');
+  if (overlay){ overlay.classList.toggle('hidden', !G.paused); }
+  try { if (G.paused) stopBGM(); else if (G.soundOn && G.started && !G.dead) startBGM(); } catch(e){}
+  try { if (G.paused && window.SDK && SDK.gameplayStop) SDK.gameplayStop(); else if (!G.paused && window.SDK && SDK.gameplayStart) SDK.gameplayStart(); } catch(e){}
+}
+
+// Comedy: cartoon pop-text on kills/big hits — short-video viral seed
+const COMEDY_POPS = ['BONK!','POW!','OOF!','BOOM!','YEET!','OUCH!','SMACK!','KAPOW!','WHAM!','SPLAT!','THWACK!','ZONK!'];
+const COMEDY_COLORS = ['#ffd700','#ff4477','#44ddff','#88ff44','#ff8844','#cc88ff'];
+function popComedy(x, y, force){
+  // force=true always pops; otherwise 35% chance
+  if (!force && Math.random() > 0.35) return;
+  const txt = COMEDY_POPS[(Math.random()*COMEDY_POPS.length)|0];
+  const col = COMEDY_COLORS[(Math.random()*COMEDY_COLORS.length)|0];
+  try { addFloat(x + rand(-20,20), y - 30 + rand(-10,10), txt, col, 28 + (Math.random()*8), 1.0); } catch(e){}
+  // goofy honk sound (rising sine + noise burst) — distinctly meme-able
+  try {
+    if (!G.soundOn) return;
+    const a = ac(); if (!a) return;
+    const t = a.currentTime;
+    const o = a.createOscillator(); const g = a.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(220 + Math.random()*120, t);
+    o.frequency.exponentialRampToValueAtTime(660 + Math.random()*220, t+0.12);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.18, t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t+0.24);
+  } catch(e){}
+}
+// Confetti burst (used on rank-up — viral moment)
+function confettiBurst(x, y, n){
+  n = n||40;
+  const cols = ['#ff4477','#ffd700','#44ddff','#88ff44','#ff8844','#cc88ff','#ffffff'];
+  for (let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2;
+    const sp = 200 + Math.random()*340;
+    G.particles.push({
+      x:x, y:y,
+      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 80,
+      life:1.2 + Math.random()*0.6,
+      color: cols[(Math.random()*cols.length)|0],
+      r: 2 + Math.random()*2,
+    });
+  }
+}
+
+// Tutorial: 12s first-run guidance (skippable). Stored in localStorage so only first ever.
+const EVO_TUT_KEY = 'evo_tut_done_v1';
+function tutorialDone(){ try { return localStorage.getItem(EVO_TUT_KEY)==='1'; } catch(e){ return false; } }
+function markTutorialDone(){ try { localStorage.setItem(EVO_TUT_KEY,'1'); } catch(e){} }
+function startTutorial(){
+  if (tutorialDone()) return;
+  G._tut = { step:0, t:0, totalT:0, hidden:false };
+}
+function drawTutorial(){
+  if (!G._tut || G._tut.hidden) return;
+  if (!G.started || G.dead || G.paused) return;
+  const tut = G._tut;
+  tut.t += 1/60; tut.totalT += 1/60;
+  // Auto-advance
+  const steps = [
+    { dur:5,  text:'Move with WASD or Arrow keys', sub:'(touch: drag the joystick on the left)' },
+    { dur:5,  text:'Left-click or SPACE to attack nearby enemies', sub:'Kill creatures to gain XP and evolve' },
+    { dur:4,  text:'Press Q for your special skill', sub:'E and R unlock at higher tiers' },
+  ];
+  const s = steps[tut.step]; if (!s){ tut.hidden = true; markTutorialDone(); return; }
+  if (tut.t >= s.dur){ tut.step++; tut.t = 0; return; }
+  // Render banner at top-center
+  const W = canvas.width / (dpr||1), H = canvas.height / (dpr||1);
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, tut.t*4) * (tut.t > s.dur-0.4 ? Math.max(0, (s.dur-tut.t)/0.4) : 1);
+  const bx = W/2, by = 110;
+  const bw = 540, bh = 78;
+  ctx.fillStyle = 'rgba(20,16,32,0.88)';
+  ctx.strokeStyle = '#ffd66b';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(bx-bw/2, by-bh/2, bw, bh, 12); else ctx.rect(bx-bw/2, by-bh/2, bw, bh);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ffd66b';
+  ctx.font = 'bold 20px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`Step ${tut.step+1}/3 · ${s.text}`, bx, by-12);
+  ctx.fillStyle = '#cccccc';
+  ctx.font = '13px system-ui, sans-serif';
+  ctx.fillText(s.sub, bx, by+14);
+  // Skip hint
+  ctx.fillStyle = '#888';
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.fillText('(press T to skip tutorial)', bx, by+bh/2+12);
+  // Pulsing arrow pointing at player (for step 1)
+  if (tut.step === 0 && G.player){
+    const cam = G.cam || {x:0,y:0};
+    const px = G.player.x - cam.x;
+    const py = G.player.y - cam.y;
+    const pulse = 1 + 0.2*Math.sin(tut.totalT*6);
+    ctx.fillStyle = '#ffd66b';
+    ctx.globalAlpha *= 0.85;
+    ctx.beginPath();
+    ctx.moveTo(px, py - 70*pulse);
+    ctx.lineTo(px - 12, py - 92*pulse);
+    ctx.lineTo(px + 12, py - 92*pulse);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// =====================================================================
 // 輸入
 // =====================================================================
 function setupInput(canvas){
@@ -1684,8 +1801,15 @@ function setupInput(canvas){
     if (e.key===' ') e.preventDefault();
     if (k==='m' && G.started){ G.mapOpen = !G.mapOpen; }
     if (k==='escape' && G.mapOpen){ G.mapOpen = false; }
-    if (k==='p' && G.started && G.player){ G.pingX = G.player.x; G.pingY = G.player.y; G.pingT = 8; try{ playSound('block'); }catch(e){} }
-    // v1.2.0 T 鍵開Chat
+    // v2.7.0: Esc / P pause toggle when in-game (Poki checklist required)
+    if ((k==='escape' || (k==='p' && e.shiftKey)) && G.started && !G.dead && !G.won && !G.mapOpen){
+      e.preventDefault();
+      togglePause();
+      return;
+    }
+    if (k==='p' && !e.shiftKey && G.started && G.player){ G.pingX = G.player.x; G.pingY = G.player.y; G.pingT = 8; try{ playSound('block'); }catch(e){} }
+    // v1.2.0 T 鍵開Chat — v2.7.0: 若 tutorial 顯示中，T 改為 skip
+    if (k==='t' && G._tut && !G._tut.hidden){ e.preventDefault(); G._tut.hidden = true; markTutorialDone(); return; }
     if (k==='t' && G.started && window.Net && Net.online && !G._chatOpen){ e.preventDefault(); openChatInput(); }
   });
   window.addEventListener('keyup', e=>{ KEYS[e.key.toLowerCase()]=false; });
@@ -2052,6 +2176,12 @@ function onKill(attacker, target){
     pushKillFeed(`★ The ${target.sp.path.toUpperCase()} Throne is VACANT — ascend now!`, '#ffd66b');
   }
   playSound('kill');
+  // v2.7.0: rng cartoon pop-text on kills + extra goofy honk (short-video viral seed)
+  try { popComedy(target.x, target.y, target.rank>=5); } catch(e){}
+  // v2.7.0: ragdoll-style death spin (visible briefly via particles + corpse stagger)
+  if (target && !target.isPlayer){
+    target._ragSpin = (Math.random()<0.5?-1:1) * (6 + Math.random()*8);
+  }
   // Kill feed
   if (attacker){
     const an = attacker.isPlayer?'You':(attacker.name||attacker.sp.name);
@@ -2068,7 +2198,7 @@ function onKill(attacker, target){
     if (_streakMile[G.killStreak]){
       const _sbq = G.killStreak * 8;
       attacker.qi += _sbq;
-      G.streakBannerText = _streakMile[G.killStreak] + '  +' + _sbq + ' Qi';
+      G.streakBannerText = _streakMile[G.killStreak] + '  +' + _sbq + ' XP';
       G.streakBannerT = 3.5;
       G.streakBannerColor = G.killStreak>=10 ? '#ffd700' : G.killStreak>=7 ? '#ff44ff' : '#ff8800';
       pushKillFeed(G.streakBannerText, G.streakBannerColor);
@@ -2100,14 +2230,14 @@ function onKill(attacker, target){
       qiReward = Math.floor(qiReward * _oppMul);
     }
     attacker.qi += qiReward;
-    addFloat(target.x, target.y-20, `+${qiReward} Qi${_oppMul>1?' ⚔':''}`, _oppMul>1?'#ff88cc':'#bb88ff', 14, 1.2);
+    addFloat(target.x, target.y-20, `+${qiReward} XP${_oppMul>1?' ⚔':''}`, _oppMul>1?'#ff88cc':'#bb88ff', 14, 1.2);
     // v2.5.0: early-game qi boost — guarantees first evolution in 60-90s
     const _earlyMul = earlyQiMultiplier();
     if (_earlyMul > 1){
       const _bonus = Math.floor(qiReward * (_earlyMul - 1));
       if (_bonus > 0){
         attacker.qi += _bonus;
-        addFloat(target.x, target.y-38, `+${_bonus} Welcome Qi ✨`, '#ffd66b', 12, 1.2);
+        addFloat(target.x, target.y-38, `+${_bonus} Welcome XP ✨`, '#ffd66b', 12, 1.2);
       }
     }
     // v2.5.0: record first-kill metric
@@ -2115,7 +2245,7 @@ function onKill(attacker, target){
       G._metricsLogged.firstKill = true;
       try { recordFirstKillTime(G.time||0); } catch(e){}
     }
-    logMsg(`Killed ${target.sp.name} (${tierName(target)}) +${qiReward} Qi${_oppMul>1?' [rival path bonus]':''}`);
+    logMsg(`Killed ${target.sp.name} (${tierName(target)}) +${qiReward} XP${_oppMul>1?' [rival path bonus]':''}`);
     const _preRank = attacker.rank;
     tryPromote(attacker);
     if (window.SDK && attacker.rank>_preRank) SDK.happyTime(Math.min(1, attacker.rank/15));
@@ -2484,7 +2614,7 @@ function autoPickup(p){
       if (p.qiBonusT>0) q = (q * (p.qiBonusMul||1))|0;
       if (G.event && G.event.type==='aligned') q = (q * 1.5)|0;
       p.qi += q;
-      addFloat(s.x,s.y,`+${q} Qi`,'#bb88ff',10,0.6);
+      addFloat(s.x,s.y,`+${q} XP`,'#bb88ff',10,0.6);
       s._gone = true;
     }
   }
@@ -2515,7 +2645,7 @@ function autoPickup(p){
     if (dist(p, qs) < qs.r){
       // v1.8.3: slower passive Qi (was 12/s — too fast)
       p.qi += 4 * (1/60);
-      if (!qs._floatT || G.time - qs._floatT > 0.8){ addFloat(p.x,p.y-30,'Qi Spring +Qi','#bb88ff',12,0.8); qs._floatT = G.time; }
+      if (!qs._floatT || G.time - qs._floatT > 0.8){ addFloat(p.x,p.y-30,'XP Spring +XP','#bb88ff',12,0.8); qs._floatT = G.time; }
     }
     qs.tcd -= 1/60;
     if (qs.tcd<=0){
@@ -2574,7 +2704,7 @@ function grantRiftReward(p, rf){
   for (let i=0;i<60;i++) G.particles.push({x:rf.x,y:rf.y,vx:rand(-400,400),vy:rand(-400,400),life:1.2,color:rf.color,r:3});
   G.shockwaves.push({x:rf.x,y:rf.y,r:0,max:400,life:1,color:rf.color});
   if (rf.reward==='qi'){
-    p.qi += 200; addFloat(p.x,p.y-30,'+200 Qi','#bb88ff',18,1.5);
+    p.qi += 200; addFloat(p.x,p.y-30,'+200 XP','#bb88ff',18,1.5);
   } else if (rf.reward==='heal'){
     p.maxHp = Math.floor(p.maxHp*1.15); p.hp = p.maxHp; p.maxLife += 60; p.life = p.maxLife;
     addFloat(p.x,p.y-30,'HP +15%','#ff7080',18,1.5);
@@ -2588,7 +2718,7 @@ function grantRiftReward(p, rf){
 }
 function applyPickup(p, it){
   playSound('pickup');
-  if (it.qi){ p.qi += it.qi; addFloat(p.x,p.y-20,`+${it.qi} Qi`,'#bb88ff',12,1); }
+  if (it.qi){ p.qi += it.qi; addFloat(p.x,p.y-20,`+${it.qi} XP`,'#bb88ff',12,1); }
   if (it.heal){ p.hp = Math.min(p.maxHp, p.hp+it.heal); addFloat(p.x,p.y-20,`+${it.heal} HP`,'#ff6677',12,1); }
   if (it.bighp){ p.maxHp += it.bighp; p.hp += it.bighp; addFloat(p.x,p.y-20,`+${it.bighp} max HP`,'#ff2244',14,1); }
   if (it.sta){ p.sta = Math.min(p.maxSta, p.sta+it.sta); }
@@ -2856,7 +2986,7 @@ function die(reason){
   try { _coinsEarned = awardRunCoins(); } catch(e){}
   const _coinTxt = (_coinsEarned>0) ? ` · ★ +${_coinsEarned} coins earned (Total: ${getCoins()})` : '';
   document.getElementById('deathStats').textContent =
-    `Tier ${G.player.rank} ${tierName(G.player)} · Kills ${G.player.q.kills} · High-tier ${G.player.q.killHighTier} · Qi ${G.player.qi} · Survived ${(G.time/60)|0}m${(G.time%60)|0}s`
+    `Tier ${G.player.rank} ${tierName(G.player)} · Kills ${G.player.q.kills} · High-tier ${G.player.q.killHighTier} · XP ${G.player.qi} · Survived ${(G.time/60)|0}m${(G.time%60)|0}s`
     + _rankTxt
     + _coinTxt
     + (_on?` · ${Net.peers.size+1} online`:'');
@@ -2867,20 +2997,38 @@ function die(reason){
   const _restartBtn = document.getElementById('restartBtn');
   if (_deathNext){
     if (_nextPreview){
-      _deathNext.textContent = `${_curForm?_curForm.icon+' '+_curForm.name:G.player.sp.name} → ${_nextPreview.form.icon} ${_nextPreview.form.name} at Tier ${_nextPreview.targetRank} · ${_nextPreview.qiNeed} more Qi to reveal it`;
+      _deathNext.textContent = `${_curForm?_curForm.icon+' '+_curForm.name:G.player.sp.name} → ${_nextPreview.form.icon} ${_nextPreview.form.name} at Tier ${_nextPreview.targetRank} · ${_nextPreview.qiNeed} more XP to reveal it`;
     } else {
       _deathNext.textContent = `Final evolution reached: ${_curForm?_curForm.icon+' '+_curForm.name:G.player.sp.name}`;
     }
   }
   if (_deathHook){
     if (_nextPreview){
-      _deathHook.textContent = `Play again now: your next blind-box reveal is only ${_nextPreview.qiNeed} Qi away.`;
+      _deathHook.textContent = `Play again now: your next blind-box reveal is only ${_nextPreview.qiNeed} XP away.`;
     } else {
       _deathHook.textContent = 'Play again for a cleaner route, faster snowball, and a higher leaderboard finish.';
     }
   }
   if (_restartBtn) _restartBtn.textContent = _nextPreview ? `Play Again · Reveal ${_nextPreview.form.icon}` : 'Play Again';
-  // v2.5.0: render big silhouette canvas (current form -> next form) + Qi progress bar + share button
+  // v2.7.0: 3-second restart delay so share button gets visible time (viral exposure)
+  if (_restartBtn){
+    _restartBtn.disabled = true;
+    let _cd = 3;
+    const _origTxt = _restartBtn.textContent;
+    _restartBtn.textContent = `${_origTxt}  (${_cd}s)`;
+    const _cdInt = setInterval(()=>{
+      _cd--;
+      if (_cd<=0){
+        clearInterval(_cdInt);
+        _restartBtn.disabled = false;
+        _restartBtn.textContent = _origTxt;
+      } else {
+        _restartBtn.textContent = `${_origTxt}  (${_cd}s)`;
+      }
+    }, 1000);
+    G._deathRestartCdInt = _cdInt;
+  }
+  // v2.5.0: render big silhouette canvas (current form -> next form) + XP progress bar + share button
   try { _renderDeathFormCanvas(_curForm, _nextPreview); } catch(e){}
   try { _renderDeathQiBar(_nextPreview); } catch(e){}
   try { _setupShareButton(_curForm, _nextPreview, _coinsEarned); } catch(e){}
@@ -3181,7 +3329,7 @@ function update(dt){
       G.eventCdT -= dt;
       if (G.eventCdT<=0){
         G.event = {type:'aligned', t:20};
-        pushKillFeed('☄ Stars Align! Enemy ATK +30% · Qi +50% (20s)','#ffdd66');
+        pushKillFeed('☄ Stars Align! Enemy ATK +30% · XP +50% (20s)','#ffdd66');
         logMsg('★ Stars Align: 20s of danger and opportunity — reap all!','promote');
         try{ flash('#ffdd66',0.5); shake(10); }catch(e){}
         G.timeline.push({t:G.time, text:'Stars Align'});
@@ -3303,6 +3451,8 @@ function render(){
   try{ drawWorldEventFX(); }catch(e){}
   try{ drawPingArrow(); }catch(e){}
   try{ drawStageBanner(); }catch(e){}
+  // v2.7.0: tutorial overlay (only first run)
+  try{ drawTutorial(); }catch(e){}
   // v0.9.0: 心智低紫色暈眩
   if (G.player && G.player.sanity<30){
     const lvl = (30-G.player.sanity)/30;
@@ -4109,7 +4259,7 @@ function drawStarMap(){
     ctx.fillText('☄ Cultivation Log', 30, 80);
     ctx.fillStyle = '#fff'; ctx.font='12px sans-serif';
     ctx.fillText(`Tier: ${tierName(p)} (${p.rank}/9)`, 30, 100);
-    ctx.fillText(`Qi: ${p.qi|0} / ${QI_THR[p.rank]||'∞'}`, 30, 116);
+    ctx.fillText(`XP: ${p.qi|0} / ${QI_THR[p.rank]||'∞'}`, 30, 116);
     ctx.fillText(`SAN: ${p.sanity|0} / ${p.maxSanity}`, 30, 132);
     ctx.fillText(`Slain Outer Gods: ${p.q.bossKilled||0} · Sanctums: ${p.q.riftsUsed||0}/4`, 30, 148);
     ctx.fillText(`Kills: ${p.q.kills} · Survived: ${G.time.toFixed(0)}s`, 30, 164);
@@ -4124,7 +4274,7 @@ function drawStarMap(){
   ctx.fillStyle = '#ffdd66'; ctx.font='bold 13px sans-serif';
   ctx.fillText('★ Chapter '+G.stage+' Era · '+stageNamesM[G.stage-1]+'　|　Time '+G.time.toFixed(0)+'s', W/2, PAD/2 + 28);
   ctx.fillStyle = '#888'; ctx.font='11px sans-serif';
-  ctx.fillText('M/Esc close | Left-click = Ping | White=you Purple=Qi Color=Sanctum Eye=OuterGod Cyan=Wraith Yellow=Authority', W/2, H - PAD/2 + 6);
+  ctx.fillText('M/Esc close | Left-click = Ping | White=you Purple=XP Color=Sanctum Eye=OuterGod Cyan=Wraith Yellow=Authority', W/2, H - PAD/2 + 6);
 }
 
 function drawMinimap(){
@@ -4550,7 +4700,7 @@ function updateHUD(){
         })()}
       </div>
       ${G.boss && G.boss.hp>0 ? `<div class="quest" style="background:#aa44ff33;border-left-color:#aa44ff;color:#dabbff;">☄ Outer God ${G.boss.name} · HP ${G.boss.hp|0}/${G.boss.maxHp}</div>` : `<div style="color:#888;font-size:10px;margin-top:4px">外神降臨：${(G.bossSpawnT||0)|0}s 後</div>`}
-      ${q ? `<div class="quest" style="${p.qi>=QI_THR[p.rank]&&!q.req(p)?'background:#ff446644;border-left-color:#ff4466;color:#ffccdd;':''}">${p.qi>=QI_THR[p.rank]&&!q.req(p)?'⚠ Enough Qi! Complete quest or reach Qi '+(QI_THR[p.rank]*1.8|0)+' Force ascend: ':'Quest: '}${q.desc}　<span class="qprog">[${q.show(p)}]</span> ${q.req(p)?'<span class="qdone">✓</span>':''}</div>` : '<div class="quest qdone">★ Divinity achieved</div>'}
+      ${q ? `<div class="quest" style="${p.qi>=QI_THR[p.rank]&&!q.req(p)?'background:#ff446644;border-left-color:#ff4466;color:#ffccdd;':''}">${p.qi>=QI_THR[p.rank]&&!q.req(p)?'⚠ Enough XP! Complete quest or reach XP '+(QI_THR[p.rank]*1.8|0)+' Force ascend: ':'Quest: '}${q.desc}　<span class="qprog">[${q.show(p)}]</span> ${q.req(p)?'<span class="qdone">✓</span>':''}</div>` : '<div class="quest qdone">★ Divinity achieved</div>'}
     `;
   }
   // 權柄槽（v0.8.0: 6 槽，按 1-6 釋放）
@@ -5283,7 +5433,7 @@ function buildMenu(){
         _daily = ' &nbsp;&middot;&nbsp; <span style="color:#7fd07f">★ +80 Daily Login Bonus claimed!</span>';
       }
     } catch(e){}
-    _siel.innerHTML = '<div class="saveBox">Last run: <b>'+(_sv.name||'?')+'</b> &nbsp;Tier '+_sv.rank+'&nbsp;&middot;&nbsp;Kills '+_sv.kills+'&nbsp;&middot;&nbsp;'+Math.floor(_sv.time/60)+'m'+(_sv.time%60)+'s&nbsp;&middot;&nbsp;'+_sd.toLocaleDateString('en-US')+(_qb>0?' &nbsp;&middot;&nbsp; <span style="color:#bb88ff">+'+_qb+' Qi banked</span>':'')+_daily+'</div>';
+    _siel.innerHTML = '<div class="saveBox">Last run: <b>'+(_sv.name||'?')+'</b> &nbsp;Tier '+_sv.rank+'&nbsp;&middot;&nbsp;Kills '+_sv.kills+'&nbsp;&middot;&nbsp;'+Math.floor(_sv.time/60)+'m'+(_sv.time%60)+'s&nbsp;&middot;&nbsp;'+_sd.toLocaleDateString('en-US')+(_qb>0?' &nbsp;&middot;&nbsp; <span style="color:#bb88ff">+'+_qb+' XP banked</span>':'')+_daily+'</div>';
   } else {
     // v1.6.2: first-visit daily bonus stub
     try {
@@ -5429,6 +5579,8 @@ async function startGame(){
   }
   document.getElementById('menu').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
+  // v2.7.0: show pause button in-game
+  try { const _pb = document.getElementById('pauseBtn'); if (_pb) _pb.classList.add('show'); } catch(e){}
   G.enemies=[]; G.minions=[]; G.projectiles=[]; G.pickups=[]; G.spirits=[]; G.authorities=[]; G.particles=[]; G.floats=[]; G.shockwaves=[]; G.hazards=[];
   G.dead=false; G.won=false; G.time=0;
   G.tutorialT = 0; G.tutorialStep = 0;
@@ -5441,6 +5593,8 @@ async function startGame(){
   try { markFormSeen(G.selectedSpecies, 1); } catch(e){}
   // v2.6.0: 進入遊戲時啟動 BGM
   try { startBGM(); } catch(e){}
+  // v2.7.0: 第一次玩啟動 tutorial
+  try { startTutorial(); } catch(e){}
   G.player = makeCreature(G.selectedSpecies, WORLD.w/2, WORLD.h/2 - 1500, true);
   // 玩家額外加成：基礎 +30% HP / +50% DEF（容錯）
   G.player.bonusDefMult = 1.5;
@@ -5520,6 +5674,14 @@ async function restartGame(){
   try { bumpMetric('restarts', 1); } catch(e){}
   // v2.6.0: 死亡返回菜單時停 BGM（startGame 會再啟）
   try { stopBGM(); } catch(e){}
+  // v2.7.0: clear any lingering restart-countdown interval
+  try { if (G._deathRestartCdInt){ clearInterval(G._deathRestartCdInt); G._deathRestartCdInt = 0; } } catch(e){}
+  // v2.7.0: hide pause UI when returning to menu
+  try {
+    const _pb = document.getElementById('pauseBtn'); if (_pb) _pb.classList.remove('show');
+    const _po = document.getElementById('pauseOverlay'); if (_po) _po.classList.add('hidden');
+    G.paused = false;
+  } catch(e){}
   document.getElementById('death').classList.add('hidden');
   document.getElementById('win').classList.add('hidden');
   const _rev = document.getElementById('reviveBtn'); if (_rev) _rev.classList.add('hidden');
@@ -5608,12 +5770,33 @@ window.addEventListener('load', async ()=>{
     };
     try{ if (localStorage.getItem('evo_mute')==='1'){ G.soundOn=false; _mb.textContent='🔇'; } }catch(e){}
   }
+  // v2.7.0: pause button + pause overlay handlers
+  const _pbtn = document.getElementById('pauseBtn');
+  if (_pbtn){ _pbtn.onclick = ()=>{ if (G.started && !G.dead && !G.won) togglePause(); }; }
+  const _pRes = document.getElementById('pauseResumeBtn');
+  if (_pRes){ _pRes.onclick = ()=>{ if (G.paused) togglePause(); }; }
+  const _pSnd = document.getElementById('pauseSoundBtn');
+  if (_pSnd){ _pSnd.onclick = ()=>{ if (_mb) _mb.click(); _pSnd.textContent = G.soundOn ? '🔊 Sound' : '🔇 Muted'; }; }
+  const _pQuit = document.getElementById('pauseQuitBtn');
+  if (_pQuit){ _pQuit.onclick = ()=>{
+    if (G.paused) togglePause();
+    try { restartGame(); } catch(e){}
+  }; }
   document.addEventListener('visibilitychange', ()=>{
     if (document.hidden){ G.paused=true; }
-    else { G.paused=false; }
+    else {
+      // v2.7.0: don't auto-unpause if user manually opened pause overlay
+      const _po = document.getElementById('pauseOverlay');
+      if (_po && !_po.classList.contains('hidden')) return;
+      G.paused=false;
+    }
   });
   window.addEventListener('blur',  ()=>{ G.paused=true; });
-  window.addEventListener('focus', ()=>{ G.paused=false; });
+  window.addEventListener('focus', ()=>{
+    const _po = document.getElementById('pauseOverlay');
+    if (_po && !_po.classList.contains('hidden')) return;
+    G.paused=false;
+  });
   window.addEventListener('evo:ad-start', ()=>{ G.paused=true; });
   window.addEventListener('evo:ad-end',   ()=>{ G.paused=false; });
   await _sdkP;
