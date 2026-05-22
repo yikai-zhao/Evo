@@ -9,16 +9,51 @@
 // 預設 port 8081；前端用 wss://<codespace>-8081.app.github.dev 連線
 
 const http = require('http');
+const fs   = require('fs');
+const path = require('path');
 const { WebSocketServer } = require('ws');
 
 const PORT = parseInt(process.argv[2] || process.env.PORT || '8081', 10);
+const ROOT = __dirname;
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js':   'application/javascript; charset=utf-8',
+  '.css':  'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png':  'image/png',
+  '.ico':  'image/x-icon',
+};
 
 const httpServer = http.createServer((req, res) => {
-  if (req.url === '/health'){ res.writeHead(200,{'Content-Type':'application/json'});
+  // health check
+  if (req.url === '/health'){
+    res.writeHead(200, {'Content-Type':'application/json'});
     return res.end(JSON.stringify({ ok:true, clients: wss.clients.size, time: Date.now() }));
   }
-  res.writeHead(200,{'Content-Type':'text/plain'});
-  res.end('Evo WS relay alive — connect via /ws');
+  // strip query string, resolve path
+  const urlPath = req.url.split('?')[0];
+  const filePath = path.join(ROOT, urlPath === '/' ? 'index.html' : urlPath);
+  // security: stay within ROOT
+  if (!filePath.startsWith(ROOT + path.sep) && filePath !== ROOT){
+    res.writeHead(403); return res.end('Forbidden');
+  }
+  const ext = path.extname(filePath).toLowerCase();
+  const allowedExts = new Set(['.html','.js','.css','.json','.png','.ico']);
+  if (!allowedExts.has(ext)){
+    res.writeHead(403); return res.end('Forbidden');
+  }
+  fs.readFile(filePath, (err, data) => {
+    if (err){
+      res.writeHead(404, {'Content-Type':'text/plain'});
+      return res.end('Not found');
+    }
+    res.writeHead(200, {
+      'Content-Type': MIME[ext] || 'application/octet-stream',
+      'Cache-Control': 'public, max-age=60',
+    });
+    res.end(data);
+  });
 });
 
 const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
