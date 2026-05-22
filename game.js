@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.3.0 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
+// Lands End — Prototype v2.4.0 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -374,6 +374,110 @@ const PATH_QUESTS = {
 };
 
 // =====================================================================
+// v2.4.0: 進化形態表（盲盒體驗）— 每個物種在 rank 1/3/5/7/9 變身新形態
+// =====================================================================
+const RANK_FORMS = {
+  swordsman: [
+    {rank:1,icon:'🗡️',color:'#ffd66b',name:'Apprentice Swordsman'},
+    {rank:3,icon:'⚔️',color:'#ffaa44',name:'Battle Duelist'},
+    {rank:5,icon:'🛡️',color:'#ff8833',name:'War Hero'},
+    {rank:7,icon:'🌟',color:'#ff6600',name:'Sword Immortal'},
+    {rank:9,icon:'⚡',color:'#ffffff',name:'True Sword God'},
+  ],
+  cultivator: [
+    {rank:1,icon:'🧘',color:'#cba6ff',name:'Qi Student'},
+    {rank:3,icon:'🔮',color:'#aa88ff',name:'Spell Weaver'},
+    {rank:5,icon:'☯️',color:'#8866ff',name:'Dao Seeker'},
+    {rank:7,icon:'🌌',color:'#6644cc',name:'Void Master'},
+    {rank:9,icon:'💫',color:'#ffffff',name:'True Celestial'},
+  ],
+  lizard: [
+    {rank:1,icon:'🦎',color:'#7fd07f',name:'River Lizard'},
+    {rank:3,icon:'🐍',color:'#55aa55',name:'Swift Raptor'},
+    {rank:5,icon:'🔥',color:'#88aa22',name:'War Iguana'},
+    {rank:7,icon:'💀',color:'#aa6600',name:'Primal Hunter'},
+    {rank:9,icon:'🌋',color:'#ff6600',name:'True Primal God'},
+  ],
+  croc: [
+    {rank:1,icon:'🐊',color:'#6aa86a',name:'River Croc'},
+    {rank:3,icon:'🦷',color:'#558855',name:'Iron Jaw'},
+    {rank:5,icon:'🐊',color:'#336644',name:'Ancient Crocodile'},
+    {rank:7,icon:'🦖',color:'#225533',name:'Apex Predator'},
+    {rank:9,icon:'🌊',color:'#00ffaa',name:'True Marsh God'},
+  ],
+  dino: [
+    {rank:1,icon:'🦖',color:'#7a8a3a',name:'Young Tyrant'},
+    {rank:3,icon:'🦕',color:'#8a7a2a',name:'Raging Dino'},
+    {rank:5,icon:'💥',color:'#aa8800',name:'Tyrant Rex'},
+    {rank:7,icon:'⚡',color:'#cc9900',name:'Thunder Titan'},
+    {rank:9,icon:'🌋',color:'#ffaa00',name:'True Tyrant God'},
+  ],
+  wolf: [
+    {rank:1,icon:'🐺',color:'#a0a0a0',name:'Young Wolf'},
+    {rank:3,icon:'🐺',color:'#888888',name:'Pack Leader'},
+    {rank:5,icon:'🦊',color:'#c06020',name:'War Wolf'},
+    {rank:7,icon:'🌕',color:'#ff8844',name:'Fenrir'},
+    {rank:9,icon:'☄️',color:'#ffcc44',name:'True Beast God'},
+  ],
+  longSnake: [
+    {rank:1,icon:'🐍',color:'#88e0ff',name:'River Jiao'},
+    {rank:3,icon:'🐲',color:'#66ccff',name:'Sky Jiao'},
+    {rank:5,icon:'🐉',color:'#44aaff',name:'Thunder Jiao'},
+    {rank:7,icon:'🌊',color:'#2288ff',name:'Sea Dragon'},
+    {rank:9,icon:'⛈️',color:'#aaccff',name:'True Dragon God'},
+  ],
+  eagle: [
+    {rank:1,icon:'🦅',color:'#cce0ff',name:'Young Eagle'},
+    {rank:3,icon:'🦅',color:'#aaccff',name:'Sky Hunter'},
+    {rank:5,icon:'⚡',color:'#88aaff',name:'Storm Eagle'},
+    {rank:7,icon:'🌩️',color:'#6688ff',name:'Thunder Hawk'},
+    {rank:9,icon:'🌟',color:'#ffffff',name:'True Sky God'},
+  ],
+  owl: [
+    {rank:1,icon:'🦉',color:'#aabbcc',name:'Young Owl'},
+    {rank:3,icon:'🦉',color:'#889aab',name:'Shadow Owl'},
+    {rank:5,icon:'👁️',color:'#668899',name:'Death Watcher'},
+    {rank:7,icon:'🌑',color:'#445566',name:'Void Watcher'},
+    {rank:9,icon:'☠️',color:'#aaaacc',name:'True Night God'},
+  ],
+  bat: [
+    {rank:1,icon:'🦇',color:'#9a76d0',name:'Little Bat'},
+    {rank:3,icon:'🦇',color:'#7a5ab0',name:'Blood Bat'},
+    {rank:5,icon:'🧛',color:'#5a3e90',name:'Vampire Lord'},
+    {rank:7,icon:'👹',color:'#3a2270',name:'Demon Bat'},
+    {rank:9,icon:'☠️',color:'#cc88ff',name:'Undead God'},
+  ],
+  shark: [
+    {rank:1,icon:'🦈',color:'#88c0ff',name:'Young Shark'},
+    {rank:3,icon:'🦈',color:'#6699ff',name:'Blood Shark'},
+    {rank:5,icon:'⚔️',color:'#4477ff',name:'Apex Shark'},
+    {rank:7,icon:'🌊',color:'#2255ff',name:'Deep Terror'},
+    {rank:9,icon:'🌀',color:'#aaddff',name:'True Sea God'},
+  ],
+  eel: [
+    {rank:1,icon:'🐍',color:'#aaff88',name:'River Eel'},
+    {rank:3,icon:'⚡',color:'#88ff44',name:'Thunder Eel'},
+    {rank:5,icon:'🌩️',color:'#66ee00',name:'Storm Eel'},
+    {rank:7,icon:'🔮',color:'#44cc00',name:'Void Serpent'},
+    {rank:9,icon:'🌪️',color:'#00ff88',name:'True Storm God'},
+  ],
+  scorpion: [
+    {rank:1,icon:'🦂',color:'#cc8844',name:'Young Scorpion'},
+    {rank:3,icon:'🦂',color:'#aa6622',name:'Sand Stalker'},
+    {rank:5,icon:'☠️',color:'#884400',name:'Plague Scorpion'},
+    {rank:7,icon:'💀',color:'#662200',name:'Death Scorpion'},
+    {rank:9,icon:'🌑',color:'#ff4400',name:'True Plague God'},
+  ],
+};
+function getRankForm(c){
+  const forms = RANK_FORMS[c.species];
+  if (!forms) return null;
+  let form = forms[0];
+  for (const f of forms) if (c.rank >= f.rank) form = f;
+  return form;
+}
+
+// =====================================================================
 // 權柄（巨型 AoE，必須超強）
 // =====================================================================
 const AUTHORITIES = [
@@ -458,6 +562,7 @@ const G = {
   selectedSpecies:null, msg:'', killFeed:[], leaderboard:[], errorCount:0, lastError:'',
   soundOn:true, lastHitTime:0, deathBy:'',
   killStreak:0, streakBannerT:0, streakBannerText:'', streakBannerColor:'#ff8800',
+  evoReveal:null,
   fps:60, frameAcc:0, frameN:0, mapOpen:false,
   boss:null, bossSpawnT:240, bossDefeated:0,
   miniboss:null, minibossSpawnT:180, miniDefeated:0,
@@ -1229,6 +1334,11 @@ function tryPromote(p){
       for (let i=0;i<80;i++) G.particles.push({x:p.x,y:p.y,vx:rand(-400,400),vy:rand(-400,400),life:1.4,color:p.path.color, r:3});
       G.shockwaves.push({x:p.x,y:p.y,r:0,max:280,life:0.9,color:p.path.color});
       addFloat(p.x, p.y-30, `Level Up! ${title}`, p.path.color, 24, 2);
+      // v2.4.0: 盲盒進化揭曉（rank 3/5/7/9 觸發大彈窗）
+      if ([3,5,7,9].includes(p.rank)){
+        const evoForm = getRankForm(p);
+        if (evoForm) G.evoReveal = { rank: p.rank, form: evoForm, t: 5.0 };
+      }
     }
   }
   if (promoted && p.isPlayer && p.rank>=9){ winGame(); }
@@ -1420,6 +1530,7 @@ function setupInput(canvas){
     if (e.button===2) MOUSE.rdown = false;
   });
   canvas.addEventListener('contextmenu', e=>e.preventDefault());
+  setupTouch(canvas); // v2.4.0: 手機觸屏
 }
 
 // =====================================================================
@@ -1481,6 +1592,7 @@ function updatePlayer(p, dt){
   if (p.isPlayer){ p.life -= dt; if (p.life<=0){ die('Lifespan exhausted'); return; } }
 
   // 移動
+  applyJoystick(); // v2.4.0: 手機搖桿 → 注入 KEYS
   let mx=0,my=0;
   if (KEYS['w']||KEYS['arrowup']) my-=1;
   if (KEYS['s']||KEYS['arrowdown']) my+=1;
@@ -2826,6 +2938,8 @@ function render(){
   try{ drawKillFeed(); }catch(e){}
   try{ drawStreakBanner(); }catch(e){}
   try{ drawEdgeArrows(); }catch(e){}
+  try{ drawEvoReveal(); }catch(e){}
+  try{ drawJoystick(); }catch(e){}
   try{ drawLeaderboard(); }catch(e){}
   ctx.fillStyle = G.fps<30 ? '#ff6666' : (G.fps<50 ? '#ffcc66' : '#88ff88');
   ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
@@ -3103,19 +3217,22 @@ function drawHazards(){
 function drawCreature(c){
   if (!c || c.hp<=0) return;
   const isP = c.isPlayer;
+  // v2.4.0: 取得進化形態（決定圖示、顏色）
+  const evoForm = getRankForm(c);
+  const evoColor = (evoForm && c.rank >= 3) ? evoForm.color : c.path.color;
+  const evoIcon  = evoForm ? evoForm.icon : c.sp.icon;
   // v2.3.0: 階位光環 + 高階身形放大
   if (c.rank>=5){
-    const scaleFactor = 1 + (c.rank-4)*0.06; // rank5=1.06, rank9=1.30
+    const scaleFactor = 1 + (c.rank-4)*0.06;
     c.r = Math.round((c.sp.base.r||18) * scaleFactor);
   }
   if (c.rank>=3){
     const aR = c.r + 6 + c.rank;
-    ctx.strokeStyle = c.path.color; ctx.lineWidth = Math.min(6, c.rank-1);
+    ctx.strokeStyle = evoColor; ctx.lineWidth = Math.min(6, c.rank-1);
     ctx.beginPath(); ctx.arc(c.x,c.y,aR,0,Math.PI*2); ctx.stroke();
     if (c.rank>=7){
-      // inner glow pulse for high-tier creatures
       ctx.globalAlpha = 0.18 + 0.12*Math.sin(G.time*3 + c.x*0.01);
-      ctx.fillStyle = c.path.color;
+      ctx.fillStyle = evoColor;
       ctx.beginPath(); ctx.arc(c.x,c.y,aR,0,Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1;
     }
@@ -3154,16 +3271,17 @@ function drawCreature(c){
     ctx.beginPath(); ctx.arc(c.x, c.y, c.r+14, 0, Math.PI*2); ctx.stroke();
     ctx.setLineDash([]);
   }
-  // icon
+  // icon (v2.4.0: 用進化形態圖示)
   ctx.fillStyle = '#000'; ctx.font = `bold ${Math.floor(c.r*0.8)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(c.sp.icon, c.x, c.y);
+  ctx.fillText(evoIcon, c.x, c.y);
   // HP bar
   if (!isP){
     const w = Math.max(30, c.r*2);
     ctx.fillStyle = '#000c'; ctx.fillRect(c.x-w/2, c.y-c.r-14, w, 5);
     ctx.fillStyle = c.hp/c.maxHp>0.4?'#5f5':'#f44'; ctx.fillRect(c.x-w/2, c.y-c.r-14, w*clamp(c.hp/c.maxHp,0,1), 5);
-    ctx.fillStyle = c.path.color; ctx.font='10px sans-serif';
-    ctx.fillText(`${c.sp.name} ${tierName(c)}`, c.x, c.y-c.r-20);
+    const dispName = (evoForm && c.rank>=3) ? evoForm.name : c.sp.name;
+    ctx.fillStyle = evoColor; ctx.font='10px sans-serif';
+    ctx.fillText(`${dispName} ${tierName(c)}`, c.x, c.y-c.r-20);
   }
   // 凍結
   if (c.freeze>0){
@@ -3740,6 +3858,192 @@ function drawEdgeArrows(){
     }
   }
 }
+
+// =====================================================================
+// v2.4.0: 進化揭曉動畫
+// =====================================================================
+function drawEvoReveal(){
+  if (!G.evoReveal || G.evoReveal.t <= 0){ G.evoReveal = null; return; }
+  G.evoReveal.t -= 1/60;
+  if (G.evoReveal.t <= 0){ G.evoReveal = null; return; }
+  const { form, rank, t } = G.evoReveal;
+  const W = window.innerWidth, H = window.innerHeight;
+  const cx = W/2, cy = H/2;
+  const totalT = 5.0;
+  const elapsed = totalT - t;
+  let a = 1;
+  if (elapsed < 0.5) a = elapsed / 0.5;
+  if (t < 0.8) a = t / 0.8;
+  ctx.save();
+  ctx.globalAlpha = a * 0.82;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = a;
+  const grd = ctx.createRadialGradient(cx, cy-50, 30, cx, cy-50, 200);
+  grd.addColorStop(0, form.color + '55');
+  grd.addColorStop(1, 'transparent');
+  ctx.globalAlpha = a * 0.6;
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(cx, cy-50, 200, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = a;
+  const pulse = 1 + 0.07 * Math.sin(elapsed * 7);
+  ctx.save();
+  ctx.translate(cx, cy - 60);
+  ctx.scale(pulse, pulse);
+  ctx.font = 'bold 110px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(form.icon, 0, 0);
+  ctx.restore();
+  ctx.font = 'bold 40px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = form.color;
+  ctx.shadowColor = form.color; ctx.shadowBlur = 28;
+  ctx.fillText('\u2726  EVOLUTION  \u2726', cx, cy + 58);
+  ctx.shadowBlur = 0;
+  ctx.font = 'bold 30px sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(form.name, cx, cy + 108);
+  ctx.font = '16px sans-serif';
+  ctx.fillStyle = '#aaaaaa';
+  ctx.fillText('Tier ' + rank + '  \u00b7  tap anywhere to dismiss', cx, cy + 148);
+  ctx.restore();
+}
+
+// =====================================================================
+// v2.4.0: 手機虛擬搖桿 & 按鈕
+// =====================================================================
+const TOUCH = { joy:null };
+const JOY_R = 62;
+const JOY_KNOB_R = 26;
+function isMobile(){ return ('ontouchstart' in window) && window.innerWidth < 1200; }
+
+function _getTouchBtns(){
+  const W = window.innerWidth, H = window.innerHeight;
+  return [
+    { key:'ldown',  x:W-82,  y:H-110, r:46, label:'\u2694',  isMs:true  },
+    { key:'rdown',  x:W-190, y:H-68,  r:32, label:'\ud83d\udee1',  isMs:true  },
+    { key:'f',      x:W-82,  y:H-215, r:32, label:'\ud83c\udfaf',  isMs:false },
+    { key:'q',      x:W-190, y:H-160, r:30, label:'Q',   isMs:false },
+    { key:'e',      x:W-82,  y:H-320, r:30, label:'E',   isMs:false },
+    { key:'r',      x:W-190, y:H-255, r:30, label:'R',   isMs:false },
+  ];
+}
+
+function _fireTouchBtn(btn){
+  if (btn.isMs){
+    if (btn.key==='ldown'){ MOUSE.ldown=true; setTimeout(function(){ MOUSE.ldown=false; },160); }
+    else if (btn.key==='rdown'){ MOUSE.rdown=true; setTimeout(function(){ MOUSE.rdown=false; },160); }
+  } else {
+    KEYS[btn.key]=true; setTimeout(function(){ KEYS[btn.key]=false; },140);
+  }
+}
+
+function setupTouch(canvas){
+  if (!('ontouchstart' in window)) return;
+  function onStart(e){
+    e.preventDefault();
+    const W=window.innerWidth, H=window.innerHeight;
+    for (let i=0;i<e.changedTouches.length;i++){
+      const t=e.changedTouches[i];
+      const tx=t.clientX, ty=t.clientY;
+      if (G.evoReveal) G.evoReveal.t = Math.min(G.evoReveal.t, 0.8);
+      let hit=false;
+      const btns=_getTouchBtns();
+      for (let j=0;j<btns.length;j++){
+        const btn=btns[j];
+        if (Math.hypot(tx-btn.x, ty-btn.y) < btn.r+8){ _fireTouchBtn(btn); hit=true; break; }
+      }
+      if (!hit && tx < W * 0.48){
+        if (!TOUCH.joy) TOUCH.joy={id:t.identifier,bx:tx,by:ty,dx:0,dy:0};
+      } else if (!hit){
+        const r=canvas.getBoundingClientRect();
+        MOUSE.x=tx-r.left; MOUSE.y=ty-r.top;
+        if (G.player){ MOUSE.wx=G.player.x+(tx-W/2); MOUSE.wy=G.player.y+(ty-H/2); }
+        MOUSE.ldown=true; setTimeout(function(){ MOUSE.ldown=false; },160);
+      }
+    }
+  }
+  function onMove(e){
+    e.preventDefault();
+    for (let i=0;i<e.changedTouches.length;i++){
+      const t=e.changedTouches[i];
+      if (!TOUCH.joy || t.identifier!==TOUCH.joy.id) continue;
+      let dx=t.clientX-TOUCH.joy.bx, dy=t.clientY-TOUCH.joy.by;
+      const len=Math.hypot(dx,dy);
+      if (len>JOY_R){ dx=dx/len*JOY_R; dy=dy/len*JOY_R; }
+      TOUCH.joy.dx=dx; TOUCH.joy.dy=dy;
+    }
+  }
+  function onEnd(e){
+    e.preventDefault();
+    for (let i=0;i<e.changedTouches.length;i++){
+      const t=e.changedTouches[i];
+      if (TOUCH.joy && t.identifier===TOUCH.joy.id) TOUCH.joy=null;
+    }
+  }
+  canvas.addEventListener('touchstart', onStart, {passive:false});
+  canvas.addEventListener('touchmove',  onMove,  {passive:false});
+  canvas.addEventListener('touchend',   onEnd,   {passive:false});
+  canvas.addEventListener('touchcancel',onEnd,   {passive:false});
+}
+
+function applyJoystick(){
+  if (!TOUCH.joy){
+    if (isMobile()){ KEYS['w']=false; KEYS['a']=false; KEYS['s']=false; KEYS['d']=false; }
+    return;
+  }
+  const dx=TOUCH.joy.dx, dy=TOUCH.joy.dy;
+  const thr=10;
+  KEYS['a']=dx < -thr; KEYS['d']=dx > thr;
+  KEYS['w']=dy < -thr; KEYS['s']=dy > thr;
+  if (G.player && (Math.abs(dx)>thr||Math.abs(dy)>thr)){
+    MOUSE.wx=G.player.x+dx/JOY_R*180;
+    MOUSE.wy=G.player.y+dy/JOY_R*180;
+  }
+}
+
+function drawJoystick(){
+  if (!G.started || !isMobile()) return;
+  const W=window.innerWidth, H=window.innerHeight;
+  const btns=_getTouchBtns();
+  for (let i=0;i<btns.length;i++){
+    const btn=btns[i];
+    ctx.save();
+    ctx.globalAlpha=0.72;
+    ctx.beginPath(); ctx.arc(btn.x,btn.y,btn.r,0,Math.PI*2);
+    ctx.fillStyle='#00000099'; ctx.fill();
+    ctx.strokeStyle='#ffffff44'; ctx.lineWidth=2; ctx.stroke();
+    ctx.globalAlpha=1;
+    ctx.font='bold '+Math.round(btn.r*0.72)+'px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#ffffff';
+    ctx.fillText(btn.label, btn.x, btn.y);
+    ctx.restore();
+  }
+  if (TOUCH.joy){
+    const bx=TOUCH.joy.bx, by=TOUCH.joy.by, dx=TOUCH.joy.dx, dy=TOUCH.joy.dy;
+    ctx.save();
+    ctx.globalAlpha=0.42;
+    ctx.beginPath(); ctx.arc(bx,by,JOY_R,0,Math.PI*2);
+    ctx.fillStyle='#ffffff22'; ctx.fill();
+    ctx.strokeStyle='#ffffff88'; ctx.lineWidth=2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx+dx,by+dy,JOY_KNOB_R,0,Math.PI*2);
+    ctx.fillStyle='#ffffffaa'; ctx.fill();
+    ctx.globalAlpha=1;
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.globalAlpha=0.18;
+    ctx.beginPath(); ctx.arc(W*0.2,H*0.78,JOY_R,0,Math.PI*2);
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(W*0.2,H*0.78,JOY_KNOB_R,0,Math.PI*2);
+    ctx.fillStyle='#ffffff55'; ctx.fill();
+    ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#fff'; ctx.fillText('MOVE',W*0.2,H*0.78);
+    ctx.restore();
+  }
+}
+
 function drawKillFeed(){
   let y = 220;
   for (let i=G.killFeed.length-1;i>=0;i--){
