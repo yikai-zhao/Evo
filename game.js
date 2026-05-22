@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.9.1 (real boss portrait PNGs · 5 古神 boss rotation each with unique silhouette · 2.4s boss intro splash (AI art slot ready) · cinematic vignette + enraged letterbox + low-HP pulse · AI prompt pack for production art)
+// Lands End — Prototype v2.9.2 (mobile UI: minimap+leaderboard vertical stack, no overlap, responsive HUD) · v2.9.1 (real boss portrait PNGs · 5 古神 boss rotation each with unique silhouette · 2.4s boss intro splash (AI art slot ready) · cinematic vignette + enraged letterbox + low-HP pulse · AI prompt pack for production art)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -4813,7 +4813,13 @@ function drawStarMap(){
 }
 
 function drawMinimap(){
-  const mw = 200, mh = 200, mx = window.innerWidth-mw-10, my = 10;
+  // v2.9.2: responsive — shrink on narrow screens; clear top-right buttons (mute/pause)
+  const narrow = window.innerWidth < 720;
+  const mw = narrow ? 130 : 200, mh = mw;
+  const mx = window.innerWidth - mw - 10;
+  const my = narrow ? 56 : 64;  // clear the 44px mute/pause buttons at top:14
+  // expose layout so leaderboard can stack below it
+  G._minimapRect = { x: mx, y: my, w: mw, h: mh };
   ctx.fillStyle = '#000c'; ctx.fillRect(mx,my,mw,mh);
   // v1.0.0/1.0.1: ping marker + 從玩家連線
   if (G.pingT>0){
@@ -5155,37 +5161,48 @@ function drawKillFeed(){
 }
 function drawLeaderboard(){
   if (!G.leaderboard || !G.leaderboard.length) return;
-  const lw = 240, lx = (window.innerWidth || canvas.width) - lw - 12, ly = 12;
+  // v2.9.2: responsive width + stack BELOW the minimap (no more overlap)
+  const narrow = window.innerWidth < 720;
+  const lw = narrow ? 180 : 240;
+  const lx = (window.innerWidth || canvas.width) - lw - 10;
+  // stack below minimap if it exists, else fall back to top
+  const mm = G._minimapRect;
+  const ly = mm ? (mm.y + mm.h + 8) : (narrow ? 56 : 64);
   const _oc=(window.Net&&Net.online)?Net.peers.size+1:0;
   // v2.3.0: use server LB when online, local otherwise
   const useLB = (_oc>1 && G._serverLB && G._serverLB.length) ? G._serverLB : null;
   const rows = useLB || G.leaderboard;
-  const rowH = 22;
-  ctx.fillStyle = '#000b'; ctx.fillRect(lx, ly, lw, 12 + rows.length*rowH + 6);
-  ctx.strokeStyle = '#ffd66b88'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, 12 + rows.length*rowH + 6);
-  ctx.fillStyle='#ffd66b';ctx.font='bold 13px sans-serif';ctx.textAlign='left';
-  ctx.fillText((useLB?'🌐 Global':'📊 Local')+' Leaderboard'+(_oc>0?' · Online '+_oc:''),lx+8,ly+18);
-  for(let i=0;i<rows.length;i++){
-    const c=rows[i];
-    const yy=ly+38+i*rowH;
+  // v2.9.2: cap visible rows so we never run off screen on phones
+  const titleH = 18, rowH = narrow ? 18 : 22;
+  const maxRows = Math.max(3, Math.floor((window.innerHeight - ly - 16 - titleH - 12) / rowH));
+  const visRows = rows.slice(0, Math.min(rows.length, maxRows));
+  const totalH = 12 + visRows.length * rowH + 6;
+  ctx.fillStyle = '#000b'; ctx.fillRect(lx, ly, lw, totalH);
+  ctx.strokeStyle = '#ffd66b88'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, totalH);
+  ctx.fillStyle='#ffd66b'; ctx.font= (narrow?'bold 11px':'bold 13px')+' sans-serif'; ctx.textAlign='left';
+  ctx.fillText((useLB?'🌐 Global':'📊 Local')+' LB'+(_oc>0?' · '+_oc:''),lx+8,ly+16);
+  const rowFontSm = narrow ? '10px sans-serif' : '12px sans-serif';
+  const rowFontBd = narrow ? 'bold 10px sans-serif' : 'bold 12px sans-serif';
+  for(let i=0;i<visRows.length;i++){
+    const c=visRows[i];
+    const yy=ly+34+i*rowH;
     const crown = i===0 ? '👑 ' : (i===1?'🥈 ':(i===2?'🥉 ':''));
     if(useLB){
-      // server LB entry: {name, rank, qi, path}
       const isMe = G.player && c.name===G.player.name;
       ctx.fillStyle= isMe?'#ffd700':'#ddd';
-      ctx.font= isMe?'bold 12px sans-serif':'12px sans-serif';
+      ctx.font= isMe?rowFontBd:rowFontSm;
       ctx.textAlign='left';
       ctx.fillText(`${crown}${i+1}. ${c.name}`,lx+8,yy);
       ctx.fillStyle='#aaa';ctx.textAlign='right';
       ctx.fillText(`R${c.rank} ${c.qi}qi`,lx+lw-8,yy);
     } else if(c._isPeer){
-      ctx.fillStyle='#88ccff';ctx.font='12px sans-serif';ctx.textAlign='left';
+      ctx.fillStyle='#88ccff';ctx.font=rowFontSm;ctx.textAlign='left';
       ctx.fillText(`${crown}${i+1}. ● ${c.name}`,lx+8,yy);
       ctx.fillStyle=c.path.color;ctx.textAlign='right';
       ctx.fillText('R'+c.rank,lx+lw-8,yy);
     }else{
       ctx.fillStyle=c.isPlayer?'#ffffff':'#ddd';
-      ctx.font=c.isPlayer?'bold 12px sans-serif':'12px sans-serif';ctx.textAlign='left';
+      ctx.font=c.isPlayer?rowFontBd:rowFontSm;ctx.textAlign='left';
       ctx.fillText(`${crown}${i+1}. ${c.name||c.sp.name}`,lx+8,yy);
       ctx.fillStyle=c.path.color;ctx.textAlign='right';
       ctx.fillText(`${tierName(c)} ${c.qi}`,lx+lw-8,yy);

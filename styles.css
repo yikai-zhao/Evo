@@ -43,6 +43,18 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 /* HUD — v1.8.2: compact layout */
 #hud { position: fixed; left:10px; top:10px; width: 230px; z-index: 10; pointer-events:none; }
 #hud.hidden { display:none; }
+/* v2.9.2: shrink HUD on narrow/portrait phones so it doesn't run under the minimap */
+@media (max-width: 720px) {
+  #hud { width: 180px; font-size: 10px; }
+  #hud .bar { font-size: 10px; }
+  #hud .bar .lbl { width: 26px; }
+  #hud .bar .num { width: 50px; font-size: 9px; }
+  #stats { font-size: 9px; padding: 3px 5px; }
+  #log { max-height: 14vh; }
+}
+@media (max-width: 480px) {
+  #hud { width: 150px; }
+}
 .bar { display:flex; align-items:center; gap:5px; margin-bottom:2px; font-size:11px; }
 .bar .lbl { width:30px; color:#bbb; }
 .bar .track { flex:1; height:11px; background:#0007; border:1px solid #333; border-radius:3px; overflow:hidden; }
