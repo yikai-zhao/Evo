@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.4.1 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
+// Lands End — Prototype v2.5.0 (early-Qi boost · form pokedex · death-card next-form canvas · share button · run metrics)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -511,6 +511,72 @@ function getFirstHuntTarget(){
 }
 
 // =====================================================================
+// v2.5.0: 形態圖鑑（盲盒收集驅動）+ 運行指標（留存埋點）
+// =====================================================================
+const EVO_FORMS_KEY = 'evo_forms_seen';
+const EVO_METRICS_KEY = 'evo_run_metrics';
+
+function getFormsSeen(){
+  try { return JSON.parse(localStorage.getItem(EVO_FORMS_KEY)||'{}') || {}; } catch(e){ return {}; }
+}
+function totalFormsCount(){
+  let n = 0;
+  for (const k in RANK_FORMS) n += RANK_FORMS[k].length;
+  return n;
+}
+function formsDiscoveredCount(){
+  const s = getFormsSeen();
+  let n = 0; for (const k in s) if (s[k]) n++;
+  return n;
+}
+function markFormSeen(species, rank){
+  try {
+    const s = getFormsSeen();
+    const key = species+':'+rank;
+    if (s[key]) return false;
+    s[key] = 1;
+    localStorage.setItem(EVO_FORMS_KEY, JSON.stringify(s));
+    return true;
+  } catch(e){ return false; }
+}
+
+function getMetrics(){
+  try {
+    const m = JSON.parse(localStorage.getItem(EVO_METRICS_KEY)||'null');
+    if (m) return m;
+  } catch(e){}
+  return { runs:0, deaths:0, restarts:0, totalPlay:0, firstKillSum:0, firstKillN:0, firstEvoSum:0, firstEvoN:0, maxRankAchieved:0, sharesClicked:0, revivesUsed:0, lastPlayed:0 };
+}
+function saveMetrics(m){ try { localStorage.setItem(EVO_METRICS_KEY, JSON.stringify(m)); } catch(e){} }
+function bumpMetric(key, val){
+  const m = getMetrics();
+  m[key] = (m[key]||0) + (val||1);
+  m.lastPlayed = Date.now();
+  saveMetrics(m);
+}
+function recordFirstKillTime(t){
+  const m = getMetrics();
+  m.firstKillSum = (m.firstKillSum||0) + t;
+  m.firstKillN = (m.firstKillN||0) + 1;
+  saveMetrics(m);
+}
+function recordFirstEvoTime(t){
+  const m = getMetrics();
+  m.firstEvoSum = (m.firstEvoSum||0) + t;
+  m.firstEvoN = (m.firstEvoN||0) + 1;
+  saveMetrics(m);
+}
+
+// Early-game qi multiplier — guarantees first big evolution (tier 3) within 60-90s
+function earlyQiMultiplier(){
+  const t = G.time || 0;
+  if (t < 30) return 2.5;
+  if (t < 60) return 1.8;
+  if (t < 90) return 1.3;
+  return 1.0;
+}
+
+// =====================================================================
 // 權柄（巨型 AoE，必須超強）
 // =====================================================================
 const AUTHORITIES = [
@@ -609,6 +675,9 @@ const G = {
   _nidSeq:0, _saveTimer:0, paused:false, _firstAdShown:false,
   // v1.9.0: only ONE Seq 0 (rank 19) per path may exist at any time. Maps path -> creature reference.
   thrones: { human:null, dragon:null, beast:null, bird:null, fish:null, insect:null },
+  // v2.5.0: per-run metrics tracking (logged once into localStorage via recordFirst*Time)
+  _metricsLogged: { firstKill:false, firstEvo:false },
+  _runStartT: 0,
 };
 const FAKE_NAMES = ['Witch','Mystic Name','Brahman','Red Lord','Hermit','Spear of Society','Dark Philosopher','Sun','High Dyke','Trance','Rule','Deceiver','Hidden Lord','Reverberation','Conductor','Jiao One','Black Night','Student','Void Reducer','Elder Day','Devourer','Joy','Falsehood','Flame Tongue','Phantom Light','Kunlun','Penguin','Apostle of Flame','Medium','King'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
@@ -1433,7 +1502,31 @@ function tryPromote(p){
       if ([3,5,7,9].includes(p.rank)){
         const evoForm = getRankForm(p);
         if (evoForm) G.evoReveal = { rank: p.rank, form: evoForm, t: 5.0 };
+        // v2.5.0: log first-evolution metric + mark form as discovered
+        if (!G._metricsLogged.firstEvo){
+          G._metricsLogged.firstEvo = true;
+          try { recordFirstEvoTime(G.time||0); } catch(e){}
+        }
       }
+      // v2.5.0: form-collection (pokedex hook — drives replay)
+      try {
+        const sk = G.selectedSpecies;
+        const isNew = markFormSeen(sk, p.rank);
+        if (isNew){
+          const totalF = totalFormsCount();
+          const haveF  = formsDiscoveredCount();
+          pushKillFeed(`★ NEW FORM DISCOVERED! (${haveF}/${totalF} unlocked)`, '#ffd66b');
+          addFloat(p.x, p.y-60, `NEW FORM! ${haveF}/${totalF}`, '#ffd66b', 18, 2.5);
+        }
+      } catch(e){}
+      // v2.5.0: track max rank achieved across all runs
+      try {
+        const m = getMetrics();
+        if (p.rank > (m.maxRankAchieved||0)){
+          m.maxRankAchieved = p.rank;
+          saveMetrics(m);
+        }
+      } catch(e){}
     }
   }
   if (promoted && p.isPlayer && p.rank>=9){ winGame(); }
@@ -2008,6 +2101,20 @@ function onKill(attacker, target){
     }
     attacker.qi += qiReward;
     addFloat(target.x, target.y-20, `+${qiReward} Qi${_oppMul>1?' ⚔':''}`, _oppMul>1?'#ff88cc':'#bb88ff', 14, 1.2);
+    // v2.5.0: early-game qi boost — guarantees first evolution in 60-90s
+    const _earlyMul = earlyQiMultiplier();
+    if (_earlyMul > 1){
+      const _bonus = Math.floor(qiReward * (_earlyMul - 1));
+      if (_bonus > 0){
+        attacker.qi += _bonus;
+        addFloat(target.x, target.y-38, `+${_bonus} Welcome Qi ✨`, '#ffd66b', 12, 1.2);
+      }
+    }
+    // v2.5.0: record first-kill metric
+    if (attacker.q.kills === 1 && !G._metricsLogged.firstKill){
+      G._metricsLogged.firstKill = true;
+      try { recordFirstKillTime(G.time||0); } catch(e){}
+    }
     logMsg(`Killed ${target.sp.name} (${tierName(target)}) +${qiReward} Qi${_oppMul>1?' [rival path bonus]':''}`);
     const _preRank = attacker.rank;
     tryPromote(attacker);
@@ -2610,6 +2717,111 @@ function updateHazards(dt){
 // =====================================================================
 // 死亡 / 勝利
 // =====================================================================
+// v2.5.0: render side-by-side form silhouettes on death-card canvas
+function _renderDeathFormCanvas(curForm, nextPreview){
+  const cvs = document.getElementById('deathFormCanvas');
+  if (!cvs || !cvs.getContext) return;
+  const cx = cvs.getContext('2d');
+  cx.clearRect(0,0,cvs.width,cvs.height);
+  const g = cx.createLinearGradient(0,0,cvs.width,0);
+  g.addColorStop(0,'rgba(20,16,28,0.0)');
+  g.addColorStop(0.5,'rgba(60,40,80,0.25)');
+  g.addColorStop(1,'rgba(20,16,28,0.0)');
+  cx.fillStyle = g; cx.fillRect(0,0,cvs.width,cvs.height);
+
+  const drawForm = (x, form, label, alpha, glow) => {
+    if (!form) return;
+    cx.save();
+    cx.globalAlpha = alpha;
+    if (glow){
+      cx.shadowColor = form.color || '#ffd66b';
+      cx.shadowBlur = 22;
+    }
+    cx.font = 'bold 78px serif';
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.fillStyle = form.color || '#ffd66b';
+    cx.fillText(form.icon || '?', x, 70);
+    cx.shadowBlur = 0;
+    cx.font = 'bold 14px system-ui';
+    cx.fillStyle = '#ffe9b8';
+    cx.fillText(form.name || '', x, 122);
+    cx.font = '11px system-ui';
+    cx.fillStyle = '#aaa';
+    cx.fillText(label, x, 140);
+    cx.restore();
+  };
+
+  if (nextPreview){
+    drawForm(130, curForm, 'You reached', 1.0, false);
+    cx.save();
+    cx.strokeStyle = '#ffd66b'; cx.lineWidth = 3;
+    cx.beginPath(); cx.moveTo(220, 70); cx.lineTo(300, 70); cx.stroke();
+    cx.beginPath(); cx.moveTo(295,62); cx.lineTo(305,70); cx.lineTo(295,78); cx.stroke();
+    cx.font = 'bold 12px system-ui';
+    cx.fillStyle = '#ffd66b';
+    cx.textAlign = 'center';
+    cx.fillText('NEXT', 260, 54);
+    cx.fillText('REVEAL', 260, 92);
+    cx.restore();
+    drawForm(390, nextPreview.form, `Tier ${nextPreview.targetRank} · locked`, 0.45, true);
+    cx.save();
+    cx.globalAlpha = 0.85;
+    cx.font = 'bold 56px system-ui';
+    cx.fillStyle = '#1a1208';
+    cx.strokeStyle = '#ffd66b'; cx.lineWidth = 3;
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.strokeText('?', 390, 70);
+    cx.fillText('?', 390, 70);
+    cx.restore();
+  } else {
+    drawForm(260, curForm, 'FINAL FORM ACHIEVED', 1.0, true);
+  }
+}
+function _renderDeathQiBar(nextPreview){
+  const wrap = document.getElementById('deathQiBar');
+  const fill = document.getElementById('deathQiBarFill');
+  if (!wrap || !fill) return;
+  if (!nextPreview || !G.player){ wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  const targetThr = (typeof QI_THR !== 'undefined') ? (QI_THR[nextPreview.targetRank-1] || 0) : 0;
+  const current = Math.max(0, targetThr - nextPreview.qiNeed);
+  const pct = targetThr > 0 ? Math.min(100, Math.floor((current/targetThr)*100)) : 0;
+  fill.style.width = pct + '%';
+}
+function _setupShareButton(curForm, nextPreview, coinsEarned){
+  const btn = document.getElementById('shareBtn');
+  if (!btn) return;
+  const url = (typeof location !== 'undefined' && location.href) ? location.href.split('?')[0].split('#')[0] : 'https://evo.example';
+  const formTxt = curForm ? `${curForm.icon} ${curForm.name}` : (G.player && G.player.sp ? G.player.sp.name : 'a creature');
+  const stats = G.player ? `Tier ${G.player.rank} · ${G.player.q.kills} kills · ${(G.time/60)|0}m${(G.time%60)|0}s` : '';
+  const haveF = formsDiscoveredCount();
+  const totF = totalFormsCount();
+  const text = `I evolved into ${formTxt} in Evo — ${stats}. ${haveF}/${totF} forms discovered. Can you beat me? ${url}`;
+  btn.textContent = '📷 Share My Run';
+  btn.disabled = false;
+  btn.onclick = async ()=>{
+    try { bumpMetric('sharesClicked', 1); } catch(e){}
+    btn.disabled = true; btn.textContent = 'Sharing…';
+    try {
+      if (navigator.share){
+        await navigator.share({ title:'Evo — I just evolved!', text, url });
+        btn.textContent = '✓ Shared!';
+      } else if (navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        btn.textContent = '✓ Copied — paste anywhere!';
+      } else {
+        const tw = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
+        window.open(tw, '_blank');
+        btn.textContent = '✓ Opened Twitter';
+      }
+    } catch(e){
+      btn.textContent = '📷 Share My Run';
+      btn.disabled = false;
+    }
+    setTimeout(()=>{ btn.disabled = false; btn.textContent = '📷 Share My Run'; }, 3500);
+  };
+}
+
 function die(reason){
   if (G.dead) return;
   // 進階能力：Immortal Phoenix — 復活一次
@@ -2668,6 +2880,22 @@ function die(reason){
     }
   }
   if (_restartBtn) _restartBtn.textContent = _nextPreview ? `Play Again · Reveal ${_nextPreview.form.icon}` : 'Play Again';
+  // v2.5.0: render big silhouette canvas (current form -> next form) + Qi progress bar + share button
+  try { _renderDeathFormCanvas(_curForm, _nextPreview); } catch(e){}
+  try { _renderDeathQiBar(_nextPreview); } catch(e){}
+  try { _setupShareButton(_curForm, _nextPreview, _coinsEarned); } catch(e){}
+  // forms-collected display
+  try {
+    const _fEl = document.getElementById('deathFormsTotal');
+    if (_fEl){
+      const _have = formsDiscoveredCount();
+      const _tot = totalFormsCount();
+      const _pct = Math.floor((_have/_tot)*100);
+      _fEl.textContent = `📖 Form Codex: ${_have} / ${_tot} discovered (${_pct}%) — every new tier reveals a new form!`;
+    }
+  } catch(e){}
+  // metrics: count this death
+  try { bumpMetric('deaths', 1); bumpMetric('totalPlay', Math.floor(G.time||0)); } catch(e){}
   // v1.6.2: one-time rewarded-ad revive button
   const _revive = document.getElementById('reviveBtn');
   if (_revive){
@@ -4758,7 +4986,12 @@ function buildMenu(){
   const _coins = getCoins();
   const _dq = getDailyQuest();
   const _dqTxt = _dq ? (_dq.done ? `<span style="color:#7fd07f">✓ Daily: ${_dq.desc} (+${_dq.reward} coins claimed)</span>` : `<span style="color:#ffd66b">★ Daily Quest: ${_dq.desc} → +${_dq.reward} coins</span>`) : '';
-  topBar.innerHTML = `<span style="font-weight:700;color:#ffd66b;font-size:16px">🪙 ${_coins} coins</span> ${_dqTxt}`;
+  // v2.5.0: form codex progress (drives replay — "gotta evolve them all")
+  const _haveF = formsDiscoveredCount();
+  const _totF  = totalFormsCount();
+  const _pctF  = Math.floor((_haveF/_totF)*100);
+  const _formsTxt = `<span style="color:#9fd09f">📖 Forms: ${_haveF}/${_totF} (${_pctF}%)</span>`;
+  topBar.innerHTML = `<span style="font-weight:700;color:#ffd66b;font-size:16px">🪙 ${_coins} coins</span> ${_formsTxt} ${_dqTxt}`;
 
   const byPath = {};
   for (const k of Object.keys(SPECIES)){ const sp = SPECIES[k]; (byPath[sp.path]=byPath[sp.path]||[]).push(k); }
@@ -4993,6 +5226,12 @@ async function startGame(){
   G.dead=false; G.won=false; G.time=0;
   G.tutorialT = 0; G.tutorialStep = 0;
   G.firstHunt = { active:true, shown:false, t:45 };
+  // v2.5.0: reset per-run metric flags + bump run counter
+  G._metricsLogged = { firstKill:false, firstEvo:false };
+  G._runStartT = (G.time||0);
+  try { bumpMetric('runs', 1); } catch(e){}
+  // mark starter form as discovered (rank 1)
+  try { markFormSeen(G.selectedSpecies, 1); } catch(e){}
   G.player = makeCreature(G.selectedSpecies, WORLD.w/2, WORLD.h/2 - 1500, true);
   // 玩家額外加成：基礎 +30% HP / +50% DEF（容錯）
   G.player.bonusDefMult = 1.5;
@@ -5068,6 +5307,8 @@ async function startGame(){
 }
 async function restartGame(){
   if (window.SDK && SDK.ready) SDK.gameplayStop();
+  // v2.5.0: track restart (replay-rate metric for Poki/CrazyGames retention)
+  try { bumpMetric('restarts', 1); } catch(e){}
   document.getElementById('death').classList.add('hidden');
   document.getElementById('win').classList.add('hidden');
   const _rev = document.getElementById('reviveBtn'); if (_rev) _rev.classList.add('hidden');
