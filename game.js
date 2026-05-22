@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.4.0 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
+// Lands End — Prototype v2.4.1 (3-skill chain per species; shield/lifesteal/dmg-transfer; bigger team-god-war map; denser foes)
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -477,6 +477,39 @@ function getRankForm(c){
   return form;
 }
 
+function getNextRankForm(c){
+  const forms = RANK_FORMS[c.species];
+  if (!forms) return null;
+  for (const f of forms) if (f.rank > c.rank) return f;
+  return null;
+}
+
+function getNextEvolutionPreview(c){
+  const form = getNextRankForm(c);
+  if (!form) return null;
+  return {
+    form,
+    targetRank: form.rank,
+    qiNeed: Math.max(0, (QI_THR[form.rank-1]||0) - (c.qi||0)),
+  };
+}
+
+function getFirstHuntTarget(){
+  if (!G.player) return null;
+  let best = null;
+  let bestD = Infinity;
+  for (const e of G.enemies){
+    if (!e || e.hp<=0 || e._dead) continue;
+    if ((e.rank||1) > 2) continue;
+    const d = dist(G.player, e);
+    if (d < bestD){
+      bestD = d;
+      best = e;
+    }
+  }
+  return best;
+}
+
 // =====================================================================
 // 權柄（巨型 AoE，必須超強）
 // =====================================================================
@@ -563,6 +596,7 @@ const G = {
   soundOn:true, lastHitTime:0, deathBy:'',
   killStreak:0, streakBannerT:0, streakBannerText:'', streakBannerColor:'#ff8800',
   evoReveal:null,
+  firstHunt:null,
   fps:60, frameAcc:0, frameN:0, mapOpen:false,
   boss:null, bossSpawnT:240, bossDefeated:0,
   miniboss:null, minibossSpawnT:180, miniDefeated:0,
@@ -1013,6 +1047,67 @@ function drawWorldEventFX(){
   ctx.fillText('☄ Stars Align ' + G.event.t.toFixed(1) + 's', W/2, 32);
 }
 
+
+function drawFirstHuntGuide(){
+  if (!G.started || G.dead || !G.player || !G.firstHunt || !G.firstHunt.active) return;
+  const target = getFirstHuntTarget();
+  if (!target) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  const sx = target.x - G.cam.x + W/2;
+  const sy = target.y - G.cam.y + H/2;
+  const onScreen = sx >= 24 && sx <= W-24 && sy >= 24 && sy <= H-24;
+  const bannerW = Math.min(560, W - 32);
+  const bannerX = (W - bannerW) / 2;
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = 'rgba(15,12,22,0.88)';
+  ctx.fillRect(bannerX, 18, bannerW, 58);
+  ctx.strokeStyle = '#ffd66b';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bannerX, 18, bannerW, 58);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffd66b';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillText('FIRST KILL = FIRST HOOK', W/2, 42);
+  ctx.fillStyle = '#f4ecff';
+  ctx.font = '14px sans-serif';
+  ctx.fillText('Hunt the nearest creature to start your evolution chain', W/2, 63);
+  if (onScreen){
+    const pulse = 12 + 5*Math.sin(G.time*6);
+    ctx.strokeStyle = '#ffd66b';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(sx, sy, target.r + pulse, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.fillStyle = '#ffd66b';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('KILL THIS', sx, sy - target.r - 18);
+  } else {
+    const cx = W/2, cy = H/2;
+    const dx = sx - cx, dy = sy - cy;
+    const ang = Math.atan2(dy, dx);
+    const ex = Math.cos(ang), ey = Math.sin(ang);
+    const pad = 42;
+    let t = Infinity;
+    if (ex!==0){ const tx=(dx>0?W/2-pad:-W/2+pad)/ex; if (tx>0) t=Math.min(t,tx); }
+    if (ey!==0){ const ty=(dy>0?H/2-pad:-H/2+pad)/ey; if (ty>0) t=Math.min(t,ty); }
+    const ax = cx + ex*t, ay = cy + ey*t;
+    ctx.translate(ax, ay);
+    ctx.rotate(ang);
+    ctx.fillStyle = '#ffd66b';
+    ctx.beginPath();
+    ctx.moveTo(18, 0);
+    ctx.lineTo(-10, -10);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(-10, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.rotate(-ang);
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('FIRST KILL', 0, -18);
+  }
+  ctx.restore();
+}
 // =====================================================================
 // 星圖：生態區標籤工具（v1.0.0）
 // =====================================================================
@@ -2553,6 +2648,26 @@ function die(reason){
     + _rankTxt
     + _coinTxt
     + (_on?` · ${Net.peers.size+1} online`:'');
+  const _curForm = getRankForm(G.player);
+  const _nextPreview = getNextEvolutionPreview(G.player);
+  const _deathNext = document.getElementById('deathNextForm');
+  const _deathHook = document.getElementById('deathHook');
+  const _restartBtn = document.getElementById('restartBtn');
+  if (_deathNext){
+    if (_nextPreview){
+      _deathNext.textContent = `${_curForm?_curForm.icon+' '+_curForm.name:G.player.sp.name} → ${_nextPreview.form.icon} ${_nextPreview.form.name} at Tier ${_nextPreview.targetRank} · ${_nextPreview.qiNeed} more Qi to reveal it`;
+    } else {
+      _deathNext.textContent = `Final evolution reached: ${_curForm?_curForm.icon+' '+_curForm.name:G.player.sp.name}`;
+    }
+  }
+  if (_deathHook){
+    if (_nextPreview){
+      _deathHook.textContent = `Play again now: your next blind-box reveal is only ${_nextPreview.qiNeed} Qi away.`;
+    } else {
+      _deathHook.textContent = 'Play again for a cleaner route, faster snowball, and a higher leaderboard finish.';
+    }
+  }
+  if (_restartBtn) _restartBtn.textContent = _nextPreview ? `Play Again · Reveal ${_nextPreview.form.icon}` : 'Play Again';
   // v1.6.2: one-time rewarded-ad revive button
   const _revive = document.getElementById('reviveBtn');
   if (_revive){
@@ -2847,7 +2962,16 @@ function update(dt){
   }
   // v0.9.0: 教學浮窗
   G.tutorialT += dt;
-  if (G.tutorialStep===0 && G.tutorialT>3){ addFloat(G.player.x, G.player.y-60, "WASD move · Left-click melee", "#ffd66b", 18, 4); G.tutorialStep=1; }
+  if (G.firstHunt && G.firstHunt.active){
+    G.firstHunt.t -= dt;
+    if ((G.player.q.kills||0) > 0 || G.player.rank >= 3 || G.firstHunt.t <= 0){
+      G.firstHunt.active = false;
+    } else if (!G.firstHunt.shown && G.tutorialT > 1.2){
+      addFloat(G.player.x, G.player.y-80, 'First goal: kill the nearest creature', '#ffd66b', 20, 3.2);
+      G.firstHunt.shown = true;
+    }
+  }
+  if (G.tutorialStep===0 && G.tutorialT>3){ addFloat(G.player.x, G.player.y-60, isMobile()?"Left thumb move · Right buttons attack":"WASD move · Left-click melee", "#ffd66b", 18, 4); G.tutorialStep=1; }
   if (G.tutorialStep===1 && G.tutorialT>9){ addFloat(G.player.x, G.player.y-60, "Stand near purple Qi springs for Qi", "#bb88ff", 18, 4); G.tutorialStep=2; }
   if (G.tutorialStep===2 && G.tutorialT>15){ addFloat(G.player.x, G.player.y-60, "Press M for map · 1-6 cast Authority", "#88ccff", 18, 4); G.tutorialStep=3; }
   if (G.tutorialStep===3 && G.tutorialT>22){ addFloat(G.player.x, G.player.y-60, "4 sanctums + slay Outer God = Apotheosis", "#ff88cc", 18, 5); G.tutorialStep=4; }
@@ -2935,6 +3059,7 @@ function render(){
   try{ drawMinimap(); }catch(e){}
   try{ drawCrosshair(); }catch(e){}
   try{ drawStatusBanner(); }catch(e){}
+  try{ drawFirstHuntGuide(); }catch(e){}
   try{ drawKillFeed(); }catch(e){}
   try{ drawStreakBanner(); }catch(e){}
   try{ drawEdgeArrows(); }catch(e){}
@@ -4866,6 +4991,8 @@ async function startGame(){
   document.getElementById('hud').classList.remove('hidden');
   G.enemies=[]; G.minions=[]; G.projectiles=[]; G.pickups=[]; G.spirits=[]; G.authorities=[]; G.particles=[]; G.floats=[]; G.shockwaves=[]; G.hazards=[];
   G.dead=false; G.won=false; G.time=0;
+  G.tutorialT = 0; G.tutorialStep = 0;
+  G.firstHunt = { active:true, shown:false, t:45 };
   G.player = makeCreature(G.selectedSpecies, WORLD.w/2, WORLD.h/2 - 1500, true);
   // 玩家額外加成：基礎 +30% HP / +50% DEF（容錯）
   G.player.bonusDefMult = 1.5;
@@ -4892,8 +5019,9 @@ async function startGame(){
   G.started = true;
   if (window.SDK) SDK.gameplayStart();
   logMsg(`You chose [${G.player.sp.name}] · ${G.player.path.name}`, 'promote');
+  logMsg('★ First goal: kill the nearest creature and trigger your first evolution hook.', 'promote');
   logMsg('★ 10s spawn protection — get used to controls before attacking!', 'promote');
-  logMsg('Controls: WASD move / LMB melee / RMB defend / F ranged / QER skills / X dash / 1-6 Authority / M map', 'promote');
+  logMsg(isMobile() ? 'Controls: left thumb move / right buttons attack-defend-cast / tap right side to quick slash' : 'Controls: WASD move / LMB melee / RMB defend / F ranged / QER skills / X dash / 1-6 Authority / M map', 'promote');
   logMsg('★ EVOLUTION BRAWL: kill enemies for Qi & loot. Higher-rank enemies drop Authority fruits!', 'promote');
   logMsg('★ 9 unique Authorities scattered on the map — also dropped by rank 3+ enemies on death.', 'promote');
   logMsg('★ Outer God descends every 5 min for +1500 Qi. Sanctums grant power. 5 eras escalate the war.', 'promote');

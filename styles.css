@@ -280,3 +280,20 @@ canvas#game { display:block; width:100vw; height:100vh; background:#1a2030; }
 #death h1, #win h1 { font-size:48px; letter-spacing:8px; }
 #deathReason { white-space:pre-line; max-width:560px; text-align:center; color:#c8b8d8; font-size:13px; line-height:1.6; margin: 10px 0; }
 #deathStats  { color:#bb88ff; font-size:14px; font-weight:600; }
+#deathNextForm {
+  max-width: 620px;
+  margin: 10px auto 6px;
+  text-align: center;
+  color: #ffd66b;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+#deathHook {
+  max-width: 620px;
+  margin: 0 auto 14px;
+  text-align: center;
+  color: #f3ebff;
+  font-size: 14px;
+  line-height: 1.5;
+}
