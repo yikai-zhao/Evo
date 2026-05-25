@@ -4397,174 +4397,339 @@ function drawCreature(c){
   }
 }
 // 局部座標系：朝向 +x，原點為中心
+// v3.0.0: rank-tiered visual overhaul — 5 tiers per shape, evo colors, orbiting particles
+function _blendHex(c1, c2, t){
+  try{
+    const h2n=(s)=>parseInt(s.replace('#','').padStart(6,'0'),16);
+    const a=h2n(c1||'#888888'), b=h2n(c2||'#888888');
+    const r=Math.round(((a>>16)&0xff)*(1-t)+((b>>16)&0xff)*t);
+    const g=Math.round(((a>>8)&0xff)*(1-t)+((b>>8)&0xff)*t);
+    const bl=Math.round((a&0xff)*(1-t)+(b&0xff)*t);
+    return '#'+((1<<24)|(r<<16)|(g<<8)|bl).toString(16).slice(1);
+  }catch(e){ return c1||'#888888'; }
+}
 function drawShape(c){
-  const r = c.r, col = c.color;
-  const dark = shadeColor(col, -30);
-  const light = shadeColor(col, 30);
-  const isP = c.isPlayer;
-  const outline = isP ? '#fff' : '#000';
-  ctx.lineWidth = isP ? 2 : 1.5;
-  ctx.strokeStyle = outline;
-  switch(c.sp.shape){
-    case 'humanoid': {
-      // 身體（橢圓）+ 頭 + 武器
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.ellipse(0,0,r*0.85,r*0.7,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      // 武器（前方長劍）
-      ctx.strokeStyle = '#ddd'; ctx.lineWidth = 3;
+  const r=c.r, rank=c.rank||1, isP=c.isPlayer, t=G.time;
+  const fp=c._fp||(c._fp=Math.random()*Math.PI*2);
+  // tier: 0=base 1=R3 2=R5 3=R7 4=R9
+  const tier=rank>=9?4:rank>=7?3:rank>=5?2:rank>=3?1:0;
+  // evolution colour
+  const evoForm=(c.species&&typeof RANK_FORMS!=='undefined')?getRankForm(c):null;
+  const eCol=evoForm?evoForm.color:c.color;
+  const mainCol=tier>=2?eCol:(tier===1?_blendHex(c.color,eCol,0.55):c.color);
+  const dark=shadeColor(mainCol,-40), light=shadeColor(mainCol,50);
+  const accent=tier>=2?shadeColor(eCol,60):'#ffffff';
+  const outline=rank>=7?shadeColor(eCol,70):(isP?'#ffffff':'#222222');
+  ctx.strokeStyle=outline; ctx.lineWidth=rank>=7?2.5:isP?2:1.5;
+  const pulse=Math.sin(t*5+fp), pulse2=Math.sin(t*7+fp+1.2);
+  const shape=c.sp?c.sp.shape:'';
+
+  /* ── HUMANOID (swordsman / cultivator) ─────────────────────────────── */
+  if(shape==='humanoid'){
+    // Tier 3-4: divine wings behind body
+    if(tier>=3){
+      const wa=0.6+0.15*pulse; ctx.globalAlpha=0.55+0.15*pulse;
+      ctx.fillStyle=_blendHex(mainCol,'#ffffff',0.4);
+      ctx.beginPath();
+      ctx.moveTo(-r*0.1,0);
+      ctx.bezierCurveTo(-r*0.6,-r*1.8,-r*2.0,-r*1.6,-r*1.4,-r*0.2);
+      ctx.bezierCurveTo(-r*2.0,r*1.6,-r*0.6,r*1.8,-r*0.1,0);
+      ctx.fill(); ctx.globalAlpha=1;
+    }
+    // Tier 1+: shoulder plates
+    if(tier>=1){
+      ctx.fillStyle=dark;
+      ctx.beginPath(); ctx.arc(-r*0.1,-r*0.65,r*0.28,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(-r*0.1, r*0.65,r*0.28,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    // Body
+    ctx.fillStyle=mainCol;
+    ctx.beginPath(); ctx.ellipse(0,0,r*0.85,r*0.7,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Weapon
+    if(tier>=3){
+      ctx.strokeStyle='#fffbe0'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(r*0.55,-r*0.25); ctx.lineTo(r*2.1,-r*0.25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(r*0.55, r*0.25); ctx.lineTo(r*2.1, r*0.25); ctx.stroke();
+      ctx.strokeStyle=accent; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(r*0.55,-r*0.25); ctx.lineTo(r*2.1,-r*0.25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(r*0.55, r*0.25); ctx.lineTo(r*2.1, r*0.25); ctx.stroke();
+    } else if(tier>=2){
+      ctx.strokeStyle='#ffcc44'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(r*0.6,0); ctx.lineTo(r*2.2,0); ctx.stroke();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(r*0.6,0); ctx.lineTo(r*2.2,0); ctx.stroke();
+    } else {
+      ctx.strokeStyle='#ddddcc'; ctx.lineWidth=3;
       ctx.beginPath(); ctx.moveTo(r*0.6,0); ctx.lineTo(r*1.9,0); ctx.stroke();
-      ctx.strokeStyle = outline; ctx.lineWidth = isP?2:1.5;
-      // 頭
-      ctx.fillStyle = light;
-      ctx.beginPath(); ctx.arc(r*0.4,0,r*0.4,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      break;
     }
-    case 'reptile': {
-      // 細長身體 + 尾巴 + 4 條腿
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.ellipse(0,0,r*1.3,r*0.6,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      // 尾巴
-      ctx.fillStyle = dark;
-      ctx.beginPath(); ctx.moveTo(-r*1.2,0); ctx.lineTo(-r*2.2,r*0.15); ctx.lineTo(-r*2.2,-r*0.15); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // 頭
-      ctx.fillStyle = light;
-      ctx.beginPath(); ctx.ellipse(r*1.1,0,r*0.4,r*0.35,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      // 腿
-      ctx.fillStyle = dark;
-      [[r*0.6,r*0.6],[r*0.6,-r*0.6],[-r*0.5,r*0.6],[-r*0.5,-r*0.6]].forEach(([lx,ly])=>{
-        ctx.beginPath(); ctx.arc(lx,ly,r*0.22,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      });
-      // 眼
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(r*1.25,-r*0.12,r*0.08,0,Math.PI*2); ctx.fill();
-      break;
+    ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
+    // Head
+    ctx.fillStyle=light;
+    ctx.beginPath(); ctx.arc(r*0.45,0,r*0.42,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Rank 9 halo
+    if(tier>=4){
+      ctx.strokeStyle='#ffff99'; ctx.lineWidth=2; ctx.globalAlpha=0.7+0.3*pulse;
+      ctx.beginPath(); ctx.ellipse(r*0.45,-r*0.78,r*0.44,r*0.1,0,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha=1;
     }
-    case 'beast': {
-      // 身體 + 大腿 + 尾 + 頭
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.ellipse(0,0,r*1.15,r*0.75,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      // 尾
-      ctx.strokeStyle = dark; ctx.lineWidth = r*0.25;
-      ctx.beginPath(); ctx.moveTo(-r,0); ctx.quadraticCurveTo(-r*1.8,-r*0.4,-r*2,r*0.2); ctx.stroke();
-      ctx.lineWidth = isP?2:1.5; ctx.strokeStyle = outline;
-      // 腿
-      ctx.fillStyle = dark;
-      [[r*0.5,r*0.7],[r*0.5,-r*0.7],[-r*0.4,r*0.7],[-r*0.4,-r*0.7]].forEach(([lx,ly])=>{
-        ctx.beginPath(); ctx.ellipse(lx,ly,r*0.22,r*0.3,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      });
-      // 頭
-      ctx.fillStyle = light;
-      ctx.beginPath(); ctx.arc(r*1.05,0,r*0.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      // 耳
-      ctx.fillStyle = dark;
-      ctx.beginPath(); ctx.moveTo(r*1.2,-r*0.4); ctx.lineTo(r*1.4,-r*0.7); ctx.lineTo(r*0.9,-r*0.5); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(r*1.2,r*0.4); ctx.lineTo(r*1.4,r*0.7); ctx.lineTo(r*0.9,r*0.5); ctx.closePath(); ctx.fill();
-      // 眼
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(r*1.25,-r*0.15,r*0.09,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(r*1.28,-r*0.15,r*0.04,0,Math.PI*2); ctx.fill();
-      break;
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(r*0.65,-r*0.1,r*0.1,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(r*0.67,-r*0.1,tier>=2?r*0.06:r*0.05,0,Math.PI*2); ctx.fill();
+  }
+
+  /* ── REPTILE (lizard / croc / dino) ─────────────────────────────────── */
+  else if(shape==='reptile'){
+    // Body
+    ctx.fillStyle=mainCol;
+    ctx.beginPath(); ctx.ellipse(0,0,r*1.3,r*0.62,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Back spines — count grows with tier
+    const spines=2+tier*1.5|0;
+    ctx.fillStyle=dark; ctx.strokeStyle=outline; ctx.lineWidth=1;
+    for(let i=0;i<spines;i++){
+      const sx=r*(0.9-i*(1.8/spines));
+      const sh=r*(0.3+tier*0.1);
+      ctx.beginPath(); ctx.moveTo(sx,-r*0.58); ctx.lineTo(sx-r*0.1,-r*0.58-sh); ctx.lineTo(sx+r*0.1,-r*0.58); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
-    case 'bird': {
-      // 三角身體 + 雙翼
-      ctx.fillStyle = col;
-      // 翼（隨時間擺動）
-      const flap = Math.sin(G.time*8 + (c._fp = c._fp||Math.random()*10))*0.3;
-      ctx.fillStyle = dark;
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-r*0.4, -r*1.6 - flap*r);
-      ctx.lineTo(-r*1.0, -r*0.4); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-r*0.4,  r*1.6 + flap*r);
-      ctx.lineTo(-r*1.0,  r*0.4); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // 身體
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.ellipse(0,0,r*0.9,r*0.45,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      // 喙
-      ctx.fillStyle = '#ffcc44';
-      ctx.beginPath(); ctx.moveTo(r*0.9,-r*0.1); ctx.lineTo(r*1.5,0); ctx.lineTo(r*0.9,r*0.1); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // 眼
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(r*0.6,-r*0.18,r*0.1,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(r*0.62,-r*0.18,r*0.05,0,Math.PI*2); ctx.fill();
-      break;
+    ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
+    // Tail
+    ctx.fillStyle=dark;
+    ctx.beginPath(); ctx.moveTo(-r*1.2,0); ctx.lineTo(-r*(2.2+tier*0.15),r*0.15); ctx.lineTo(-r*(2.2+tier*0.15),-r*0.15); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Head
+    ctx.fillStyle=light;
+    ctx.beginPath(); ctx.ellipse(r*1.18,0,r*(0.42+tier*0.04),r*0.36,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Tier 2+: fire breath
+    if(tier>=2){
+      const fl=0.45+0.3*pulse; ctx.globalAlpha=fl;
+      ctx.fillStyle=tier>=3?'#ff4400':'#ff8800';
+      ctx.beginPath(); ctx.moveTo(r*1.58,0); ctx.lineTo(r*(2.6+tier*0.3),-r*(0.35+0.15*pulse)); ctx.lineTo(r*(2.6+tier*0.3),r*(0.35+0.15*pulse)); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=1;
     }
-    case 'fish': {
-      // 流線型身體 + 尾鰭 + 背鰭
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.ellipse(0,0,r*1.2,r*0.6,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      // 尾鰭
-      ctx.fillStyle = dark;
-      ctx.beginPath(); ctx.moveTo(-r*1.1,0); ctx.lineTo(-r*1.9,-r*0.7); ctx.lineTo(-r*1.6,0); ctx.lineTo(-r*1.9,r*0.7); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // 背鰭
-      ctx.beginPath(); ctx.moveTo(0,-r*0.55); ctx.lineTo(-r*0.3,-r*1.1); ctx.lineTo(r*0.3,-r*0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // 腹鰭
-      ctx.beginPath(); ctx.moveTo(0,r*0.55); ctx.lineTo(-r*0.3,r*0.9); ctx.lineTo(r*0.3,r*0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // 眼
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(r*0.7,-r*0.15,r*0.1,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(r*0.72,-r*0.15,r*0.05,0,Math.PI*2); ctx.fill();
-      // 嘴
-      ctx.strokeStyle = dark; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(r*1.0,r*0.1); ctx.lineTo(r*1.2,0); ctx.stroke();
-      break;
-    }
-    case 'dragon': {
-      // 蛇身：多段圓
-      const segs = 5;
-      for (let i=segs-1;i>=0;i--){
-        const t = i/segs;
-        const sx = -t*r*2.5;
-        const sy = Math.sin(G.time*4 - t*3)*r*0.5*t;
-        const sr = r*(1-t*0.55);
-        ctx.fillStyle = i%2===0 ? col : dark;
-        ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Legs
+    ctx.fillStyle=dark;
+    [[r*0.6,r*0.64],[r*0.6,-r*0.64],[-r*0.5,r*0.64],[-r*0.5,-r*0.64]].forEach(([lx,ly])=>{
+      ctx.beginPath(); ctx.arc(lx,ly,r*0.22,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    });
+    // Eye
+    ctx.fillStyle=tier>=2?'#ff2200':'#ffffff';
+    ctx.beginPath(); ctx.arc(r*1.32,-r*0.12,r*0.1,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(r*1.34,-r*0.12,r*0.05,0,Math.PI*2); ctx.fill();
+  }
+
+  /* ── BEAST (wolf / dog) ──────────────────────────────────────────────── */
+  else if(shape==='beast'){
+    // Body
+    ctx.fillStyle=mainCol;
+    ctx.beginPath(); ctx.ellipse(0,0,r*1.15,r*0.75,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Fur spikes tier 1+
+    if(tier>=1){
+      ctx.fillStyle=light; ctx.strokeStyle=outline; ctx.lineWidth=1;
+      const spk=3+tier;
+      for(let i=0;i<spk;i++){
+        const a=(-0.7+i*(1.4/spk))*Math.PI-Math.PI*0.5;
+        const x1=Math.cos(a)*r*0.88, y1=Math.sin(a)*r*0.88;
+        const x2=Math.cos(a)*(r*(1.25+tier*0.08)), y2=Math.sin(a)*(r*(1.25+tier*0.08));
+        const x3=Math.cos(a+0.22)*r*0.88, y3=Math.sin(a+0.22)*r*0.88;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.closePath(); ctx.fill(); ctx.stroke();
       }
-      // 頭
-      ctx.fillStyle = light;
-      ctx.beginPath(); ctx.ellipse(r*0.5,0,r*0.6,r*0.45,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      // 角
-      ctx.fillStyle = dark;
-      ctx.beginPath(); ctx.moveTo(r*0.4,-r*0.35); ctx.lineTo(r*0.1,-r*0.9); ctx.lineTo(r*0.55,-r*0.45); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(r*0.4,r*0.35); ctx.lineTo(r*0.1,r*0.9); ctx.lineTo(r*0.55,r*0.45); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // 眼
-      ctx.fillStyle = '#ff3344'; ctx.beginPath(); ctx.arc(r*0.7,-r*0.12,r*0.08,0,Math.PI*2); ctx.fill();
-      break;
+      ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
     }
-    case 'insect': {
-      // 三段體 + 6 腿 + 螯
-      ctx.fillStyle = dark;
-      ctx.beginPath(); ctx.ellipse(-r*0.8,0,r*0.6,r*0.55,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.ellipse(0,0,r*0.55,r*0.5,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = light;
-      ctx.beginPath(); ctx.ellipse(r*0.7,0,r*0.45,r*0.4,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      // 6 腿
-      ctx.strokeStyle = dark; ctx.lineWidth = 2;
-      for (let i=0;i<3;i++){
-        const lx = -r*0.3 + i*r*0.4;
-        ctx.beginPath(); ctx.moveTo(lx, r*0.3); ctx.lineTo(lx+r*0.2, r*0.95); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(lx,-r*0.3); ctx.lineTo(lx+r*0.2,-r*0.95); ctx.stroke();
+    // Tail
+    ctx.strokeStyle=dark; ctx.lineWidth=r*0.25;
+    ctx.beginPath(); ctx.moveTo(-r,0); ctx.quadraticCurveTo(-r*1.8,-r*0.5,-r*2.1,r*0.2); ctx.stroke();
+    ctx.lineWidth=isP?2:1.5; ctx.strokeStyle=outline;
+    // Legs
+    ctx.fillStyle=dark;
+    [[r*0.5,r*0.72],[r*0.5,-r*0.72],[-r*0.4,r*0.72],[-r*0.4,-r*0.72]].forEach(([lx,ly])=>{
+      ctx.beginPath(); ctx.ellipse(lx,ly,r*0.22,r*0.3,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    });
+    // Head
+    ctx.fillStyle=light;
+    ctx.beginPath(); ctx.arc(r*1.06,0,r*0.52,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Ears
+    ctx.fillStyle=dark;
+    ctx.beginPath(); ctx.moveTo(r*1.22,-r*0.4); ctx.lineTo(r*1.5,-r*(0.8+tier*0.08)); ctx.lineTo(r*0.92,-r*0.5); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(r*1.22, r*0.4); ctx.lineTo(r*1.5, r*(0.8+tier*0.08)); ctx.lineTo(r*0.92, r*0.5); ctx.closePath(); ctx.fill();
+    // Tier 3+: constellation mark on forehead
+    if(tier>=3){
+      ctx.fillStyle='#ffee44'; ctx.globalAlpha=0.85+0.15*pulse;
+      ctx.beginPath(); ctx.arc(r*1.06,0,r*0.2,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+    }
+    // Eye
+    ctx.fillStyle=tier>=2?accent:'#fff';
+    ctx.beginPath(); ctx.arc(r*1.28,-r*0.16,r*0.11,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(r*1.30,-r*0.16,r*0.06,0,Math.PI*2); ctx.fill();
+  }
+
+  /* ── BIRD (eagle / owl / bat) ────────────────────────────────────────── */
+  else if(shape==='bird'){
+    const flap=Math.sin(t*8+fp)*0.38;
+    const ws=1.55+tier*0.28;
+    // Tier 2+: energy/flame wing glow
+    if(tier>=2){
+      ctx.fillStyle=tier>=3?'#ff6600':'#ffffaa'; ctx.globalAlpha=0.45+0.25*pulse;
+      ctx.beginPath(); ctx.moveTo(-r*0.45,0); ctx.lineTo(-r*0.75,-r*ws*1.35-flap*r); ctx.lineTo(-r*1.4,-r*0.5); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-r*0.45,0); ctx.lineTo(-r*0.75, r*ws*1.35+flap*r); ctx.lineTo(-r*1.4, r*0.5); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=1;
+    }
+    // Wings
+    ctx.fillStyle=dark;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-r*0.42,-r*ws-flap*r); ctx.lineTo(-r*1.1,-r*0.42); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-r*0.42, r*ws+flap*r); ctx.lineTo(-r*1.1, r*0.42); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Body
+    ctx.fillStyle=mainCol;
+    ctx.beginPath(); ctx.ellipse(0,0,r*0.92,r*0.46,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Head
+    ctx.fillStyle=light;
+    ctx.beginPath(); ctx.arc(r*0.72,0,r*0.40,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Tier 4: crown spikes
+    if(tier>=4){
+      ctx.fillStyle='#ffee44';
+      for(let i=0;i<3;i++){
+        const a=-0.4+i*0.4;
+        ctx.beginPath(); ctx.moveTo(r*0.72+Math.cos(a+Math.PI/2)*r*0.32, Math.sin(a+Math.PI/2)*r*0.32);
+        ctx.lineTo(r*0.72+Math.cos(a+Math.PI/2)*r*0.55, Math.sin(a+Math.PI/2)*r*(0.32+0.4));
+        ctx.lineTo(r*0.72+Math.cos(a+Math.PI/2+0.35)*r*0.32, Math.sin(a+Math.PI/2+0.35)*r*0.32);
+        ctx.closePath(); ctx.fill();
       }
-      ctx.strokeStyle = outline; ctx.lineWidth = isP?2:1.5;
-      // 螯/前肢
-      ctx.fillStyle = dark;
-      ctx.beginPath(); ctx.moveTo(r*1.05,-r*0.3); ctx.lineTo(r*1.5,-r*0.6); ctx.lineTo(r*1.4,-r*0.3); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(r*1.05,r*0.3); ctx.lineTo(r*1.5,r*0.6); ctx.lineTo(r*1.4,r*0.3); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // 尾刺
-      ctx.beginPath(); ctx.moveTo(-r*1.4,0); ctx.lineTo(-r*1.9,-r*0.5); ctx.lineTo(-r*1.6,0); ctx.closePath(); ctx.fill(); ctx.stroke();
-      break;
     }
-    default: {
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Beak
+    ctx.fillStyle='#ffcc44';
+    ctx.beginPath(); ctx.moveTo(r*1.04,-r*0.09); ctx.lineTo(r*(1.58+tier*0.04),0); ctx.lineTo(r*1.04,r*0.09); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Eye
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(r*0.82,-r*0.15,r*0.11,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=tier>=2?'#cc2200':'#111'; ctx.beginPath(); ctx.arc(r*0.84,-r*0.15,r*0.055,0,Math.PI*2); ctx.fill();
+  }
+
+  /* ── FISH (shark / eel) ──────────────────────────────────────────────── */
+  else if(shape==='fish'){
+    // Tier 2+: armour plates
+    if(tier>=2){
+      ctx.fillStyle=dark; ctx.globalAlpha=0.5;
+      for(let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(i*r*0.45,0,r*0.22,r*0.5,0,0,Math.PI*2); ctx.fill(); }
+      ctx.globalAlpha=1;
     }
+    // Body
+    ctx.fillStyle=mainCol;
+    ctx.beginPath(); ctx.ellipse(0,0,r*1.22,r*(0.56+tier*0.04),0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Tail fin
+    ctx.fillStyle=dark;
+    const ts=1+tier*0.18;
+    ctx.beginPath(); ctx.moveTo(-r*1.12,0); ctx.lineTo(-r*1.95*ts,-r*0.72*ts); ctx.lineTo(-r*1.62,0); ctx.lineTo(-r*1.95*ts,r*0.72*ts); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Dorsal fin
+    ctx.beginPath(); ctx.moveTo(0,-r*0.56); ctx.lineTo(-r*0.32,-r*(1.12+tier*0.18)); ctx.lineTo(r*0.32,-r*0.56); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Pectoral fin
+    ctx.beginPath(); ctx.moveTo(r*0.28,r*0.53); ctx.lineTo(-r*0.12,r*0.98); ctx.lineTo(r*0.52,r*0.56); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Tier 3+: electric spine glow
+    if(tier>=3){
+      ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.globalAlpha=0.55+0.38*pulse;
+      ctx.beginPath(); ctx.moveTo(-r*1.0,0); ctx.lineTo(r*1.15,0); ctx.stroke();
+      ctx.globalAlpha=1; ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
+    }
+    // Eye
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(r*0.72,-r*0.16,r*0.11,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=tier>=2?'#0022cc':'#000'; ctx.beginPath(); ctx.arc(r*0.74,-r*0.16,r*0.055,0,Math.PI*2); ctx.fill();
+    // Mouth
+    ctx.strokeStyle=dark; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(r*(1.0+tier*0.05),r*0.1); ctx.lineTo(r*(1.22+tier*0.05),0); ctx.stroke();
+  }
+
+  /* ── DRAGON (longSnake / serpent) ───────────────────────────────────── */
+  else if(shape==='dragon'){
+    // Sinuous body
+    const segs=4+tier;
+    for(let i=segs-1;i>=0;i--){
+      const tt=i/segs, sx=-tt*r*2.6, sy=Math.sin(t*4+fp-tt*3)*r*0.55*tt;
+      const sr=r*(1-tt*0.54);
+      ctx.fillStyle=i%2===0?mainCol:dark; ctx.strokeStyle=outline; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
+    // Head
+    ctx.fillStyle=light;
+    ctx.beginPath(); ctx.ellipse(r*0.62,0,r*(0.65+tier*0.04),r*0.5,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Horns
+    ctx.fillStyle=tier>=2?accent:dark;
+    ctx.beginPath(); ctx.moveTo(r*0.52,-r*0.42); ctx.lineTo(r*0.22,-r*(0.95+tier*0.18)); ctx.lineTo(r*0.68,-r*0.52); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r*0.52, r*0.42); ctx.lineTo(r*0.22, r*(0.95+tier*0.18)); ctx.lineTo(r*0.68, r*0.52); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Tier 2+: fire breath
+    if(tier>=2){
+      const fl=0.45+0.3*pulse; ctx.globalAlpha=fl;
+      ctx.fillStyle=tier>=3?'#ff3300':'#ff8800';
+      ctx.beginPath(); ctx.moveTo(r*1.28,-r*0.22); ctx.lineTo(r*(2.55+tier*0.2),-r*(0.38+0.14*pulse)); ctx.lineTo(r*(2.55+tier*0.2),r*(0.38+0.14*pulse)); ctx.lineTo(r*1.28,r*0.22); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=1;
+    }
+    // Eyes
+    ctx.fillStyle=tier>=1?'#ff2200':'#ff3344';
+    ctx.beginPath(); ctx.arc(r*0.85,-r*0.12,r*0.1,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(r*0.87,-r*0.12,r*0.05,0,Math.PI*2); ctx.fill();
+  }
+
+  /* ── INSECT (scorpion) ───────────────────────────────────────────────── */
+  else if(shape==='insect'){
+    // Tier 1+: insect wings
+    if(tier>=1){
+      ctx.fillStyle=tier>=3?'rgba(180,220,255,0.75)':dark; ctx.globalAlpha=0.78+0.12*pulse;
+      ctx.beginPath(); ctx.moveTo(r*0.2,-r*0.48); ctx.lineTo(-r*0.5,-r*(0.95+tier*0.22)); ctx.lineTo(r*0.55,-r*0.48); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(r*0.2, r*0.48); ctx.lineTo(-r*0.5, r*(0.95+tier*0.22)); ctx.lineTo(r*0.55, r*0.48); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+    // Abdomen
+    ctx.fillStyle=dark;
+    ctx.beginPath(); ctx.ellipse(-r*0.82,0,r*0.62,r*0.56,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Thorax
+    ctx.fillStyle=mainCol;
+    ctx.beginPath(); ctx.ellipse(0,0,r*0.56,r*0.5,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Head
+    ctx.fillStyle=light;
+    ctx.beginPath(); ctx.ellipse(r*0.72,0,r*0.46,r*0.42,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // Legs
+    ctx.strokeStyle=dark; ctx.lineWidth=2;
+    for(let i=0;i<3;i++){
+      const lx=-r*0.3+i*r*0.42;
+      ctx.beginPath(); ctx.moveTo(lx, r*0.32); ctx.lineTo(lx+r*0.22, r*0.98); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx,-r*0.32); ctx.lineTo(lx+r*0.22,-r*0.98); ctx.stroke();
+    }
+    ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
+    // Pincers — bigger & glowing at high tier
+    ctx.fillStyle=tier>=3?accent:dark;
+    ctx.beginPath(); ctx.moveTo(r*1.08,-r*0.32); ctx.lineTo(r*(1.52+tier*0.1),-r*(0.62+tier*0.06)); ctx.lineTo(r*1.42,-r*0.32); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r*1.08, r*0.32); ctx.lineTo(r*(1.52+tier*0.1), r*(0.62+tier*0.06)); ctx.lineTo(r*1.42, r*0.32); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Stinger — pulses at tier 2+
+    ctx.fillStyle=tier>=2?accent:dark;
+    const sp=tier>=2?0.5+0.5*Math.abs(pulse):1; ctx.globalAlpha=sp;
+    ctx.beginPath(); ctx.moveTo(-r*1.42,0); ctx.lineTo(-r*(1.95+tier*0.12),-r*0.55); ctx.lineTo(-r*1.65,0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+
+  /* ── DEFAULT ─────────────────────────────────────────────────────────── */
+  else {
+    ctx.fillStyle=mainCol;
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+
+  /* ── RANK 7+ orbiting orbs (universal) ───────────────────────────────── */
+  if(tier>=3){
+    const nOrbs=tier>=4?6:4;
+    for(let i=0;i<nOrbs;i++){
+      const a=(i/nOrbs)*Math.PI*2+t*(1.8+tier*0.35);
+      ctx.globalAlpha=0.55+0.35*Math.sin(a+t*4);
+      ctx.fillStyle=accent;
+      ctx.beginPath(); ctx.arc(Math.cos(a)*r*1.52,Math.sin(a)*r*1.52,r*0.12,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+  /* ── RANK 9: divine cross rays ───────────────────────────────────────── */
+  if(tier>=4){
+    ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5;
+    for(let i=0;i<4;i++){
+      const a=(i/4)*Math.PI*2+t*0.6;
+      ctx.globalAlpha=0.4+0.3*Math.sin(a+t*2);
+      ctx.beginPath(); ctx.moveTo(Math.cos(a)*r*0.4,Math.sin(a)*r*0.4); ctx.lineTo(Math.cos(a)*r*2.1,Math.sin(a)*r*2.1); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
   }
 }
-function shadeColor(hex, percent){
-  let c = hex.replace('#','');
-  if (c.length===3) c = c.split('').map(x=>x+x).join('');
-  const num = parseInt(c,16);
-  let r = (num>>16) + percent;
-  let g = ((num>>8)&0xff) + percent;
-  let b = (num&0xff) + percent;
-  r = clamp(r,0,255); g = clamp(g,0,255); b = clamp(b,0,255);
-  return '#'+((1<<24)|(r<<16)|(g<<8)|b).toString(16).slice(1);
-}
+
 function drawProjectiles(){
   for (const p of G.projectiles){
     ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
