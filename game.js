@@ -169,6 +169,32 @@ const RANK_BONUS = [
 // v2.0: 9-level qi thresholds. Index N = qi required to promote to rank (N+1). [0]=unused, [8]=throne.
 const QI_THR = [0, 80, 280, 720, 1800, 4200, 9500, 20000, 42000];
 
+// v3.4.3: per-species rank icons (9 stages, index 0–8 = rank 1–9) — visual progression that matches each title
+const SPECIES_RANK_ICONS = {
+  swordsman:  ['🗡️','⚔️','🛡️','🏰','⚜️','👑','🌟','🔱','⚡'],
+  cultivator: ['🧘','📿','☯️','🌀','✨','🪷','🌌','💫','⚡'],
+  longSnake:  ['🐍','🐍','🐉','🐉','🌊','⚡','🐲','🌌','✨'],
+  lizard:     ['🦎','🦎','🐲','🐲','🔥','👑','🐉','🌌','✨'],
+  croc:       ['🐊','🐊','🩸','🩸','🌊','👑','🐲','🌌','✨'],
+  dino:       ['🦕','🦖','🦖','🔥','👑','🌋','🐉','🌌','⚡'],
+  wolf:       ['🐺','🐺','🌙','🌙','🩸','👑','🐉','🌌','⚡'],
+  eagle:      ['🦅','🦅','⛈️','⛈️','⚡','👑','🔥','🌅','🐦‍🔥'],
+  owl:        ['🦉','🦉','🌙','🌑','💀','👑','🌌','💫','✨'],
+  bat:        ['🦇','🦇','🩸','🌑','🌙','👑','💀','🌌','⚡'],
+  shark:      ['🦈','🦈','🌊','🩸','👑','🌊','🐲','🌌','✨'],
+  electroEel: ['🐍','⚡','⚡','🌩️','⛈️','👑','🐲','🌌','✨'],
+  scorpion:   ['🦂','🦂','☠️','🩸','👑','🌋','🐉','🌌','✨'],
+};
+function tierIcon(p){
+  try {
+    const sp = p && (p.species || (p.sp && p.sp.key));
+    const list = sp ? SPECIES_RANK_ICONS[sp] : null;
+    const idx = Math.max(0, Math.min(8, (p.rank||1)-1));
+    if (list && list[idx]) return list[idx];
+  } catch(e){}
+  return (p && p.sp && p.sp.icon) || '✦';
+}
+
 // v2.0: per-species chain titles (9 stages, index 0–8 = rank 1–9)
 const SPECIES_TITLES = {
   // Path of Humanity — two chains
@@ -227,7 +253,7 @@ const SPECIES = {
   // v2.0: Cultivator — caster + protective: bolts, Dao Aegis shield, sky lightning
   cultivator: { path:'human', name:'Cultivator', icon:'🧘', color:'#cba6ff', shape:'humanoid',
     base:{hp:105,atk:11,def:3,spd:170,sta:140,life:230, r:17, atkR:50, atkCd:0.5, rngR:560, rngCd:0.55, rngDmg:14, rngSpd:600},
-    skillQ:{name:'Qi Bolt Fan', cd:3.5, type:'arrow3', desc:'Fan 3 Qi bolts, x0.7 dmg each', unlockRank:1},
+    skillQ:{name:'Talisman Bolt', cd:3.5, type:'talisman_bolt', desc:'Auto-tracking Qi bolt that chains to 4 nearby foes', unlockRank:1},
     skillE:{name:'Dao Aegis', cd:10, type:'shield', desc:'8s arcane shield absorbs heavy damage', unlockRank:4},
     skillR:{name:'Heavenly Tribulation', cd:22, type:'sky_lightning', desc:'15 random bolts smite enemies', unlockRank:6},
   },
@@ -281,7 +307,7 @@ const SPECIES = {
     base:{hp:100,atk:11,def:3,spd:210,sta:110,life:200, r:14, atkR:45, atkCd:0.32, rngR:380, rngCd:0.45, rngDmg:7, rngSpd:680},
     skillQ:{name:'Sonar Pulse', cd:3, type:'shock', desc:'250r echo shock + stun 0.5s', unlockRank:1},
     skillE:{name:'Vampire Embrace', cd:9, type:'lifesteal_aura', desc:'8s aura: heal 40% of dmg dealt', unlockRank:4},
-    skillR:{name:'Echo Swarm', cd:20, type:'summon_wolf', desc:'Summon 3 phantom bats 15s', unlockRank:6},
+    skillR:{name:'Echo Swarm', cd:20, type:'summon_bat', desc:'Summon 5 phantom bats 15s', unlockRank:6},
   },
   // 鱗
   shark: { path:'fish', name:'Shark', icon:'🦈', color:'#88c0ff', shape:'fish',
@@ -294,7 +320,7 @@ const SPECIES = {
     base:{hp:120,atk:13,def:4,spd:170,sta:120,life:200, r:18, atkR:50, atkCd:0.4, rngR:480, rngCd:0.5, rngDmg:9, rngSpd:660},
     skillQ:{name:'Discharge', cd:3, type:'shock', desc:'250r shock + stun 0.5s', unlockRank:1},
     skillE:{name:'Lightning Chain', cd:6, type:'chain', desc:'8-jump chain x0.6 each', unlockRank:4},
-    skillR:{name:'Heavenly Thunder', cd:20, type:'sky_lightning', desc:'15 random bolts', unlockRank:6},
+    skillR:{name:'Storm Cataclysm', cd:20, type:'thunder_storm', desc:'16-jump chain + 8 sky bolts', unlockRank:6},
   },
   // 蟲
   scorpion: { path:'insect', name:'Scorpion', icon:'🦂', color:'#c0ff60', shape:'insect',
@@ -2592,7 +2618,7 @@ function onKill(attacker, target){
     const an = attacker.isPlayer?'You':(attacker.name||attacker.sp.name);
     const tn = target.isPlayer?'You':(target.name||target.sp.name);
     pushKillFeed(`${an} killed ${tn}`, attacker.isPlayer ? '#ffd66b' : (target.isPlayer ? '#ff4040' : '#aaa'));
-    if (target.isPlayer) G.deathBy = `Killed by ${attacker.sp.name} (${tierName(attacker)})`;
+    if (target.isPlayer) G.deathBy = `Killed by ${attacker.sp.name} (${tierIcon(attacker)} ${tierName(attacker)})`;
   }
   // 玩家擊殺
   if (attacker && attacker.isPlayer){
@@ -2652,7 +2678,7 @@ function onKill(attacker, target){
       G._metricsLogged.firstKill = true;
       try { recordFirstKillTime(G.time||0); } catch(e){}
     }
-    logMsg(`Killed ${target.sp.name} (${tierName(target)}) +${qiReward} XP${_oppMul>1?' [rival path bonus]':''}`);
+    logMsg(`Killed ${target.sp.name} (${tierIcon(target)} ${tierName(target)}) +${qiReward} XP${_oppMul>1?' [rival path bonus]':''}`);
     const _preRank = attacker.rank;
     tryPromote(attacker);
     if (window.SDK && attacker.rank>_preRank) SDK.happyTime(Math.min(1, attacker.rank/15));
@@ -2735,7 +2761,22 @@ function castSkill(p, s, slot){
     case 'cleave': aoeSlash(p, 200, Math.PI, p.atk*3*dh, '#ffe080'); break;
     case 'sword_rain': swordRain(p, 24, p.atk*1.5*dh); break;
     case 'spin': aoeSlash(p, 180, Math.PI*2, p.atk*2*dh, p.color); knockbackAround(p, 180, 300); break;
-    case 'tail': aoeSlash(p, 220, Math.PI*1.5, p.atk*3*dh, p.color); knockbackAround(p, 220, 400); break;
+    case 'tail': aoeSlash(p, 220, Math.PI*1.5, p.atk*3*dh, p.color); knoc
+    // v3.4.3: differentiated signature skills
+    case 'summon_bat': for (let i=0;i<5;i++){ const m = makeCreature('bat', p.x+rand(-50,50), p.y+rand(-50,50), false); m.isMinion=true; m.ownerPlayer=p; m.life=15; m.maxLife=15; G.minions.push(m);} flash('#9a76d0',0.3); shake(8); break;
+    case 'thunder_storm': chainLightning(p, 16, p.atk*0.8*dh, 360); skyLightning(p, 8, p.atk*1.2*dh, 900); flash('#fff080',0.5); shake(14); break;
+    case 'talisman_bolt': {
+      // Auto-tracking primary bolt + chain to 4 nearby foes
+      let best=null, bd=Infinity;
+      for (const e of enemiesOf(p)){ const d=dist(p,e); if (d<560 && d<bd){bd=d;best=e;} }
+      if (best){
+        const ang = angTo(p,best);
+        fireProjectile(p, ang, p.rngDmg*1.8*dh, p.rngSpd, '#cba6ff', 4);
+        chainLightning(p, 4, p.atk*0.5*dh, 280);
+      } else {
+        for (let i=-1;i<=1;i++) fireProjectile(p, p.facing+i*0.25, p.rngDmg*0.9*dh, p.rngSpd, '#cba6ff');
+      }
+    } break;kbackAround(p, 220, 400); break;
     case 'rage': p.rageT = 10; p.bonusAtkMult*=2; p.bonusDefMult*=2; recalcStats(p); flash(p.color,0.3); break;
     case 'roll': dashAttack(p, 280, p.atk*2*dh, true); break;
     case 'grab': grabNearest(p, p.atk*dh); break;
@@ -3424,7 +3465,7 @@ function _showDeathOverlay(){
   try { _coinsEarned = awardRunCoins(); } catch(e){}
   const _coinTxt = (_coinsEarned>0) ? ` · ★ +${_coinsEarned} coins earned (Total: ${getCoins()})` : '';
   document.getElementById('deathStats').textContent =
-    `Tier ${G.player.rank} ${tierName(G.player)} · Kills ${G.player.q.kills} · High-tier ${G.player.q.killHighTier} · XP ${G.player.qi} · Survived ${(G.time/60)|0}m${(G.time%60)|0}s`
+    `Tier ${G.player.rank} ${tierIcon(G.player)} ${tierName(G.player)} · Kills ${G.player.q.kills} · High-tier ${G.player.q.killHighTier} · XP ${G.player.qi} · Survived ${(G.time/60)|0}m${(G.time%60)|0}s`
     + _rankTxt
     + _coinTxt
     + (_on?` · ${Net.peers.size+1} online`:'');
@@ -4311,6 +4352,27 @@ function drawCreature(c){
       ctx.beginPath(); ctx.arc(c.x,c.y,aR,0,Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1;
     }
+    // v3.4.3: divine golden halo for rank 8-9 (神階)
+    if (c.rank>=8){
+      const goldR = c.r + 18 + (c.rank-7)*4;
+      const goldGrad = ctx.createRadialGradient(c.x,c.y,c.r, c.x,c.y,goldR*1.6);
+      goldGrad.addColorStop(0, 'rgba(255,215,0,0)');
+      goldGrad.addColorStop(0.5, 'rgba(255,215,0,'+(0.25+0.1*Math.sin(G.time*4))+')');
+      goldGrad.addColorStop(1, 'rgba(255,215,0,0)');
+      ctx.fillStyle = goldGrad;
+      ctx.beginPath(); ctx.arc(c.x,c.y,goldR*1.6,0,Math.PI*2); ctx.fill();
+      // rotating sigil ring
+      const segs = c.rank===9 ? 9 : 7;
+      ctx.strokeStyle = '#ffd84a'; ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.85;
+      for (let i=0;i<segs;i++){
+        const a = (G.time*0.6) + i*(Math.PI*2/segs);
+        const x1 = c.x + Math.cos(a)*goldR, y1 = c.y + Math.sin(a)*goldR;
+        const x2 = c.x + Math.cos(a)*(goldR+6), y2 = c.y + Math.sin(a)*(goldR+6);
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
   }
   // 無敵盾光（出生保護或衝刺）
   if (c.invuln>0){
@@ -4436,7 +4498,7 @@ function drawCreature(c){
     ctx.fillStyle = c.hp/c.maxHp>0.4?'#5f5':'#f44'; ctx.fillRect(c.x-w/2, c.y-c.r-14, w*clamp(c.hp/c.maxHp,0,1), 5);
     const dispName = (evoForm && c.rank>=3) ? evoForm.name : c.sp.name;
     ctx.fillStyle = evoColor; ctx.font='10px sans-serif';
-    ctx.fillText(`${dispName} ${tierName(c)}`, c.x, c.y-c.r-20);
+    ctx.fillText(`${dispName} ${tierIcon(c)} ${tierName(c)}`, c.x, c.y-c.r-20);
   }
   // 凍結
   if (c.freeze>0){
@@ -5081,7 +5143,7 @@ function drawStarMap(){
     ctx.fillStyle = '#cc99ff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='left';
     ctx.fillText('☄ Cultivation Log', 30, 80);
     ctx.fillStyle = '#fff'; ctx.font='12px sans-serif';
-    ctx.fillText(`Tier: ${tierName(p)} (${p.rank}/9)`, 30, 100);
+    ctx.fillText(`Tier: ${tierIcon(p)} ${tierName(p)} (${p.rank}/9)`, 30, 100);
     ctx.fillText(`XP: ${p.qi|0} / ${QI_THR[p.rank]||'∞'}`, 30, 116);
     ctx.fillText(`SAN: ${p.sanity|0} / ${p.maxSanity}`, 30, 132);
     ctx.fillText(`Slain Outer Gods: ${p.q.bossKilled||0} · Sanctums: ${p.q.riftsUsed||0}/4`, 30, 148);
@@ -5499,7 +5561,7 @@ function drawLeaderboard(){
       ctx.font=c.isPlayer?rowFontBd:rowFontSm;ctx.textAlign='left';
       ctx.fillText(`${crown}${i+1}. ${c.name||c.sp.name}`,lx+8,yy);
       ctx.fillStyle=c.path.color;ctx.textAlign='right';
-      ctx.fillText(`${tierName(c)} ${c.qi}`,lx+lw-8,yy);
+      ctx.fillText(`${tierIcon(c)} ${tierName(c)} ${c.qi}`,lx+lw-8,yy);
     }
     ctx.textAlign='left';
   }
@@ -5529,7 +5591,7 @@ function updateHUD(){
   const statsEl = document.getElementById('stats');
   if (statsEl){
     statsEl.innerHTML = `
-      <div class="pathLine"><b style="color:${p.path.color}">${p.path.name}</b> · <span style="color:${p.path.color}">${tierName(p)}</span>(Tier ${p.rank}/9)— <span style="color:#cccccc">${tierData(p)?tierData(p).pname:''}</span></div>
+      <div class="pathLine"><b style="color:${p.path.color}">${p.path.name}</b> · <span style="color:${p.path.color}">${tierIcon(p)} ${tierName(p)}</span>(Tier ${p.rank}/9)— <span style="color:#cccccc">${tierData(p)?tierData(p).pname:''}</span></div>
       <div>Essence x${p.zhenyuan.toFixed(2)} · Dao x${p.daohen.toFixed(2)}</div>
       <div class="cdrow">
         ${(()=>{
