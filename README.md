@@ -79,3 +79,60 @@ game.js      全部遊戲邏輯（單檔）
 ## 商業化原則
 - ✅ 賣外觀、賽季通行證、復活廣告位
 - ❌ 不賣壽命、不賣果實（守住核心張力）
+---
+
+## v3.3.0 — Distribution & Marketing (CrazyGames / Poki / itch.io)
+
+### Build platform-ready package
+
+```bash
+npm install      # one-time (terser)
+npm run build    # produces dist/Evo-platform.zip (~2.1 MB)
+```
+
+The zip contains a self-contained HTML5 build:
+- minified `game.js` / `sdk.js` / `net.js`
+- platform SDK auto-detection (`?platform=poki`, `?platform=crazygames`, or hostname match)
+- multiplayer **disabled** in platform builds (avoids bandwidth bleed to the Render relay)
+- 120s ad-interval throttle, rewarded ads on revive + 2× coins
+- `happyTime` engagement signals on boss kill (1.0), Authority pickup (0.7), new form discovery (0.9), kill-streak, rank-up
+
+### Upload checklist
+
+**itch.io** (0 review — instant publish):
+1. https://itch.io/dashboard → Create new project → Kind: **HTML**
+2. Upload `dist/Evo-platform.zip`, tick "This file will be played in the browser"
+3. Viewport: `1280×720`, enable fullscreen
+4. Add 3-5 screenshots + 30s gameplay GIF
+
+**CrazyGames** (1-2 week review, ~$1-3 RPM):
+1. https://developer.crazygames.com → Submit game
+2. Upload same zip — they auto-test with `?platform=crazygames`
+3. Categories: `io`, `multiplayer`, `arena`, `survival`
+4. Provide thumbnail 800×500, 4× screenshots
+
+**Poki** (1-3 month review, $1-10k advance possible):
+1. Pitch first: email `developers@poki.com` with itch.io link
+2. After invite, upload via https://developers.poki.com
+
+### Local QA of platform build
+
+```bash
+cd dist/standalone && python3 -m http.server 8080
+# test SDK fallback:                    http://localhost:8080/
+# simulate Poki:    http://localhost:8080/?platform=poki
+# simulate CG:      http://localhost:8080/?platform=crazygames
+```
+
+### Marketing copy (Reddit / Twitter)
+
+> **Title:** I made a .io evolution game where you ascend through 22 divine sequences
+>
+> **Body:** Lands End — pick 1 of 6 creature paths, hunt across a 14,000² Sea of Stars, evolve through 9 mortal tiers + 10 divine sequences, slay Outer Gods, claim Authority fruits, and finally usurp a True God Throne. Multiplayer PvP, ~5min runs, free in browser.
+>
+> **CTA links:** [itch.io url] · [crazygames url]
+>
+> **Subreddits:** r/incremental_games, r/iogames, r/WebGames, r/playmygame, r/IndieGaming
+>
+> **Twitter/X:** `Lands End — a .io creature evolution PvP. 6 paths · 22 sequences · 14,000² map. Free in browser. [link] #indiedev #html5games #iogames`
+

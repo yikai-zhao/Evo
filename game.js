@@ -1908,6 +1908,8 @@ function tryPromote(p){
           const haveF  = formsDiscoveredCount();
           pushKillFeed(`★ NEW FORM DISCOVERED! (${haveF}/${totalF} unlocked)`, '#ffd66b');
           addFloat(p.x, p.y-60, `NEW FORM! ${haveF}/${totalF}`, '#ffd66b', 18, 2.5);
+          // v3.3.0: happyTime spike on form discovery — Poki engagement signal
+          try { if (window.SDK && SDK.happyTime) SDK.happyTime(0.9); } catch(e){}
         }
       } catch(e){}
       // v2.5.0: track max rank achieved across all runs
@@ -3035,6 +3037,8 @@ function autoPickup(p){
         pushKillFeed(`You picked up ${a.name}`, a.color);
         playSound('promote');
         flash(a.color,0.5); shake(10);
+        // v3.3.0: happyTime on Authority pickup — peak loot moment
+        try { if (p.isPlayer && window.SDK && SDK.happyTime) SDK.happyTime(0.7); } catch(e){}
         a._gone = true;
       }
     }
@@ -3678,7 +3682,9 @@ function update(dt){
   for (const s of G.shockwaves){ if (s.lifeMax===undefined) s.lifeMax=s.life; s.life-=dt; s.r = s.max * (1 - s.life/s.lifeMax); }
   G.shockwaves = G.shockwaves.filter(s=>s.life>0);
   // 防止特效爆炸導致 FPS 過低卡頓
-  if (G.particles.length>400) G.particles.splice(0, G.particles.length-400);
+  // v3.3.0: adaptive particle cap — mobile/low-pixel devices keep 250, desktop 500
+  const _pcap = (window.innerWidth < 720 || (navigator.hardwareConcurrency||4) <= 2) ? 250 : 500;
+  if (G.particles.length>_pcap) G.particles.splice(0, G.particles.length-_pcap);
   if (G.shockwaves.length>80) G.shockwaves.splice(0, G.shockwaves.length-80);
   if (G.floats.length>120) G.floats.splice(0, G.floats.length-120);
   if (G.projectiles.length>200) G.projectiles.splice(0, G.projectiles.length-200);
