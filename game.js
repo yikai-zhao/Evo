@@ -6162,14 +6162,21 @@ let _menuPreviewRAF = 0;
 let _menuPreviewT = 0;
 function startMenuPreviews(){
   if (_menuPreviewRAF) return;
-  const cvsList = Array.from(document.querySelectorAll('canvas.speciesPreview'));
-  if (!cvsList.length) return;
   const _saveCtx = ctx;
   const loop = ()=>{
     _menuPreviewRAF = 0;
     const menu = document.getElementById('menu');
-    if (!menu || menu.classList.contains('hidden')){
-      try { ctx = _saveCtx; } catch(e){}
+    // v3.4.1: re-query canvases each frame (DOM may be rebuilt by buildMenu)
+    // and keep polling while menu element exists — don't early-stop on hidden,
+    // otherwise startup race (buildMenu called before menu shown) leaves blanks.
+    if (!menu){ try { ctx = _saveCtx; } catch(e){} return; }
+    if (menu.classList.contains('hidden')){
+      _menuPreviewRAF = requestAnimationFrame(loop);
+      return;
+    }
+    const cvsList = Array.from(menu.querySelectorAll('canvas.speciesPreview'));
+    if (!cvsList.length){
+      _menuPreviewRAF = requestAnimationFrame(loop);
       return;
     }
     _menuPreviewT += 1/60;
