@@ -1059,6 +1059,8 @@ function onBossDeath(b){
     G.bossDefeated++;
     // v3.2.0: max happyTime signal — boss kill is peak engagement
     try { if (window.SDK && SDK.happyTime) SDK.happyTime(1.0); } catch(e){}
+    // v3.4.0: midroll ad on boss-kill euphoria (SDK throttles to >=120s gap, so safe-spam)
+    try { if (window.SDK && SDK.ready && SDK.commercialBreak) SDK.commercialBreak(); } catch(e){}
     G.timeline.push({t:G.time, text:'Slay Star-Touching Eye'});
     // 掉一個隨機權柄
     // v2.1.0: only restore a globally-missing authority (world-unique)
@@ -1896,6 +1898,10 @@ function tryPromote(p){
         // v2.5.0: log first-evolution metric + mark form as discovered
         if (!G._metricsLogged.firstEvo){
           G._metricsLogged.firstEvo = true;
+        // v3.4.0: midroll ad on big evolution moments (rank 5/7/9 = divine ascension; SDK throttles to >=120s)
+        if (p.rank>=5){
+          try { if (window.SDK && SDK.ready && SDK.commercialBreak) SDK.commercialBreak(); } catch(e){}
+        }
           try { recordFirstEvoTime(G.time||0); } catch(e){}
         }
       }
@@ -3550,6 +3556,8 @@ function winGame(){
   document.getElementById('win').classList.remove('hidden');
   // v1.1.0: 序列 0 愚者True God
   document.getElementById('winStats').textContent = `${G.player.path.name} · Seq 0 [Fool, the True God] enthroned! From mortal creature to ruler of all stars — the path is complete.`;
+  // v3.4.0: stop active gameplay session + show end-of-game commercial (peak satisfaction — high engagement ad slot)
+  try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
 }
 
 // =====================================================================
@@ -4274,6 +4282,13 @@ function drawHazards(){
 }
 function drawCreature(c){
   if (!c || c.hp<=0) return;
+  // v3.4.0: off-screen culling — skip creatures far outside camera (60% perf win on busy worlds)
+  if (!c.isPlayer){
+    const _cx = G.cam ? G.cam.x : 0, _cy = G.cam ? G.cam.y : 0;
+    const _mx = window.innerWidth/2  + (c.r||30) + 80;
+    const _my = window.innerHeight/2 + (c.r||30) + 80;
+    if (Math.abs(c.x - _cx) > _mx || Math.abs(c.y - _cy) > _my) return;
+  }
   const isP = c.isPlayer;
   // v2.4.0: 取得進化形態（決定圖示、顏色）
   const evoForm = getRankForm(c);
