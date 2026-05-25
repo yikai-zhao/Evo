@@ -43,6 +43,18 @@
   }
 
   Net.connect = function(){
+    // v3.2.0: 平台 iframe (Poki/CrazyGames) 預設關閉多人，避免 CORS/帶寬問題
+    // 例外: 玩家 URL 加 ?net=1 可強制開啟
+    try {
+      const q = (location.search||'').toLowerCase();
+      const inFrame = (window.self !== window.top);
+      const onPlatform = window.SDK && SDK.platform && SDK.platform !== 'standalone';
+      if ((inFrame || onPlatform) && !q.includes('net=1')){
+        Net.disabled = true;
+        Net.log.push('[net] disabled on platform iframe');
+        return;
+      }
+    } catch(e){}
     if (Net.ws && (Net.ws.readyState === 0 || Net.ws.readyState === 1)) return;
     const now = Date.now();
     if (now - Net.lastTry < 2000) return;
@@ -176,5 +188,5 @@
     if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return;
     try{ Net.ws.send(JSON.stringify(Object.assign({ t:'fx', kind }, data||{}))); }catch(e){}
   };
-  setInterval(()=>{if(!Net.online&&Net.url)Net.connect();},4000);
+  setInterval(()=>{if(!Net.disabled && !Net.online&&Net.url)Net.connect();},4000);
 })();

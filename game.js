@@ -1057,6 +1057,8 @@ function onBossDeath(b){
     logMsg('★★★ Outer God slain: +1500 XP + SAN restored ★★★','promote');
     try{ playSound('promote'); flash('#ffffff',0.9); shake(30); }catch(e){}
     G.bossDefeated++;
+    // v3.2.0: max happyTime signal — boss kill is peak engagement
+    try { if (window.SDK && SDK.happyTime) SDK.happyTime(1.0); } catch(e){}
     G.timeline.push({t:G.time, text:'Slay Star-Touching Eye'});
     // 掉一個隨機權柄
     // v2.1.0: only restore a globally-missing authority (world-unique)
@@ -2597,6 +2599,8 @@ function onKill(attacker, target){
       G.streakBannerT = 3.5;
       G.streakBannerColor = G.killStreak>=10 ? '#ffd700' : G.killStreak>=7 ? '#ff44ff' : '#ff8800';
       pushKillFeed(G.streakBannerText, G.streakBannerColor);
+      // v3.2.0: streak = engagement spike，告訴 Poki 演算法這玩家很爽
+      try { if (window.SDK && SDK.happyTime) SDK.happyTime(Math.min(1, G.killStreak/12)); } catch(e){}
     }
     if (target.rank>=3) attacker.q.killHighTier++;
     if (target.rank>=5) attacker.q.killEpic++;
@@ -6529,7 +6533,15 @@ async function startGame(){
       const _ee = G.enemies.find(x=>x.nid===nid);
       if (_ee && _ee.hp>0){ _ee.hp=0; _ee._dead=true; }
     };
-    Net.connect();
+    // v3.2.0: skip multiplayer on platform builds (Poki/CrazyGames) — avoid
+    // bleeding bandwidth to our own Render server when distributed on portals.
+    // Standalone (own domain) still gets multiplayer.
+    const _plat = (window.SDK && SDK.platform) || 'standalone';
+    if (_plat === 'standalone'){
+      Net.connect();
+    } else {
+      logMsg('★ Solo mode (platform build)', 'promote');
+    }
   }
 }
 async function restartGame(){
