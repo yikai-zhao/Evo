@@ -4293,9 +4293,33 @@ function drawCreature(c){
     ctx.beginPath(); ctx.arc(c.x,c.y,c.r+10,0,Math.PI*2); ctx.stroke();
     ctx.globalAlpha = 1;
   }
+  // v3.1.0: 地面陰影（提供 3D 立體感）
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.beginPath();
+  ctx.ellipse(c.x, c.y + c.r*0.78, c.r*1.05, c.r*0.32, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  // v3.1.0: 移動殘影（高階且高速時）
+  if (c.rank>=5 && (c.vx*c.vx + c.vy*c.vy) > 400){
+    const trailCol = (evoColor||c.color||'#fff');
+    for (let i=1;i<=3;i++){
+      const t = i*0.045;
+      ctx.save();
+      ctx.globalAlpha = 0.18 - i*0.045;
+      ctx.translate(c.x - c.vx*t, c.y - c.vy*t);
+      ctx.rotate(c.facing);
+      ctx.scale(1 - i*0.06, 1 - i*0.06);
+      ctx.fillStyle = trailCol;
+      ctx.beginPath(); ctx.arc(0,0,c.r*0.85,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+  }
   // 身體（依物種形狀繪製）
   ctx.save();
-  ctx.translate(c.x,c.y); ctx.rotate(c.facing);
+  // v3.1.0: 呼吸 idle 動畫（subtle）
+  const breath = 1 + Math.sin(G.time*2.4 + (c._fp||0))*0.025;
+  ctx.translate(c.x,c.y); ctx.rotate(c.facing); ctx.scale(breath, breath);
   if (c.darkT>0 && !isP) ctx.globalAlpha = 0.4;
   drawShape(c);
   ctx.globalAlpha = 1;
@@ -4408,6 +4432,31 @@ function _blendHex(c1, c2, t){
     return '#'+((1<<24)|(r<<16)|(g<<8)|bl).toString(16).slice(1);
   }catch(e){ return c1||'#888888'; }
 }
+// v3.1.0 ART HELPERS — 3D 立體感漸層 + 高光眼睛
+function _radial(x, y, rr, hiCol, baseCol){
+  // 從左上偏移處給光源效果
+  const g = ctx.createRadialGradient(x-rr*0.35, y-rr*0.45, rr*0.1, x, y, rr);
+  g.addColorStop(0, hiCol);
+  g.addColorStop(0.55, baseCol);
+  g.addColorStop(1, shadeColor(baseCol, -25));
+  return g;
+}
+function _linGrad(x1,y1,x2,y2,c1,c2){
+  const g = ctx.createLinearGradient(x1,y1,x2,y2);
+  g.addColorStop(0,c1); g.addColorStop(1,c2); return g;
+}
+// 帶高光、虹膜、瞳孔的眼睛
+function _eye(ex, ey, er, iris){
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = iris || '#111';
+  ctx.beginPath(); ctx.arc(ex+er*0.18, ey, er*0.62, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(ex+er*0.22, ey, er*0.32, 0, Math.PI*2); ctx.fill();
+  // 高光
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(ex-er*0.18, ey-er*0.22, er*0.28, 0, Math.PI*2); ctx.fill();
+}
 function drawShape(c){
   const r=c.r, rank=c.rank||1, isP=c.isPlayer, t=G.time;
   const fp=c._fp||(c._fp=Math.random()*Math.PI*2);
@@ -4443,7 +4492,7 @@ function drawShape(c){
       ctx.beginPath(); ctx.arc(-r*0.1, r*0.65,r*0.28,0,Math.PI*2); ctx.fill(); ctx.stroke();
     }
     // Body
-    ctx.fillStyle=mainCol;
+    ctx.fillStyle=_radial(0,0,r*0.85,light,mainCol);
     ctx.beginPath(); ctx.ellipse(0,0,r*0.85,r*0.7,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
     // Weapon
     if(tier>=3){
@@ -4464,7 +4513,7 @@ function drawShape(c){
     }
     ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
     // Head
-    ctx.fillStyle=light;
+    ctx.fillStyle=_radial(r*0.45,0,r*0.42,shadeColor(light,30),light);
     ctx.beginPath(); ctx.arc(r*0.45,0,r*0.42,0,Math.PI*2); ctx.fill(); ctx.stroke();
     // Rank 9 halo
     if(tier>=4){
@@ -4472,15 +4521,24 @@ function drawShape(c){
       ctx.beginPath(); ctx.ellipse(r*0.45,-r*0.78,r*0.44,r*0.1,0,0,Math.PI*2); ctx.stroke();
       ctx.globalAlpha=1;
     }
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(r*0.65,-r*0.1,r*0.1,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(r*0.67,-r*0.1,tier>=2?r*0.06:r*0.05,0,Math.PI*2); ctx.fill();
+    _eye(r*0.65,-r*0.1,r*0.11, tier>=3?'#ffaa00':'#1a1a2e');
   }
 
   /* ── REPTILE (lizard / croc / dino) ─────────────────────────────────── */
   else if(shape==='reptile'){
     // Body
-    ctx.fillStyle=mainCol;
+    ctx.fillStyle=_radial(0,0,r*1.3,light,mainCol);
     ctx.beginPath(); ctx.ellipse(0,0,r*1.3,r*0.62,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // 鱗紋（高階）
+    if(tier>=2){
+      ctx.strokeStyle=shadeColor(mainCol,-50); ctx.lineWidth=1; ctx.globalAlpha=0.5;
+      for(let i=-3;i<=3;i++){
+        ctx.beginPath();
+        ctx.arc(i*r*0.28,0,r*0.18,Math.PI*0.2,Math.PI*0.8);
+        ctx.stroke();
+      }
+      ctx.globalAlpha=1; ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
+    }
     // Back spines — count grows with tier
     const spines=2+tier*1.5|0;
     ctx.fillStyle=dark; ctx.strokeStyle=outline; ctx.lineWidth=1;
@@ -4494,13 +4552,16 @@ function drawShape(c){
     ctx.fillStyle=dark;
     ctx.beginPath(); ctx.moveTo(-r*1.2,0); ctx.lineTo(-r*(2.2+tier*0.15),r*0.15); ctx.lineTo(-r*(2.2+tier*0.15),-r*0.15); ctx.closePath(); ctx.fill(); ctx.stroke();
     // Head
-    ctx.fillStyle=light;
+    ctx.fillStyle=_radial(r*1.18,0,r*0.42,shadeColor(light,25),light);
     ctx.beginPath(); ctx.ellipse(r*1.18,0,r*(0.42+tier*0.04),r*0.36,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    // Tier 2+: fire breath
+    // Tier 2+: fire breath（漸層 + 多層火焰）
     if(tier>=2){
-      const fl=0.45+0.3*pulse; ctx.globalAlpha=fl;
-      ctx.fillStyle=tier>=3?'#ff4400':'#ff8800';
-      ctx.beginPath(); ctx.moveTo(r*1.58,0); ctx.lineTo(r*(2.6+tier*0.3),-r*(0.35+0.15*pulse)); ctx.lineTo(r*(2.6+tier*0.3),r*(0.35+0.15*pulse)); ctx.closePath(); ctx.fill();
+      const fl=0.55+0.35*pulse; ctx.globalAlpha=fl;
+      const fEnd=r*(2.6+tier*0.3);
+      ctx.fillStyle=_linGrad(r*1.58,0,fEnd,0,'#ffee44',tier>=3?'#ff2200':'#ff7700');
+      ctx.beginPath(); ctx.moveTo(r*1.58,0); ctx.lineTo(fEnd,-r*(0.4+0.18*pulse)); ctx.lineTo(fEnd*1.15,0); ctx.lineTo(fEnd,r*(0.4+0.18*pulse)); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#ffffaa'; ctx.globalAlpha=fl*0.6;
+      ctx.beginPath(); ctx.moveTo(r*1.58,0); ctx.lineTo(fEnd*0.85,-r*0.2); ctx.lineTo(fEnd*0.95,0); ctx.lineTo(fEnd*0.85,r*0.2); ctx.closePath(); ctx.fill();
       ctx.globalAlpha=1;
     }
     // Legs
@@ -4508,17 +4569,17 @@ function drawShape(c){
     [[r*0.6,r*0.64],[r*0.6,-r*0.64],[-r*0.5,r*0.64],[-r*0.5,-r*0.64]].forEach(([lx,ly])=>{
       ctx.beginPath(); ctx.arc(lx,ly,r*0.22,0,Math.PI*2); ctx.fill(); ctx.stroke();
     });
-    // Eye
-    ctx.fillStyle=tier>=2?'#ff2200':'#ffffff';
-    ctx.beginPath(); ctx.arc(r*1.32,-r*0.12,r*0.1,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(r*1.34,-r*0.12,r*0.05,0,Math.PI*2); ctx.fill();
+    _eye(r*1.32,-r*0.12,r*0.11, tier>=2?'#cc1100':'#1a1a2e');
   }
 
   /* ── BEAST (wolf / dog) ──────────────────────────────────────────────── */
   else if(shape==='beast'){
-    // Body
-    ctx.fillStyle=mainCol;
+    // Body — 漸層毛皮質感
+    ctx.fillStyle=_radial(0,-r*0.1,r*1.15,light,mainCol);
     ctx.beginPath(); ctx.ellipse(0,0,r*1.15,r*0.75,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // 腹部淺色
+    ctx.fillStyle=_blendHex(light,'#ffffff',0.3); ctx.globalAlpha=0.55;
+    ctx.beginPath(); ctx.ellipse(0,r*0.32,r*0.85,r*0.4,0,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
     // Fur spikes tier 1+
     if(tier>=1){
       ctx.fillStyle=light; ctx.strokeStyle=outline; ctx.lineWidth=1;
@@ -4542,8 +4603,12 @@ function drawShape(c){
       ctx.beginPath(); ctx.ellipse(lx,ly,r*0.22,r*0.3,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
     });
     // Head
-    ctx.fillStyle=light;
+    ctx.fillStyle=_radial(r*1.06,-r*0.1,r*0.52,shadeColor(light,30),light);
     ctx.beginPath(); ctx.arc(r*1.06,0,r*0.52,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // 鼻吻
+    ctx.fillStyle=dark;
+    ctx.beginPath(); ctx.ellipse(r*1.46,r*0.06,r*0.18,r*0.13,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(r*1.55,r*0.04,r*0.07,0,Math.PI*2); ctx.fill();
     // Ears
     ctx.fillStyle=dark;
     ctx.beginPath(); ctx.moveTo(r*1.22,-r*0.4); ctx.lineTo(r*1.5,-r*(0.8+tier*0.08)); ctx.lineTo(r*0.92,-r*0.5); ctx.closePath(); ctx.fill();
@@ -4554,10 +4619,7 @@ function drawShape(c){
       ctx.beginPath(); ctx.arc(r*1.06,0,r*0.2,0,Math.PI*2); ctx.fill();
       ctx.globalAlpha=1;
     }
-    // Eye
-    ctx.fillStyle=tier>=2?accent:'#fff';
-    ctx.beginPath(); ctx.arc(r*1.28,-r*0.16,r*0.11,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(r*1.30,-r*0.16,r*0.06,0,Math.PI*2); ctx.fill();
+    _eye(r*1.28,-r*0.16,r*0.12, tier>=3?'#ffaa00':tier>=2?'#aa3300':'#1a1a2e');
   }
 
   /* ── BIRD (eagle / owl / bat) ────────────────────────────────────────── */
@@ -4576,10 +4638,14 @@ function drawShape(c){
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-r*0.42,-r*ws-flap*r); ctx.lineTo(-r*1.1,-r*0.42); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-r*0.42, r*ws+flap*r); ctx.lineTo(-r*1.1, r*0.42); ctx.closePath(); ctx.fill(); ctx.stroke();
     // Body
-    ctx.fillStyle=mainCol;
+    ctx.fillStyle=_radial(0,-r*0.1,r*0.92,light,mainCol);
     ctx.beginPath(); ctx.ellipse(0,0,r*0.92,r*0.46,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // 胸羽紋理
+    ctx.fillStyle=shadeColor(mainCol,-25); ctx.globalAlpha=0.45;
+    for(let i=-1;i<=1;i++){ ctx.beginPath(); ctx.ellipse(-r*0.1+i*r*0.25,r*0.05,r*0.18,r*0.32,0,0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha=1;
     // Head
-    ctx.fillStyle=light;
+    ctx.fillStyle=_radial(r*0.72,-r*0.08,r*0.4,shadeColor(light,30),light);
     ctx.beginPath(); ctx.arc(r*0.72,0,r*0.40,0,Math.PI*2); ctx.fill(); ctx.stroke();
     // Tier 4: crown spikes
     if(tier>=4){
@@ -4595,9 +4661,7 @@ function drawShape(c){
     // Beak
     ctx.fillStyle='#ffcc44';
     ctx.beginPath(); ctx.moveTo(r*1.04,-r*0.09); ctx.lineTo(r*(1.58+tier*0.04),0); ctx.lineTo(r*1.04,r*0.09); ctx.closePath(); ctx.fill(); ctx.stroke();
-    // Eye
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(r*0.82,-r*0.15,r*0.11,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle=tier>=2?'#cc2200':'#111'; ctx.beginPath(); ctx.arc(r*0.84,-r*0.15,r*0.055,0,Math.PI*2); ctx.fill();
+    _eye(r*0.82,-r*0.15,r*0.12, tier>=2?'#cc2200':'#1a1a2e');
   }
 
   /* ── FISH (shark / eel) ──────────────────────────────────────────────── */
@@ -4608,9 +4672,14 @@ function drawShape(c){
       for(let i=-1;i<=1;i++) { ctx.beginPath(); ctx.ellipse(i*r*0.45,0,r*0.22,r*0.5,0,0,Math.PI*2); ctx.fill(); }
       ctx.globalAlpha=1;
     }
-    // Body
-    ctx.fillStyle=mainCol;
+    // Body — 上深下淺（魚的反向偽裝）
+    ctx.fillStyle=_linGrad(0,-r*0.6,0,r*0.6,shadeColor(mainCol,-30),_blendHex(light,'#ffffff',0.4));
     ctx.beginPath(); ctx.ellipse(0,0,r*1.22,r*(0.56+tier*0.04),0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // 鰓
+    ctx.strokeStyle=shadeColor(mainCol,-50); ctx.lineWidth=1.2; ctx.globalAlpha=0.65;
+    ctx.beginPath(); ctx.arc(r*0.55,0,r*0.3,Math.PI*0.7,Math.PI*1.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(r*0.4,0,r*0.3,Math.PI*0.7,Math.PI*1.3); ctx.stroke();
+    ctx.globalAlpha=1; ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
     // Tail fin
     ctx.fillStyle=dark;
     const ts=1+tier*0.18;
@@ -4625,9 +4694,7 @@ function drawShape(c){
       ctx.beginPath(); ctx.moveTo(-r*1.0,0); ctx.lineTo(r*1.15,0); ctx.stroke();
       ctx.globalAlpha=1; ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
     }
-    // Eye
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(r*0.72,-r*0.16,r*0.11,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle=tier>=2?'#0022cc':'#000'; ctx.beginPath(); ctx.arc(r*0.74,-r*0.16,r*0.055,0,Math.PI*2); ctx.fill();
+    _eye(r*0.72,-r*0.16,r*0.12, tier>=2?'#0044dd':'#1a1a2e');
     // Mouth
     ctx.strokeStyle=dark; ctx.lineWidth=2;
     ctx.beginPath(); ctx.moveTo(r*(1.0+tier*0.05),r*0.1); ctx.lineTo(r*(1.22+tier*0.05),0); ctx.stroke();
@@ -4645,8 +4712,15 @@ function drawShape(c){
     }
     ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
     // Head
-    ctx.fillStyle=light;
+    ctx.fillStyle=_radial(r*0.62,-r*0.1,r*0.65,shadeColor(light,30),light);
     ctx.beginPath(); ctx.ellipse(r*0.62,0,r*(0.65+tier*0.04),r*0.5,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // 鬚
+    if(tier>=1){
+      ctx.strokeStyle=accent; ctx.lineWidth=1.5; ctx.globalAlpha=0.8;
+      ctx.beginPath(); ctx.moveTo(r*1.18,-r*0.15); ctx.quadraticCurveTo(r*1.8,-r*0.4-pulse*r*0.1,r*2.0,-r*0.1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(r*1.18, r*0.15); ctx.quadraticCurveTo(r*1.8, r*0.4+pulse*r*0.1,r*2.0, r*0.1); ctx.stroke();
+      ctx.globalAlpha=1; ctx.strokeStyle=outline; ctx.lineWidth=isP?2:1.5;
+    }
     // Horns
     ctx.fillStyle=tier>=2?accent:dark;
     ctx.beginPath(); ctx.moveTo(r*0.52,-r*0.42); ctx.lineTo(r*0.22,-r*(0.95+tier*0.18)); ctx.lineTo(r*0.68,-r*0.52); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -4658,10 +4732,7 @@ function drawShape(c){
       ctx.beginPath(); ctx.moveTo(r*1.28,-r*0.22); ctx.lineTo(r*(2.55+tier*0.2),-r*(0.38+0.14*pulse)); ctx.lineTo(r*(2.55+tier*0.2),r*(0.38+0.14*pulse)); ctx.lineTo(r*1.28,r*0.22); ctx.closePath(); ctx.fill();
       ctx.globalAlpha=1;
     }
-    // Eyes
-    ctx.fillStyle=tier>=1?'#ff2200':'#ff3344';
-    ctx.beginPath(); ctx.arc(r*0.85,-r*0.12,r*0.1,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(r*0.87,-r*0.12,r*0.05,0,Math.PI*2); ctx.fill();
+    _eye(r*0.85,-r*0.12,r*0.11,'#cc1100');
   }
 
   /* ── INSECT (scorpion) ───────────────────────────────────────────────── */
@@ -4674,14 +4745,17 @@ function drawShape(c){
       ctx.globalAlpha=1;
     }
     // Abdomen
-    ctx.fillStyle=dark;
+    ctx.fillStyle=_radial(-r*0.82,-r*0.1,r*0.62,mainCol,dark);
     ctx.beginPath(); ctx.ellipse(-r*0.82,0,r*0.62,r*0.56,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
     // Thorax
-    ctx.fillStyle=mainCol;
+    ctx.fillStyle=_radial(0,-r*0.1,r*0.56,light,mainCol);
     ctx.beginPath(); ctx.ellipse(0,0,r*0.56,r*0.5,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
     // Head
-    ctx.fillStyle=light;
+    ctx.fillStyle=_radial(r*0.72,-r*0.1,r*0.46,shadeColor(light,30),light);
     ctx.beginPath(); ctx.ellipse(r*0.72,0,r*0.46,r*0.42,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // 複眼
+    _eye(r*0.88,-r*0.18,r*0.1,'#aa0033');
+    _eye(r*0.88, r*0.18,r*0.1,'#aa0033');
     // Legs
     ctx.strokeStyle=dark; ctx.lineWidth=2;
     for(let i=0;i<3;i++){
