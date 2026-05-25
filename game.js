@@ -3168,6 +3168,8 @@ function aiUpdate(e, dt){
     // 漫遊
     if (e.aiTimer<=0){ e.aiTimer=rand(1.5,4); e._wx=rand(-1,1); e._wy=rand(-1,1); const l=Math.hypot(e._wx,e._wy)||1; e._wx/=l; e._wy/=l; }
     e.vx = (e._wx||0)*e.spd*0.35; e.vy = (e._wy||0)*e.spd*0.35;
+    // 漫遊時頭部朝向與移動方向一致
+    if (Math.hypot(e.vx, e.vy) > 0.05) e.facing = Math.atan2(e.vy, e.vx);
   } else {
     e.facing = angTo(e,tgt);
     // 近戰範圍內：攻擊
