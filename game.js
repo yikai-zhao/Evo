@@ -4458,6 +4458,18 @@ function _blendHex(c1, c2, t){
   }catch(e){ return c1||'#888888'; }
 }
 // v3.1.0 ART HELPERS — 3D 立體感漸層 + 高光眼睛
+// shadeColor: amt>0 = lighter, amt<0 = darker (per-channel ±amt)
+function shadeColor(col, amt){
+  try{
+    let c=(col||'#888888').replace('#','');
+    if(c.length===3) c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+    const clamp=v=>Math.max(0,Math.min(255,v));
+    const r=clamp(parseInt(c.slice(0,2),16)+amt);
+    const g=clamp(parseInt(c.slice(2,4),16)+amt);
+    const b=clamp(parseInt(c.slice(4,6),16)+amt);
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return col||'#888888'; }
+}
 function _radial(x, y, rr, hiCol, baseCol){
   // 從左上偏移處給光源效果
   const g = ctx.createRadialGradient(x-rr*0.35, y-rr*0.45, rr*0.1, x, y, rr);
@@ -6191,23 +6203,43 @@ function startMenuPreviews(){
         grd.addColorStop(0, sp.color+'30');
         grd.addColorStop(1, 'rgba(0,0,0,0)');
         pcx.fillStyle = grd; pcx.fillRect(0,0,cvs.width,cvs.height);
-        ctx = pcx;
         G.time = _menuPreviewT;
         const bob = Math.sin(_menuPreviewT*1.8 + sk.charCodeAt(0))*4;
         const facing = Math.sin(_menuPreviewT*0.7)*0.3;
+        const r = 22;
         pcx.save();
+        // v3.4.2: reset state that may persist from a previous frame's drawShape call
+        pcx.globalAlpha = 1;
         pcx.translate(cvs.width/2, cvs.height/2 + bob);
         pcx.rotate(facing);
-        const fake = {
-          x:0, y:0, r:22, facing:0, vx:0, vy:0,
-          color:sp.color, sp:sp, _fp:sk.charCodeAt(0), isPlayer:false,
-          rank:1, hp:1, maxHp:1,
-        };
-        try { drawShape(fake); } catch(e){}
+        // v3.4.2: draw preview using pcx directly (no global ctx swap needed)
+        // This avoids any risk of corrupting the main canvas ctx reference
+        try {
+          ctx = pcx;
+          const fake = {
+            x:0, y:0, r:r, facing:0, vx:0, vy:0,
+            color:sp.color, sp:sp, _fp:sk.charCodeAt(0), isPlayer:false,
+            rank:1, hp:1, maxHp:1,
+          };
+          try { drawShape(fake); } catch(e){
+            // drawShape failed — fallback: colored circle + species icon
+            if (typeof console !== 'undefined') console.warn('[preview drawShape]', sk, e && (e.message||e));
+            pcx.globalAlpha = 0.9;
+            pcx.fillStyle = sp.color || '#888888';
+            pcx.beginPath(); pcx.arc(0, 0, r*0.85, 0, Math.PI*2); pcx.fill();
+            pcx.strokeStyle = '#ffffff55'; pcx.lineWidth = 1.5; pcx.stroke();
+            pcx.globalAlpha = 1;
+            pcx.fillStyle = '#ffffff';
+            pcx.font = Math.floor(r*1.1)+'px serif';
+            pcx.textAlign = 'center'; pcx.textBaseline = 'middle';
+            pcx.fillText(sp.icon || '?', 0, r*0.08);
+          }
+        } finally {
+          ctx = _saveCtx;
+        }
         pcx.restore();
       }
     } finally {
-      ctx = _saveCtx;
       G.time = _saveGtime;
     }
     _menuPreviewRAF = requestAnimationFrame(loop);
