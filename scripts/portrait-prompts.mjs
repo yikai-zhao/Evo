@@ -2,15 +2,17 @@
 // CRITICAL: this is a top-down 2D .io game. Sprites are viewed STRAIGHT DOWN from above,
 // not in cinematic standing pose. PNG MUST be true alpha transparent (no white background).
 export const STYLE = [
-  'TOP-DOWN VIEW from directly above, bird\'s eye perspective, looking straight down at the character',
-  '2D game sprite icon for a top-down .io game (like agar.io / deeeep.io style)',
-  'character laid out flat as if seen from a drone overhead — head at top, tail at bottom',
-  'centered, fills ~85% of frame, square 1:1, head pointing UP in the image',
-  // Flat icon style — readable when shrunk to 32-64px; no complex gradients or fine detail
+  // Camera — use isometric top-down like Diablo 2 / Archero / Vampire Survivors for humanoids,
+  //          or directly-overhead for flat animals (wolf, eagle, snake, etc.)
+  'isometric top-down 2D game sprite, camera ~60° overhead, character head near top of frame, feet near bottom',
+  '2D game sprite icon, like Archero or Vampire Survivors character sprites',
+  // CONSISTENCY rule — most important for multi-rank species
+  'CRITICAL CONSISTENCY: identical camera angle, identical body proportions, IDENTICAL POSE TEMPLATE across ALL ranks of this species — ONLY armor detail, weapon power, and glow/aura level changes between ranks',
+  // Art style
   'FLAT ICON STYLE: bold black outlines (3-4px stroke), maximum 4 solid fill colors, NO gradients, NO textures, NO fine detail',
-  'high-contrast silhouette-first design — shape must be instantly recognizable at 32px',
-  'clean vector-art look, similar to mobile game icons or Clash Royale card art, simple and graphic',
-  'TRANSPARENT BACKGROUND — pure alpha channel, NO white, NO sky, NO ground, NO environment, NO shadow underneath',
+  'high-contrast silhouette instantly recognizable at 32px, simple graphic shapes like mobile game icons',
+  // Transparency — belts-and-suspenders phrasing
+  'TRANSPARENT BACKGROUND — pure alpha channel, NO white fill, NO grey fill, NO background color of any kind, NO ground, NO sky, NO environment, NO drop shadow',
   'no text, no watermark, no border, no frame',
 ].join(', ');
 
@@ -18,23 +20,26 @@ export const STYLE = [
 // Descriptions reframed for top-down silhouette readability.
 export const SPECIES = {
   swordsman: {
-    name: 'Swordsman', palette: 'gold black crimson',
+    name: 'Swordsman', palette: 'black crimson gold',
+    // Pose locked: DO NOT CHANGE between ranks — only armor/weapon/glow escalates
+    pose: 'standing humanoid swordsman viewed from ~60° above and slightly front; facing viewer, slight left-shoulder-forward; RIGHT ARM raised with sword gripped overhead, blade tip pointing straight up to 12-o-clock; LEFT ARM in guard position at mid-chest; feet shoulder-width apart; full body visible head to feet',
     forms: [
-      { rank:1, key:'Apprentice Swordsman',     desc:'human duelist seen from above, leather armor, holding a steel longsword pointing UP, dark ponytail visible on top of head' },
-      { rank:3, key:'Battle Duelist',           desc:'scarred warrior from above, embossed plate armor, twin curved blades extended outward, battle stance' },
-      { rank:5, key:'War Hero',                 desc:'heroic knight from above, gilded breastplate, glowing rune greatsword pointing forward (up in frame), crimson cape spread around body' },
-      { rank:7, key:'Sword Immortal',           desc:'sword saint from above, flowing white robes radiating outward, halo of floating spectral blades arranged in a ring, golden qi aura' },
-      { rank:9, key:'True Sword God',           desc:'divine sword deity from above, celestial armor, supernova radiance ring, world-cleaving cosmic blade pointing up, godlike halo' },
+      { rank:1, key:'Apprentice Swordsman',     desc:'simple brown leather vest and pants, plain unadorned steel longsword, no glow, no effects, brown belt, dark ponytail on head' },
+      { rank:3, key:'Battle Duelist',           desc:'dark iron plate armor with pauldrons, battle scars on chestplate, longsword with faint crimson edge glow, crimson sash at waist' },
+      { rank:5, key:'War Hero',                 desc:'gilded gold plate armor with crimson trim, greatsword with golden runes glowing along blade, scarlet cape draped behind the body' },
+      { rank:7, key:'Sword Immortal',           desc:'ethereal white-gold spirit plate armor, spectral energy blade blazing with blue-white light, ring of 6 small ghostly swords orbiting the figure at shoulder height' },
+      { rank:9, key:'True Sword God',           desc:'divine celestial full-plate blazing with golden light, colossal holy blade of pure radiance, blinding solar halo ring of orbiting divine swords and energy arcs filling the frame' },
     ],
   },
   cultivator: {
-    name: 'Cultivator', palette: 'violet indigo silver',
+    name: 'Cultivator', palette: 'violet indigo silver white',
+    pose: 'humanoid xianxia cultivator viewed from ~60° above; seated cross-legged in lotus meditation pose, facing viewer; both hands resting palm-up on knees; wide flowing robes spreading out around the seated body like a flower; head at top of frame, robe hem at bottom',
     forms: [
-      { rank:1, key:'Qi Student',               desc:'xianxia disciple from above seated in lotus pose, violet robes spread around, faint qi sparks ringing the figure' },
-      { rank:3, key:'Spell Weaver',             desc:'mystic mage from above, embroidered hanfu spread outward, glowing talisman runes circling head, third-eye sigil glowing on crown' },
-      { rank:5, key:'Dao Seeker',               desc:'daoist from above, flowing silver-trim robes radiating outward, yin-yang mandala circle, levitating tomes orbiting' },
-      { rank:7, key:'Void Master',              desc:'cosmic immortal from above, star-flecked celestial robes, galaxy nebula swirling around, telekinetic floating orbs in a ring' },
-      { rank:9, key:'True Celestial',           desc:'celestial deity from above, radiant white-gold robes spread in halo, multiple ethereal arms reaching outward, dao symbols ringing the figure' },
+      { rank:1, key:'Qi Student',               desc:'plain violet cotton hanfu robes, no decoration, faint wisps of qi smoke rising from palms, simple wooden hairpin' },
+      { rank:3, key:'Spell Weaver',             desc:'embroidered indigo hanfu with silver trim, glowing talisman runes floating in a small ring around the figure, third-eye mark on forehead' },
+      { rank:5, key:'Dao Seeker',               desc:'silver-and-violet ceremonial daoist robes, yin-yang taiji symbol glowing on chest, 4 levitating ancient tomes orbiting the figure' },
+      { rank:7, key:'Void Master',              desc:'cosmic star-flecked celestial robes, body partially translucent with galaxy glow inside, ring of 8 bright qi orbs orbiting at arm level' },
+      { rank:9, key:'True Celestial',           desc:'radiant white-gold divine robes blazing with heavenly light, 4 pairs of ethereal arms extending outward each holding dao symbols, blinding celestial halo ring filling the frame' },
     ],
   },
   dino: {
@@ -162,7 +167,11 @@ const RANK_TIER = {
 export function buildPrompt(speciesKey, form){
   const sp = SPECIES[speciesKey];
   const tier = RANK_TIER[form.rank];
-  const base = `${sp.name} — "${form.key}" (rank ${form.rank}/9 evolution, ${tier}): ${form.desc}.`;
+  // Pose anchor locks camera angle + body template — same for ALL ranks of this species
+  const poseAnchor = sp.pose
+    ? `POSE/ANGLE TEMPLATE (must be identical for every rank of ${sp.name}): ${sp.pose}. `
+    : '';
+  const base = `${sp.name} — "${form.key}" (rank ${form.rank}/9 evolution, ${tier}). ${poseAnchor}Rank-specific visual: ${form.desc}.`;
   const palette = `Color palette: ${sp.palette}.`;
   return `${base} ${palette} ${STYLE}`;
 }
