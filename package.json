@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "build": "node scripts/build-platform.js",
+    "gen:portraits": "node scripts/gen-portraits.mjs",
+    "gen:portraits:force": "node scripts/gen-portraits.mjs --force",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

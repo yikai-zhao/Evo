@@ -195,6 +195,34 @@ function tierIcon(p){
   return (p && p.sp && p.sp.icon) || '✦';
 }
 
+// v3.4.4: AI-art portraits per species (drop PNGs into assets/species/<key>.png)
+// Loaded lazily; missing files silently fall back to procedural drawShape.
+const SPECIES_PORTRAITS = {}; // key -> {base:HTMLImageElement, r3?, r5?, r7?, r9?, ready}
+const _PORTRAIT_KEYS = ['swordsman','cultivator','dino','longSnake','lizard','croc','wolf','eagle','owl','bat','shark','electroEel','scorpion'];
+function _loadPortrait(key){
+  const rec = SPECIES_PORTRAITS[key] = SPECIES_PORTRAITS[key] || { ready:false };
+  const tryLoad = (suffix, slot)=>{
+    const img = new Image();
+    img.onload = ()=>{ rec[slot] = img; rec.ready = true; };
+    img.onerror = ()=>{};
+    img.src = 'assets/species/' + key + (suffix||'') + '.png';
+  };
+  tryLoad('', 'base');
+  tryLoad('-r3','r3'); tryLoad('-r5','r5'); tryLoad('-r7','r7'); tryLoad('-r9','r9');
+}
+function preloadSpeciesPortraits(){
+  for (const k of _PORTRAIT_KEYS) _loadPortrait(k);
+}
+function getPortrait(key, rank){
+  const rec = SPECIES_PORTRAITS[key]; if (!rec || !rec.ready) return null;
+  if (rank>=9 && rec.r9) return rec.r9;
+  if (rank>=7 && rec.r7) return rec.r7;
+  if (rank>=5 && rec.r5) return rec.r5;
+  if (rank>=3 && rec.r3) return rec.r3;
+  return rec.base || null;
+}
+try { preloadSpeciesPortraits(); } catch(e){}
+
 // v2.0: per-species chain titles (9 stages, index 0–8 = rank 1–9)
 const SPECIES_TITLES = {
   // Path of Humanity — two chains
@@ -4404,13 +4432,21 @@ function drawCreature(c){
       ctx.restore();
     }
   }
-  // 身體（依物種形狀繪製）
+  // 身體（依物種形狀繪製 — 若有 AI 繪製肖像則優先用圖）
   ctx.save();
   // v3.1.0: 呼吸 idle 動畫（subtle）
   const breath = 1 + Math.sin(G.time*2.4 + (c._fp||0))*0.025;
   ctx.translate(c.x,c.y); ctx.rotate(c.facing); ctx.scale(breath, breath);
   if (c.darkT>0 && !isP) ctx.globalAlpha = 0.4;
-  drawShape(c);
+  // v3.4.4: AI portrait override — sprite faces "up" in image, so rotate +PI/2 to align with facing
+  const _portrait = getPortrait(c.species, c.rank);
+  if (_portrait){
+    const _sz = c.r * 2.4;
+    ctx.rotate(Math.PI/2);
+    ctx.drawImage(_portrait, -_sz/2, -_sz/2, _sz, _sz);
+  } else {
+    drawShape(c);
+  }
   ctx.globalAlpha = 1;
   ctx.restore();
   // v2.2.0: shield bubble visual
@@ -6263,6 +6299,28 @@ function startMenuPreviews(){
         const sp = SPECIES[sk]; if (!sp) continue;
         const pcx = cvs.getContext('2d');
         pcx.clearRect(0,0,cvs.width,cvs.height);
+        // v3.4.4: AI-art portrait path (preferred when available)
+        const _portrait = getPortrait(sk, 1);
+        if (_portrait){
+          pcx.save();
+          pcx.globalAlpha = 1;
+          const _haloR = Math.min(cvs.width, cvs.height)*0.55;
+          const _halo = pcx.createRadialGradient(cvs.width/2, cvs.height/2, 6, cvs.width/2, cvs.height/2, _haloR);
+          _halo.addColorStop(0, (sp.color||'#888888')+'55');
+          _halo.addColorStop(1, 'rgba(0,0,0,0)');
+          pcx.fillStyle = _halo; pcx.fillRect(0,0,cvs.width,cvs.height);
+          const _bob2 = Math.sin(_menuPreviewT*1.6 + sk.charCodeAt(0))*2;
+          const _iw = _portrait.naturalWidth || _portrait.width;
+          const _ih = _portrait.naturalHeight || _portrait.height;
+          const _pad = 4;
+          const _maxW = cvs.width - _pad*2, _maxH = cvs.height - _pad*2;
+          const _scale = Math.min(_maxW/_iw, _maxH/_ih);
+          const _dw = _iw*_scale, _dh = _ih*_scale;
+          const _dx = (cvs.width - _dw)/2, _dy = (cvs.height - _dh)/2 + _bob2;
+          try { pcx.drawImage(_portrait, _dx, _dy, _dw, _dh); } catch(e){}
+          pcx.restore();
+          continue;
+        }
         const grd = pcx.createRadialGradient(cvs.width/2, cvs.height/2, 4, cvs.width/2, cvs.height/2, 60);
         grd.addColorStop(0, sp.color+'30');
         grd.addColorStop(1, 'rgba(0,0,0,0)');
