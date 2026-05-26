@@ -6,7 +6,10 @@ export const STYLE = [
   '2D game sprite icon for a top-down .io game (like agar.io / deeeep.io style)',
   'character laid out flat as if seen from a drone overhead — head at top, tail at bottom',
   'centered, fills ~85% of frame, square 1:1, head pointing UP in the image',
-  'clean stylized fantasy art, painterly but readable at small sizes (32-128px)',
+  // Flat icon style — readable when shrunk to 32-64px; no complex gradients or fine detail
+  'FLAT ICON STYLE: bold black outlines (3-4px stroke), maximum 4 solid fill colors, NO gradients, NO textures, NO fine detail',
+  'high-contrast silhouette-first design — shape must be instantly recognizable at 32px',
+  'clean vector-art look, similar to mobile game icons or Clash Royale card art, simple and graphic',
   'TRANSPARENT BACKGROUND — pure alpha channel, NO white, NO sky, NO ground, NO environment, NO shadow underneath',
   'no text, no watermark, no border, no frame',
 ].join(', ');

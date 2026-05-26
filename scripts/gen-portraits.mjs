@@ -25,7 +25,7 @@ if (!KEY) {
 
 const argv = process.argv.slice(2);
 const force = argv.includes('--force');
-const sizeArg = (argv[argv.indexOf('--size')+1]) || '1024';
+const sizeArg = (argv[argv.indexOf('--size')+1]) || '512';  // 512 sufficient for icons, half the cost of 1024
 const model = (argv[argv.indexOf('--model')+1] && argv.indexOf('--model')>=0) ? argv[argv.indexOf('--model')+1] : 'gpt-image-1';
 const onlyArg = argv.includes('--only') ? argv[argv.indexOf('--only')+1] : null;
 const onlySet = onlyArg ? new Set(onlyArg.split(',').map(s=>s.trim())) : null;
