@@ -1,144 +1,147 @@
-// v3.4.4 portrait prompts — 13 species × 5 evolution stages (rank 1/3/5/7/9)
-// Shared style anchor keeps the whole roster visually coherent.
+// v3.4.5 portrait prompts — 13 species × 5 evolution stages (rank 1/3/5/7/9)
+// CRITICAL: this is a top-down 2D .io game. Sprites are viewed STRAIGHT DOWN from above,
+// not in cinematic standing pose. PNG MUST be true alpha transparent (no white background).
 export const STYLE = [
-  'highly detailed semi-realistic painterly fantasy concept art',
-  'centered character portrait, full body, facing forward, dynamic action pose',
-  'rim lighting, volumetric god-rays, cinematic composition',
-  'transparent background, clean silhouette, no text, no watermark, no border',
-  'square 1:1 framing, character occupies ~78% of frame',
+  'TOP-DOWN VIEW from directly above, bird\'s eye perspective, looking straight down at the character',
+  '2D game sprite icon for a top-down .io game (like agar.io / deeeep.io style)',
+  'character laid out flat as if seen from a drone overhead — head at top, tail at bottom',
+  'centered, fills ~85% of frame, square 1:1, head pointing UP in the image',
+  'clean stylized fantasy art, painterly but readable at small sizes (32-128px)',
+  'TRANSPARENT BACKGROUND — pure alpha channel, NO white, NO sky, NO ground, NO environment, NO shadow underneath',
+  'no text, no watermark, no border, no frame',
 ].join(', ');
 
 // Per-species lore + per-rank evolution description.
-// Keep prompts terse but evocative — the API does better with vivid nouns than long sentences.
+// Descriptions reframed for top-down silhouette readability.
 export const SPECIES = {
   swordsman: {
     name: 'Swordsman', palette: 'gold black crimson',
     forms: [
-      { rank:1, key:'Apprentice Swordsman',     desc:'young human duelist, leather armor, simple steel longsword, focused eyes' },
-      { rank:3, key:'Battle Duelist',           desc:'scarred warrior, embossed plate armor, twin curved blades, battle stance' },
-      { rank:5, key:'War Hero',                 desc:'heroic knight, gilded breastplate, glowing rune greatsword, tattered crimson cape' },
-      { rank:7, key:'Sword Immortal',           desc:'transcendent sword saint, flowing white robes, halo of floating spectral blades, golden qi aura' },
-      { rank:9, key:'True Sword God',           desc:'divine sword deity, celestial armor, supernova radiance, world-cleaving cosmic blade, godhood' },
+      { rank:1, key:'Apprentice Swordsman',     desc:'human duelist seen from above, leather armor, holding a steel longsword pointing UP, dark ponytail visible on top of head' },
+      { rank:3, key:'Battle Duelist',           desc:'scarred warrior from above, embossed plate armor, twin curved blades extended outward, battle stance' },
+      { rank:5, key:'War Hero',                 desc:'heroic knight from above, gilded breastplate, glowing rune greatsword pointing forward (up in frame), crimson cape spread around body' },
+      { rank:7, key:'Sword Immortal',           desc:'sword saint from above, flowing white robes radiating outward, halo of floating spectral blades arranged in a ring, golden qi aura' },
+      { rank:9, key:'True Sword God',           desc:'divine sword deity from above, celestial armor, supernova radiance ring, world-cleaving cosmic blade pointing up, godlike halo' },
     ],
   },
   cultivator: {
     name: 'Cultivator', palette: 'violet indigo silver',
     forms: [
-      { rank:1, key:'Qi Student',               desc:'young xianxia disciple meditating, simple violet robes, faint qi sparks around hands' },
-      { rank:3, key:'Spell Weaver',             desc:'mystic mage weaving glowing talisman runes, embroidered hanfu, third-eye sigil glowing' },
-      { rank:5, key:'Dao Seeker',               desc:'wise daoist, flowing silver-trim robes, yin-yang mandala behind, levitating tomes orbiting' },
-      { rank:7, key:'Void Master',              desc:'cosmic immortal, star-flecked celestial robes, galaxy nebula swirling behind, telekinetic floating orbs' },
-      { rank:9, key:'True Celestial',           desc:'godlike celestial being, radiant white-gold robes, multiple ethereal arms, dao symbols, divine ascension' },
+      { rank:1, key:'Qi Student',               desc:'xianxia disciple from above seated in lotus pose, violet robes spread around, faint qi sparks ringing the figure' },
+      { rank:3, key:'Spell Weaver',             desc:'mystic mage from above, embroidered hanfu spread outward, glowing talisman runes circling head, third-eye sigil glowing on crown' },
+      { rank:5, key:'Dao Seeker',               desc:'daoist from above, flowing silver-trim robes radiating outward, yin-yang mandala circle, levitating tomes orbiting' },
+      { rank:7, key:'Void Master',              desc:'cosmic immortal from above, star-flecked celestial robes, galaxy nebula swirling around, telekinetic floating orbs in a ring' },
+      { rank:9, key:'True Celestial',           desc:'celestial deity from above, radiant white-gold robes spread in halo, multiple ethereal arms reaching outward, dao symbols ringing the figure' },
     ],
   },
   dino: {
     name: 'Dinosaur', palette: 'olive amber rust',
     forms: [
-      { rank:1, key:'Young Tyrant',             desc:'cute baby T-rex hatchling, big eyes, olive scales, tiny claws, friendly posture' },
-      { rank:3, key:'Raging Dino',              desc:'adolescent raptor-tyrannosaur, muscular, snarling, bone spikes along spine' },
-      { rank:5, key:'Tyrant Rex',               desc:'massive armored tyrannosaurus, cracked battle scars, jaws agape, intimidating roar' },
-      { rank:7, key:'Thunder Titan',            desc:'colossal storm-charged dinosaur titan, lightning crackling between teeth, sky-darkening silhouette' },
-      { rank:9, key:'True Tyrant God',          desc:'apocalyptic dino-god, volcanic obsidian hide, lava cracks glowing, asteroid crown, divine kaiju' },
+      { rank:1, key:'Young Tyrant',             desc:'baby T-rex hatchling from above, olive scales, head at top, tail at bottom, cute friendly proportions' },
+      { rank:3, key:'Raging Dino',              desc:'adolescent raptor-tyrannosaur from above, muscular, bone spikes along spine visible from top, jaws agape facing up' },
+      { rank:5, key:'Tyrant Rex',               desc:'massive armored tyrannosaurus from above, cracked battle scars on back, jaws open at top of frame, tail at bottom' },
+      { rank:7, key:'Thunder Titan',            desc:'colossal storm-charged dinosaur from above, lightning crackling along spine, thunder aura ring' },
+      { rank:9, key:'True Tyrant God',          desc:'apocalyptic dino-god from above, volcanic obsidian hide, lava cracks glowing on back, asteroid crown halo' },
     ],
   },
   longSnake: {
     name: 'Jiao Serpent', palette: 'azure cyan pearl',
     forms: [
-      { rank:1, key:'River Jiao',               desc:'small graceful eastern river serpent, pearlescent azure scales, gentle smile, water droplets' },
-      { rank:3, key:'Sky Jiao',                 desc:'winged adolescent jiao dragon, cyan mane, lightning-arc whiskers, flying pose' },
-      { rank:5, key:'Thunder Jiao',             desc:'powerful storm jiao, deep cobalt scales, electric arcs crackling along body, antlers' },
-      { rank:7, key:'Sea Dragon',               desc:'majestic eastern sea dragon, sapphire scales, tidal foam swirl, golden horns, oceanic crown' },
-      { rank:9, key:'True Dragon God',          desc:'celestial dragon deity, prismatic divine scales, storm-cloud throne, lightning halo, godhood' },
+      { rank:1, key:'River Jiao',               desc:'graceful eastern river serpent from above, coiled in S-shape, pearlescent azure scales, head at top' },
+      { rank:3, key:'Sky Jiao',                 desc:'winged jiao dragon from above, cyan mane, wings spread sideways, head facing up, lightning whiskers' },
+      { rank:5, key:'Thunder Jiao',             desc:'storm jiao from above, deep cobalt coiled body, electric arcs crackling along length, antlers on head' },
+      { rank:7, key:'Sea Dragon',               desc:'majestic eastern sea dragon from above, sapphire scales in long S-coil, tidal foam swirl around, golden horned head at top' },
+      { rank:9, key:'True Dragon God',          desc:'celestial dragon deity from above, prismatic divine scales coiled, storm-cloud halo around, lightning ring' },
     ],
   },
   lizard: {
     name: 'Lizard', palette: 'emerald jade ochre',
     forms: [
-      { rank:1, key:'River Lizard',             desc:'small cute jade lizard hatchling, dewy skin, curious tilted head' },
-      { rank:3, key:'Swift Raptor',             desc:'sleek hunting reptile, lean muscles, dorsal fin crest, mid-sprint pose' },
-      { rank:5, key:'War Iguana',               desc:'armored battle iguana, jagged spine plates, war-paint markings, snarling' },
-      { rank:7, key:'Primal Hunter',            desc:'feral apex reptile-beast, bone-mask helm, fire-glow eyes, predatory crouch' },
-      { rank:9, key:'True Primal God',          desc:'primordial reptile god, volcanic hide, magma cracks, world-serpent scale, ancient totemic aura' },
+      { rank:1, key:'River Lizard',             desc:'jade lizard from above, dewy skin, splayed limbs visible, head at top, tail curving at bottom' },
+      { rank:3, key:'Swift Raptor',             desc:'sleek hunting reptile from above, lean muscles, dorsal fin crest along spine, mid-sprint pose' },
+      { rank:5, key:'War Iguana',               desc:'armored battle iguana from above, jagged spine plates clearly visible from top, war-paint markings' },
+      { rank:7, key:'Primal Hunter',            desc:'apex reptile-beast from above, bone-mask on head, fire-glow eyes, predatory crouched silhouette' },
+      { rank:9, key:'True Primal God',          desc:'primordial reptile god from above, volcanic hide, magma cracks glowing along back, ancient totemic aura ring' },
     ],
   },
   croc: {
     name: 'Crocodile', palette: 'swamp green moss bronze',
     forms: [
-      { rank:1, key:'River Croc',               desc:'small young crocodile, mossy green scales, half-submerged, curious grin' },
-      { rank:3, key:'Iron Jaw',                 desc:'armored adult crocodile, iron-plated teeth, scarred snout, lurking pose' },
-      { rank:5, key:'Ancient Crocodile',        desc:'massive ancient crocodilian, barnacle-encrusted hide, glowing yellow eyes, primal menace' },
-      { rank:7, key:'Apex Predator',            desc:'colossal swamp-king crocodile, runic carvings on plates, jaws snapping shut on lightning' },
-      { rank:9, key:'True Marsh God',           desc:'divine swamp deity crocodile, jade lotus crown, ancient temple-rune scales, mist halo' },
+      { rank:1, key:'River Croc',               desc:'young crocodile from above, mossy green scales, head at top with snout pointing up, tail at bottom' },
+      { rank:3, key:'Iron Jaw',                 desc:'armored adult crocodile from above, iron-plated back scutes, scarred snout' },
+      { rank:5, key:'Ancient Crocodile',        desc:'massive ancient crocodilian from above, barnacle-encrusted back, glowing yellow eyes, broad silhouette' },
+      { rank:7, key:'Apex Predator',            desc:'colossal swamp-king crocodile from above, runic carvings on back plates, lightning between teeth' },
+      { rank:9, key:'True Marsh God',           desc:'divine swamp deity crocodile from above, jade lotus crown on head, temple-rune scales, mist halo ring' },
     ],
   },
   wolf: {
     name: 'Wolf', palette: 'silver charcoal moonlight',
     forms: [
-      { rank:1, key:'Young Wolf',               desc:'cute wolf pup, fluffy silver fur, blue eyes, playful stance' },
-      { rank:3, key:'Pack Leader',              desc:'lean alpha wolf, scarred muzzle, intense gaze, prowling pose' },
-      { rank:5, key:'War Wolf',                 desc:'huge battle-wolf, leather warband collar, war-paint stripes, snarl baring fangs' },
-      { rank:7, key:'Fenrir',                   desc:'mythic giant wolf Fenrir, glowing amber eyes, chains snapping, moon halo' },
-      { rank:9, key:'True Beast God',           desc:'divine cosmic wolf deity, star-flecked fur, constellation glyphs, devouring eclipse, godhood' },
+      { rank:1, key:'Young Wolf',               desc:'wolf pup from above, fluffy silver fur, head at top, four splayed paws, tail at bottom' },
+      { rank:3, key:'Pack Leader',              desc:'alpha wolf from above, scarred muzzle pointing up, prowling stretched pose' },
+      { rank:5, key:'War Wolf',                 desc:'huge battle-wolf from above, leather warband collar, war-paint stripes on back, snarl visible' },
+      { rank:7, key:'Fenrir',                   desc:'mythic giant wolf Fenrir from above, glowing amber eyes, chains around body, moon halo ring' },
+      { rank:9, key:'True Beast God',           desc:'cosmic wolf deity from above, star-flecked fur on back, constellation glyphs, eclipse halo ring' },
     ],
   },
   eagle: {
     name: 'Eagle', palette: 'snow steel azure',
     forms: [
-      { rank:1, key:'Young Eagle',              desc:'fluffy young eagle, soft white feathers, sharp eyes, perched alert' },
-      { rank:3, key:'Sky Hunter',               desc:'majestic adult eagle mid-dive, talons extended, wind-swept feathers' },
-      { rank:5, key:'Storm Eagle',              desc:'huge storm eagle, electric-arc feathers, lightning trailing wings, thunderclap pose' },
-      { rank:7, key:'Thunder Hawk',             desc:'colossal thunder hawk, plasma-charged plumage, eye of the storm pupil, regal' },
-      { rank:9, key:'True Sky God',             desc:'divine sky-deity eagle, radiant solar plumage, sun-halo crown, world-spanning wingspan' },
+      { rank:1, key:'Young Eagle',              desc:'young eagle from above, wings spread wide horizontally, fluffy white feathers, head facing up' },
+      { rank:3, key:'Sky Hunter',               desc:'adult eagle from above mid-flight, wings fully spread, talons tucked, head facing up' },
+      { rank:5, key:'Storm Eagle',              desc:'huge storm eagle from above, wings spread with electric-arc feathers, lightning trailing wingtips' },
+      { rank:7, key:'Thunder Hawk',             desc:'colossal thunder hawk from above, wings spread, plasma-charged plumage, storm aura ring' },
+      { rank:9, key:'True Sky God',             desc:'divine sky-deity eagle from above, radiant solar plumage wings spread wide, sun-halo crown ring' },
     ],
   },
   owl: {
     name: 'Night Owl', palette: 'midnight purple silver',
     forms: [
-      { rank:1, key:'Young Owl',                desc:'small fluffy young owl, big violet eyes, perched on crescent moon' },
-      { rank:3, key:'Shadow Owl',               desc:'sleek nocturnal hunter owl, shadow-cloaked plumage, silent glide pose' },
-      { rank:5, key:'Death Watcher',            desc:'ominous large owl with glowing third eye, runic chest sigil, ghostly mist wings' },
-      { rank:7, key:'Void Watcher',             desc:'cosmic-horror owl, eldritch many-eye plumage, void-rift halo, regal menacing' },
-      { rank:9, key:'True Night God',           desc:'divine night-sky owl deity, constellation feathers, moon-crown, godly stillness' },
+      { rank:1, key:'Young Owl',                desc:'small fluffy young owl from above, wings spread, big violet eyes facing up, crescent moon halo' },
+      { rank:3, key:'Shadow Owl',               desc:'nocturnal hunter owl from above, shadow-cloaked wings spread, silent glide pose' },
+      { rank:5, key:'Death Watcher',            desc:'ominous large owl from above, glowing third eye on forehead, runic chest sigil, ghostly mist wings spread' },
+      { rank:7, key:'Void Watcher',             desc:'cosmic-horror owl from above, eldritch many-eye plumage, void-rift halo ring, wings spread' },
+      { rank:9, key:'True Night God',           desc:'divine night-sky owl deity from above, constellation feathers, wings spread, moon-crown halo ring' },
     ],
   },
   bat: {
     name: 'Bat', palette: 'crimson violet bone',
     forms: [
-      { rank:1, key:'Little Bat',               desc:'cute tiny bat, violet fur, oversized pink ears, smiling, hanging upside-down' },
-      { rank:3, key:'Blood Bat',                desc:'predatory blood bat, crimson eyes, fanged snarl, leathery torn wings spread' },
-      { rank:5, key:'Vampire Lord',             desc:'humanoid vampire-lord, royal black cape, gold-trim collar, fangs, regal sinister pose' },
-      { rank:7, key:'Demon Bat',                desc:'demonic bat-creature, horned skull, bone wings, hellfire aura, monstrous' },
-      { rank:9, key:'Undead God',               desc:'divine undead bat-god, skeletal crown, ghostly violet flames, ascended deathly aura' },
+      { rank:1, key:'Little Bat',               desc:'tiny bat from above, violet fur, wings spread wide, oversized pink ears visible on top of head' },
+      { rank:3, key:'Blood Bat',                desc:'predatory blood bat from above, crimson eyes, fanged snarl, leathery torn wings fully spread' },
+      { rank:5, key:'Vampire Lord',             desc:'humanoid vampire-lord from above, royal black cape spread in circle, fangs visible, regal pose' },
+      { rank:7, key:'Demon Bat',                desc:'demonic bat-creature from above, horned skull on top, bone wings spread, hellfire aura ring' },
+      { rank:9, key:'Undead God',               desc:'divine undead bat-god from above, skeletal crown halo, wings spread, ghostly violet flame aura ring' },
     ],
   },
   shark: {
     name: 'Shark', palette: 'steel-blue navy white',
     forms: [
-      { rank:1, key:'Young Shark',              desc:'cute small great-white shark pup, big curious eyes, mid-swim, bubble trail' },
-      { rank:3, key:'Blood Shark',              desc:'aggressive adult bull shark, scarred snout, blood-tinged water, jaws open' },
-      { rank:5, key:'Apex Shark',               desc:'huge megalodon-class apex shark, battle scars, dorsal fin breaching wave' },
-      { rank:7, key:'Deep Terror',              desc:'abyssal horror shark, bioluminescent lure, jagged tooth maw, deep-sea menace' },
-      { rank:9, key:'True Sea God',             desc:'divine sea-deity shark, pearlescent armor scales, tidal crown, world-ocean halo' },
+      { rank:1, key:'Young Shark',              desc:'small great-white shark pup from above, head at top, dorsal fin clearly visible on back, tail at bottom, swimming silhouette' },
+      { rank:3, key:'Blood Shark',              desc:'aggressive bull shark from above, scarred snout pointing up, dorsal fin, jaws open' },
+      { rank:5, key:'Apex Shark',               desc:'huge megalodon-class shark from above, battle scars on back, dorsal fin prominent, broad silhouette' },
+      { rank:7, key:'Deep Terror',              desc:'abyssal horror shark from above, bioluminescent lure glowing on back, jagged tooth maw at top' },
+      { rank:9, key:'True Sea God',             desc:'divine sea-deity shark from above, pearlescent armor scales, tidal crown halo, world-ocean aura ring' },
     ],
   },
   electroEel: {
     name: 'Eel', palette: 'electric green cyan white',
     forms: [
-      { rank:1, key:'River Eel',                desc:'small slender green eel, gentle smile, faint electric sparks around tail' },
-      { rank:3, key:'Thunder Eel',              desc:'crackling thunder eel, bright lightning arcs along body, glowing eyes' },
-      { rank:5, key:'Storm Eel',                desc:'huge storm eel, electric plasma coiled around serpentine body, lightning halo' },
-      { rank:7, key:'Void Serpent',             desc:'cosmic void-serpent eel, dark scales with constellation glow, lightning aura' },
-      { rank:9, key:'True Storm God',           desc:'divine storm-god eel, world-spanning lightning crown, hurricane halo, godhood' },
+      { rank:1, key:'River Eel',                desc:'slender green eel from above, S-curved body, head at top, gentle smile, faint electric sparks around tail' },
+      { rank:3, key:'Thunder Eel',              desc:'crackling thunder eel from above, S-coiled, bright lightning arcs along body length, glowing eyes' },
+      { rank:5, key:'Storm Eel',                desc:'huge storm eel from above, electric plasma coiled around serpentine body, lightning halo ring' },
+      { rank:7, key:'Void Serpent',             desc:'cosmic void-serpent eel from above, dark scales with constellation glow, lightning aura ring' },
+      { rank:9, key:'True Storm God',           desc:'divine storm-god eel from above, world-spanning lightning crown halo ring, hurricane swirl around body' },
     ],
   },
   scorpion: {
     name: 'Scorpion', palette: 'desert ochre poison-green',
     forms: [
-      { rank:1, key:'Young Scorpion',           desc:'cute small desert scorpion, amber carapace, raised stinger tail' },
-      { rank:3, key:'Sand Stalker',             desc:'large desert scorpion, jagged chitin armor, glowing green venom dripping' },
-      { rank:5, key:'Plague Scorpion',          desc:'huge plague scorpion, sickly green miasma aura, skull-marked carapace' },
-      { rank:7, key:'Death Scorpion',           desc:'bone-armored death scorpion, skull-faced thorax, necrotic green flame stinger' },
-      { rank:9, key:'True Plague God',          desc:'divine plague-god scorpion, ash-crown, world-wasting venom storm, godly menace' },
+      { rank:1, key:'Young Scorpion',           desc:'small desert scorpion from above, amber carapace, claws extended forward (up in frame), stinger tail curving up over body, all 8 legs splayed' },
+      { rank:3, key:'Sand Stalker',             desc:'large desert scorpion from above, jagged chitin armor, glowing green venom dripping from stinger, claws spread wide' },
+      { rank:5, key:'Plague Scorpion',          desc:'huge plague scorpion from above, sickly green miasma aura ring, skull-marked carapace, claws spread' },
+      { rank:7, key:'Death Scorpion',           desc:'bone-armored death scorpion from above, skull-faced thorax, necrotic green flame stinger, claws spread wide' },
+      { rank:9, key:'True Plague God',          desc:'divine plague-god scorpion from above, ash-crown halo ring, world-wasting venom storm swirl, claws spread' },
     ],
   },
 };
@@ -162,3 +165,5 @@ export function allTargets(){
   }
   return out;
 }
+
+

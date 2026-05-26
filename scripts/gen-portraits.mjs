@@ -41,6 +41,8 @@ async function generate(target){
     n: 1,
     size,
     background: 'transparent',
+    output_format: 'png',
+    quality: 'high',
   };
   const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
