@@ -149,10 +149,20 @@ export const SPECIES = {
   },
 };
 
+// Visual power tier injected into every prompt — forces distinct size+glow escalation per rank
+const RANK_TIER = {
+  1: 'RANK 1 (juvenile): body fills ~50% of canvas, simple clean flat silhouette, NO glow, NO aura, minimal detail, soft muted colors',
+  3: 'RANK 3 (warrior): body fills ~65% of canvas, first battle markings and scars visible, subtle energy accent on ONE element only, bolder saturated colors',
+  5: 'RANK 5 (elite): body fills ~80% of canvas, clear glowing energy on weapon/eyes/spine, distinct color shift toward vibrant hues, 2x more imposing than rank 1',
+  7: 'RANK 7 (legendary): body fills ~90% of canvas, DRAMATIC glowing aura ring surrounding entire body, dominant overwhelming presence, extreme color contrast and saturation',
+  9: 'RANK 9 (god-tier): body fills ENTIRE canvas edge to edge, BLINDING divine radiance halo, world-scale cosmic power, maximum visual impact — looks 3x as powerful as rank 7',
+};
+
 // Build a single image prompt for one (species, rank)
 export function buildPrompt(speciesKey, form){
   const sp = SPECIES[speciesKey];
-  const base = `${sp.name} — "${form.key}" (rank ${form.rank}/9 evolution): ${form.desc}.`;
+  const tier = RANK_TIER[form.rank];
+  const base = `${sp.name} — "${form.key}" (rank ${form.rank}/9 evolution, ${tier}): ${form.desc}.`;
   const palette = `Color palette: ${sp.palette}.`;
   return `${base} ${palette} ${STYLE}`;
 }

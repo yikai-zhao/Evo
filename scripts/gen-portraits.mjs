@@ -71,30 +71,84 @@ async function generate(target){
   fs.writeFileSync(path.join(OUT_DIR, target.file), buf);
 }
 
-const targets = allTargets().filter(t => !onlySet || onlySet.has(t.key));
+const ALL_TARGETS = allTargets();
+const targets = ALL_TARGETS.filter(t => !onlySet || onlySet.has(t.key));
 let done = 0, skipped = 0, failed = 0;
+
+// Status map for live preview: 'pending' | 'skip' | 'done' | 'fail'
+const status = new Map(ALL_TARGETS.map(t => [t.file, 'pending']));
+
+// Generate/update preview.html in OUT_DIR for real-time visual checking
+function writePreview() {
+  const speciesKeys = [...new Set(ALL_TARGETS.map(t => t.key))];
+  const ranks = [1, 3, 5, 7, 9];
+  const rows = speciesKeys.map(key => {
+    const cols = ranks.map(r => {
+      const t = ALL_TARGETS.find(x => x.key === key && x.rank === r);
+      if (!t) return '<td></td>';
+      const s = status.get(t.file) || 'pending';
+      const emoji = { done:'✅', skip:'✔️', fail:'❌', pending:'⏳' }[s];
+      const thumb = (s === 'done' || s === 'skip')
+        ? `<img src="${t.file}" style="width:96px;height:96px;background:#1a1a2e;display:block;image-rendering:pixelated">`
+        : `<div style="width:96px;height:96px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:28px">${emoji}</div>`;
+      return `<td style="padding:3px;text-align:center;border:1px solid #333">${thumb}<div style="font-size:10px;color:#888">r${r} ${emoji}</div></td>`;
+    }).join('');
+    return `<tr><td style="padding:4px 10px;font-weight:bold;color:#eee;white-space:nowrap;border:1px solid #333">${key}</td>${cols}</tr>`;
+  }).join('\n');
+  const total = ALL_TARGETS.length;
+  const ndone = [...status.values()].filter(v=>v==='done'||v==='skip').length;
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta http-equiv="refresh" content="4">
+<title>Portrait Preview [${ndone}/${total}]</title>
+<style>body{background:#0d0d1a;color:#eee;font-family:monospace;padding:16px}h2{margin:0 0 8px}p{margin:4px 0 12px;color:#666;font-size:13px}table{border-collapse:collapse}</style>
+</head><body>
+<h2>🎮 Evo Portrait Preview — ${ndone}/${total} done — auto-refresh 4s</h2>
+<p>Each row = one species. Columns r1→r3→r5→r7→r9 must look progressively BIGGER + MORE POWERFUL.</p>
+<table><tr><th style="padding:4px 10px;border:1px solid #444">Species</th><th>r1</th><th>r3</th><th>r5</th><th>r7</th><th>r9</th></tr>
+${rows}
+</table>
+<p>Updated: ${new Date().toLocaleTimeString()}</p>
+</body></html>`;
+  fs.writeFileSync(path.join(OUT_DIR, 'preview.html'), html);
+}
+
 console.log(`Generating ${targets.length} portrait(s) (model=${model}, size=${size}, force=${force})`);
-console.log(`Output: ${OUT_DIR}\n`);
+console.log(`Output: ${OUT_DIR}`);
+
+// Mark skipped files in status before writing initial preview
+for (const t of targets){
+  const out = path.join(OUT_DIR, t.file);
+  if (!force && fs.existsSync(out)) status.set(t.file, 'skip');
+}
+// Seed preview with existing files
+for (const t of ALL_TARGETS){
+  if (status.get(t.file) === 'pending' && fs.existsSync(path.join(OUT_DIR, t.file)))
+    status.set(t.file, 'skip');
+}
+writePreview();
+console.log(`\n  🔍 Open for live preview: file://${OUT_DIR}/preview.html\n`);
 
 for (const t of targets){
   const out = path.join(OUT_DIR, t.file);
   if (!force && fs.existsSync(out)){
     skipped++;
-    console.log(`  · skip   ${t.file} (exists)`);
+    console.log(`  · skip   ${t.file}`);
     continue;
   }
   process.stdout.write(`  ▸ render ${t.file} ... `);
   try {
     await generate(t);
     done++;
+    status.set(t.file, 'done');
     console.log('ok');
   } catch (e){
     failed++;
+    status.set(t.file, 'fail');
     console.log('FAIL — ' + e.message);
-    // brief backoff on transient errors
     await new Promise(r=>setTimeout(r, 1500));
   }
-  // throttle to be polite (~1.2 req/s)
+  writePreview();  // update preview after every single image
   await new Promise(r=>setTimeout(r, 800));
 }
 
