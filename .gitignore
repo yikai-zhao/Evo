@@ -3,3 +3,4 @@ server.log
 *.log
 game.js.zh.bak
 dist/
+assets/species/preview.html

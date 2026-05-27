@@ -4,23 +4,42 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0820" />
-<meta name="description" content="Lands End — a .io species-evolution + 22-Sequence ascension multiplayer survival PvP. Pick a creature, hunt across a 14,000² Sea of Stars, and become a god." />
-<meta property="og:title" content="Lands End — .io Species Evolution PvP" />
-<meta property="og:description" content="Evolve through 22 divine sequences across a 14,000² Sea of Stars. Hunt, ascend, ascend again." />
+<meta name="description" content="Free .io PvP game — pick from 13 creatures, evolve through 9 ranks of AI-painted forms, master 22 divine sequences, and ascend to godhood in a 14,000² multiplayer arena. No download." />
+<meta name="keywords" content="io game, free online game, browser game, multiplayer PvP, evolution game, .io game, survival game, no download, HTML5 game, Lands End" />
+<meta property="og:title" content="Lands End — Free .io Evolution PvP, 65 AI-Painted Forms" />
+<meta property="og:description" content="Evolve 13 creatures through 9 AI-painted ranks. 22 divine sequences. Multiplayer PvP. Play free in your browser." />
 <meta property="og:type" content="website" />
 <meta property="og:image" content="assets/cover.png" />
 <meta property="og:image:width" content="1024" />
 <meta property="og:image:height" content="512" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Lands End — .io Species Evolution PvP" />
-<meta name="twitter:description" content="Pick a creature, hunt across a Sea of Stars, evolve through 65 forms, ascend to godhood." />
+<meta name="twitter:title" content="Lands End — Free .io Evolution PvP" />
+<meta name="twitter:description" content="13 species, 65 AI-painted evolution forms, 22 divine sequences, multiplayer. Play free." />
 <meta name="twitter:image" content="assets/cover.png" />
 <meta name="robots" content="index,follow" />
-<title>Lands End — .io Species Evolution PvP</title>
-<link rel="icon" type="image/svg+xml" href="assets/icon.svg?v=3.4.3" />
-<link rel="icon" type="image/png" sizes="512x512" href="assets/icon.png?v=3.4.3" />
-<link rel="apple-touch-icon" sizes="200x200" href="assets/icon-200.png?v=3.4.3" />
-  <link rel="stylesheet" href="styles.css?v=3.4.3" />
+<title>Lands End — Free .io Evolution PvP · 65 AI Forms · Play Free</title>
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg?v=3.4.5" />
+<link rel="icon" type="image/png" sizes="512x512" href="assets/icon.png?v=3.4.5" />
+<link rel="apple-touch-icon" sizes="200x200" href="assets/icon-200.png?v=3.4.5" />
+  <link rel="stylesheet" href="styles.css?v=3.4.5" />
+<link rel="preload" as="image" href="assets/icon.png?v=3.4.5" />
+<link rel="preload" as="script" href="game.js?v=3.4.5" />
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"VideoGame",
+  "name":"Lands End",
+  "alternateName":"Lands End — .io Evolution PvP",
+  "description":"Free .io PvP evolution game. Choose 1 of 13 creatures, evolve through 9 AI-painted ranks, master 22 divine sequences, and ascend to godhood in a 14,000² multiplayer arena.",
+  "genre":["Action","Multiplayer",".io","Survival","PvP"],
+  "playMode":"MultiPlayer",
+  "applicationCategory":"Game",
+  "operatingSystem":"Web Browser",
+  "gamePlatform":["HTML5","Web"],
+  "image":"assets/cover.png",
+  "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}
+}
+</script>
 </head>
 <body>
   <div id="loading" class="overlay">
@@ -31,7 +50,7 @@
 
   <div id="menu" class="overlay hidden">
     <h1>Lands End<span class="sub">A .io Apotheosis</span></h1>
-    <p class="tag">6 Paths · 22 Divine Sequences · 14,000² Sea of Stars · 5 Eras · Outer Gods · 9 Authorities · Multiplayer PvP — v3.4.3</p>
+    <p class="tag">6 Paths · 22 Divine Sequences · 14,000² Sea of Stars · 5 Eras · Outer Gods · 9 Authorities · Multiplayer PvP — v3.4.5</p>
 
     <div class="nameRow">
       <label for="playerName">Your name</label>
@@ -136,8 +155,8 @@
     </div>
   </div>
 
-  <script src="sdk.js?v=3.4.3"></script>
-  <script src="net.js?v=3.4.3"></script>
-  <script src="game.js?v=3.4.3"></script>
+  <script src="sdk.js?v=3.4.5" defer></script>
+  <script src="net.js?v=3.4.5" defer></script>
+  <script src="game.js?v=3.4.5" defer></script>
 </body>
 </html>
