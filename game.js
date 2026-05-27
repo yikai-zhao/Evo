@@ -247,23 +247,24 @@ const SPECIES_TITLES = {
 };
 
 // =====================================================================
-// v1.9.0 — 物種專屬進階儲式（覆蓋 PATH_QUESTS 某些 rank slot，增加可玩性）
+// v3.5.0 — 物種專屬進階儲式（取代之前「挨打 N 次」的被動任務）
+// 所有 quest 均為主動型、不與 XP 衝突：正常打鬥期間自然完成。
 // Index = rank-1. Only listed slots override; others fall through to PATH_QUESTS.
 // =====================================================================
 const SPECIES_QUESTS = {
-  swordsman: { 1: { desc:'Sword Will: Endure 3 strikes from a superior creature', req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
-  cultivator:{ 1: { desc:'Dao Heart: Endure 3 strikes from a higher creature',    req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
-  bat:       { 1: { desc:'Echo Trial: Survive 3 strikes from a higher predator', req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
-  lizard:    { 1: { desc:'Tail Regrown: Survive 3 hits from a higher predator',   req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
-  croc:      { 1: { desc:'Scaled Patience: Endure 4 strikes from your elder',     req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
-  wolf:      { 1: { desc:'Lone Wolf: Take 4 hits while hunting upward',           req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
-  scorpion:  { 1: { desc:'Carapace: Endure 5 strikes from a higher creature',     req:p=>p.q.hitByHigher>=5, show:p=>`Endured ${Math.min(p.q.hitByHigher,5)}/5` } },
-  eagle:     { 1: { desc:'Storm Trial: Be struck 3 times from above your tier',   req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
-  owl:       { 1: { desc:'Night Vigil: Survive 3 hits from elder creatures',      req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
-  shark:     { 1: { desc:'Bloodscent: Endure 4 hits from a higher hunter',        req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
-  electroEel:{ 1: { desc:'Live Wire: Endure 3 strikes from your elder',           req:p=>p.q.hitByHigher>=3, show:p=>`Endured ${Math.min(p.q.hitByHigher,3)}/3` } },
-  longSnake: { 1: { desc:'Coiled Will: Endure 4 strikes from a greater dragon',   req:p=>p.q.hitByHigher>=4, show:p=>`Endured ${Math.min(p.q.hitByHigher,4)}/4` } },
-  dino:      { 1: { desc:'Tyrant Trial: Endure 5 strikes from a higher beast',    req:p=>p.q.hitByHigher>=5, show:p=>`Endured ${Math.min(p.q.hitByHigher,5)}/5` } },
+  swordsman: { 1: { desc:'Blade Initiation: Kill 3 lesser creatures',  req:p=>p.q.kills>=3, show:p=>`Kills ${Math.min(p.q.kills,3)}/3` } },
+  cultivator:{ 1: { desc:'Qi Gathering: Kill 3 lesser creatures',      req:p=>p.q.kills>=3, show:p=>`Kills ${Math.min(p.q.kills,3)}/3` } },
+  bat:       { 1: { desc:'First Blood: Kill 3 prey',                    req:p=>p.q.kills>=3, show:p=>`Kills ${Math.min(p.q.kills,3)}/3` } },
+  lizard:    { 1: { desc:'Hunter\'s Mark: Kill 3 lesser creatures',     req:p=>p.q.kills>=3, show:p=>`Kills ${Math.min(p.q.kills,3)}/3` } },
+  croc:      { 1: { desc:'Ambusher: Kill 4 lesser creatures',            req:p=>p.q.kills>=4, show:p=>`Kills ${Math.min(p.q.kills,4)}/4` } },
+  wolf:      { 1: { desc:'Pack Hunt: Kill 4 lesser creatures',           req:p=>p.q.kills>=4, show:p=>`Kills ${Math.min(p.q.kills,4)}/4` } },
+  scorpion:  { 1: { desc:'Sting Trial: Kill 3 lesser creatures',        req:p=>p.q.kills>=3, show:p=>`Kills ${Math.min(p.q.kills,3)}/3` } },
+  eagle:     { 1: { desc:'Sky Hunt: Kill 3 prey',                        req:p=>p.q.kills>=3, show:p=>`Kills ${Math.min(p.q.kills,3)}/3` } },
+  owl:       { 1: { desc:'Night Stalk: Kill 3 prey',                     req:p=>p.q.kills>=3, show:p=>`Kills ${Math.min(p.q.kills,3)}/3` } },
+  shark:     { 1: { desc:'Bloodfrenzy: Kill 4 lesser creatures',         req:p=>p.q.kills>=4, show:p=>`Kills ${Math.min(p.q.kills,4)}/4` } },
+  electroEel:{ 1: { desc:'Charge Up: Kill 3 lesser creatures',          req:p=>p.q.kills>=3, show:p=>`Kills ${Math.min(p.q.kills,3)}/3` } },
+  longSnake: { 1: { desc:'Coil Strike: Kill 4 lesser creatures',         req:p=>p.q.kills>=4, show:p=>`Kills ${Math.min(p.q.kills,4)}/4` } },
+  dino:      { 1: { desc:'Tyrant Roar: Kill 5 lesser creatures',         req:p=>p.q.kills>=5, show:p=>`Kills ${Math.min(p.q.kills,5)}/5` } },
 };
 
 // =====================================================================
@@ -1028,11 +1029,12 @@ function generateCosmos(){
 // v2.9.0: Each 古神 has unique visual silhouette + signature attack flavor.
 // Rotates each spawn so players see fresh art every 5 minutes (retention + screenshot variety).
 const BOSS_POOL = [
-  { type:'eye',     name:'Elder Day · Star-Touching Eye',     color:'#aa44ff', hp:8000, atk:80, accent:'#ff44aa' },
-  { type:'maw',     name:'Ravager · Thousand-Mouth Devourer', color:'#ff4444', hp:9500, atk:95, accent:'#ffaa30' },
-  { type:'crown',   name:'Sovereign · Frozen-Abyss Crown',    color:'#66ccff', hp:8800, atk:75, accent:'#ffffff' },
-  { type:'phoenix', name:'Ashen Phoenix · Cycle-Breaker',     color:'#ffaa30', hp:8200, atk:90, accent:'#ff3344' },
-  { type:'serpent', name:'Nine-Headed Verdant Serpent',       color:'#44dd66', hp:9200, atk:85, accent:'#aa44ff' },
+  // v3.5.0: outer gods buffed ~3x HP / 2x ATK — they should feel like a real raid threat
+  { type:'eye',     name:'Elder Day · Star-Touching Eye',     color:'#aa44ff', hp:26000, atk:160, accent:'#ff44aa' },
+  { type:'maw',     name:'Ravager · Thousand-Mouth Devourer', color:'#ff4444', hp:30000, atk:185, accent:'#ffaa30' },
+  { type:'crown',   name:'Sovereign · Frozen-Abyss Crown',    color:'#66ccff', hp:28000, atk:150, accent:'#ffffff' },
+  { type:'phoenix', name:'Ashen Phoenix · Cycle-Breaker',     color:'#ffaa30', hp:27000, atk:175, accent:'#ff3344' },
+  { type:'serpent', name:'Nine-Headed Verdant Serpent',       color:'#44dd66', hp:29000, atk:165, accent:'#aa44ff' },
 ];
 function spawnBoss(){
   const cx=WORLD.w/2, cy=WORLD.h/2;
@@ -1890,13 +1892,28 @@ function tryPromote(p){
   while (p.rank < 9 && safety-->0){
     if (!QI_THR[p.rank] || p.qi < QI_THR[p.rank]) break;
     const q = currentQuest(p);
-    // v1.8.3: STRICT — quest is mandatory, no grace bypass.
+    // v3.5.0: SOFT — quest is a hint, not a hard gate. Once XP is full, allow promotion
+    // after a short grace window (or instantly if XP overflows by 50%). Keeps progression smooth.
     if (q && !q.req(p)){
-      if (p.isPlayer && (!p._questTipT || G.time - p._questTipT > 6)){
-        p._questTipT = G.time;
-        pushKillFeed('★ XP full — complete quest to break through: '+q.desc, '#ff88cc');
+      const overflow = p.qi >= QI_THR[p.rank] * 1.5;
+      if (!overflow){
+        if (!p._questGraceT) p._questGraceT = G.time;
+        const waited = G.time - p._questGraceT;
+        if (waited < 8){
+          if (p.isPlayer && (!p._questTipT || G.time - p._questTipT > 4)){
+            p._questTipT = G.time;
+            pushKillFeed('★ XP full — try: '+q.desc+' (or wait '+Math.ceil(8-waited)+'s)', '#ff88cc');
+          }
+          break;
+        }
+        // grace expired → auto-pass quest
+        if (p.isPlayer) pushKillFeed('★ Quest auto-completed by XP surge!', '#ffdd66');
+      } else {
+        if (p.isPlayer) pushKillFeed('★ XP overflow — breaking through quest!', '#ffdd66');
       }
-      break;
+      p._questGraceT = 0;
+    } else {
+      p._questGraceT = 0;
     }
     // v2.0: Apotheosis Trial — rank 8→9 ascension to True God throne.
     // Requires Outer God slain + rifts opened + (if throne occupied) killing the holder.
@@ -2020,9 +2037,15 @@ function spawnInitialWorld(){
   }
   for (let i=0;i<AUTHORITIES.length;i++){
     const a = AUTHORITIES[i];
-    const ang = (i/AUTHORITIES.length)*Math.PI*2;
-    const D = 3000;  // v1.0.0 大地圖外擴
-    G.authorities.push({...a, x: WORLD.w/2 + Math.cos(ang)*D, y: WORLD.h/2 + Math.sin(ang)*D, pulse:0});
+    // v3.5.0: random scatter across the whole world (not a uniform ring around center)
+    // Avoid spawn radius ~600 around player to stop instant freebies.
+    let ax, ay, tries = 0;
+    do {
+      ax = rand(WORLD.w*0.08, WORLD.w*0.92);
+      ay = rand(WORLD.h*0.08, WORLD.h*0.92);
+      tries++;
+    } while (G.player && Math.hypot(ax-G.player.x, ay-G.player.y) < 1200 && tries < 6);
+    G.authorities.push({...a, x: ax, y: ay, pulse:0});
   }
 // 出生點周遭塞一些靈氣與道具讓玩家先成長 (v1.8.2: drastically reduced — was instant +2 levels)
   if (G.player){
@@ -3437,6 +3460,7 @@ function die(reason){
   // 進階能力：Immortal Phoenix — 復活一次
   if (G.player && G.player.perks && G.player.perks.revive>0 && !G.player._revivedOnce){
     G.player._revivedOnce = true;
+    G.player._dead = false; // v3.5.0: clear _dead flag so attacks register again
     G.player.hp = G.player.maxHp;
     G.player.sta = G.player.maxSta;
     G.player.invuln = 4;
@@ -3568,6 +3592,7 @@ function _showDeathOverlay(){
         G._deathCinT = 0; G._deathOverlayShown = false; G._deathReason = null;
         document.getElementById('death').classList.add('hidden');
         if (G.player){
+          G.player._dead = false; // v3.5.0: clear _dead so dealDamage doesn't block player attacks after revive
           G.player.hp = Math.max(G.player.hp, Math.floor(G.player.maxHp * 0.6));
           G.player.sta = G.player.maxSta;
           // v2.9.9: reset life timer so lifespan-exhaustion deaths don't immediately re-kill after revive
@@ -3777,7 +3802,7 @@ function update(dt){
   G.minions = G.minions.filter(m=>m.hp>0);
   // v1.0.0: 大地圖敵人數量隨階段提升 — v1.8.2: denser, especially mid-game
   // v2.2.0: denser team-god-war map (was [180,240,300,360,460])
-  const enemyCap = [260, 340, 440, 540, 680][G.stage-1] || 260;
+  const enemyCap = [380, 480, 600, 720, 880][G.stage-1] || 380;
   while (G.enemies.length < enemyCap) spawnEnemy();
   // v2.1.0: rift ownership countdown (was simple respawn)
   for (const rf of G.rifts){
@@ -3813,7 +3838,7 @@ function update(dt){
   if (newStage !== G.stage){
     G.stage = newStage;
     // v1.8.1: EPIC era transitions — bigger banner, screen shake, particle storm, mass spawn, forced bosses
-    G.stageBannerT = 8; G.stageBannerText = '★ CHAPTER '+newStage+' · '+stageNames[newStage-1].toUpperCase()+' ★';
+    G.stageBannerT = 8; G.stageBannerText = '★ '+stageNames[newStage-1].toUpperCase()+' ★';
     G.stageBannerSub  = stageSubs[newStage-1];
     try{ flash('#ffdd66', 1.2); shake(45); playSound('promote'); }catch(e){}
     // Particle storm around player
@@ -3827,13 +3852,13 @@ function update(dt){
     pushKillFeed('☄☄☄ ERA SHIFT — '+stageNames[newStage-1]+' ☄☄☄','#ffdd66');
     logMsg('★★★ '+G.stageBannerText+' — '+G.stageBannerSub,'promote');
     G.timeline.push({t:G.time, text:'Entered '+stageNames[newStage-1]});
-    // Mass spawn wave (more enemies, scaled by era)
-    const waveSize = 8 + newStage*6;
+    // Mass spawn wave (v3.5.0: bigger brawl — was 8+stage*6, now 18+stage*10)
+    const waveSize = 18 + newStage*10;
     for (let i=0;i<waveSize;i++){ try { spawnEnemy(false); } catch(e){} }
-    // v1.8.1: era 3+ force a miniboss; era 4+ force an Outer God immediately for epic feel
-    if (newStage>=3 && !G.miniboss){ try { spawnMiniboss(); G.minibossSpawnT = 150; } catch(e){} }
-    if (newStage>=4 && !G.boss){ try { spawnBoss(); G.bossSpawnT = 150; } catch(e){} }
-    if (newStage===5){ G.eventCdT = Math.min(G.eventCdT, 15); }
+    // v3.5.0: miniboss from stage 1, Outer Gods from stage 3 (was stage 2/4) — escalate chaos faster
+    if (newStage>=1 && !G.miniboss){ try { spawnMiniboss(); G.minibossSpawnT = 120; } catch(e){} }
+    if (newStage>=3 && !G.boss){ try { spawnBoss(); G.bossSpawnT = 120; } catch(e){} }
+    if (newStage>=4){ G.eventCdT = Math.min(G.eventCdT, 12); }
   }
   if (G.stageBannerT>0) G.stageBannerT -= dt;
   if (G.revealT>0) G.revealT -= dt;
