@@ -4436,15 +4436,15 @@ function drawCreature(c){
   ctx.save();
   // v3.1.0: 呼吸 idle 動畫（subtle）
   const breath = 1 + Math.sin(G.time*2.4 + (c._fp||0))*0.025;
-  ctx.translate(c.x,c.y); ctx.rotate(c.facing); ctx.scale(breath, breath);
+  ctx.translate(c.x,c.y); ctx.scale(breath, breath);
   if (c.darkT>0 && !isP) ctx.globalAlpha = 0.4;
-  // v3.4.4: AI portrait override — sprite faces "up" in image, so rotate +PI/2 to align with facing
+  // v3.4.5: portrait does NOT rotate with facing — always faces up-screen so isometric art looks correct
   const _portrait = getPortrait(c.species, c.rank);
   if (_portrait){
     const _sz = c.r * 2.4;
-    ctx.rotate(Math.PI/2);
     ctx.drawImage(_portrait, -_sz/2, -_sz/2, _sz, _sz);
   } else {
+    ctx.rotate(c.facing); // drawShape still uses facing for non-portrait creatures
     drawShape(c);
   }
   ctx.globalAlpha = 1;
