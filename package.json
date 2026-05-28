@@ -1,6 +1,6 @@
 {
   "name": "evo",
-  "version": "3.7.0",
+  "version": "3.8.0",
   "description": "Twilight of the Gods — a multiplayer mythic battle royale on the open web.",
   "main": "server.js",
   "scripts": {

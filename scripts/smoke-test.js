@@ -62,6 +62,17 @@ check(`cache-bust matches package.json (${pkg.version})`, unique.length === 1 &&
 // 4. Net.js exposes party API
 check('net.js has Net.sendParty',       netSrc.includes('Net.sendParty'));
 check('net.js handles party messages',  netSrc.includes("case 'party'"));
+// 4b. Net.js exposes v3.8.0 matchmaking API
+check('net.js has Net.findMatch',       netSrc.includes('Net.findMatch'));
+check('net.js has Net.createRoom',      netSrc.includes('Net.createRoom'));
+check('net.js has Net.joinRoom',        netSrc.includes('Net.joinRoom'));
+check('net.js handles room message',    netSrc.includes("case 'room'"));
+// 4c. server.js implements room routing
+const serverSrc = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+check('server.js parses', (()=>{ try { new vm.Script(serverSrc, {filename:'server.js'}); return true; } catch(e){ console.log('  →', e.message); return false; } })());
+check('server.js handles mm_find',      serverSrc.includes("'mm_find'"));
+check('server.js handles mm_create',    serverSrc.includes("'mm_create'"));
+check('server.js handles mm_join',      serverSrc.includes("'mm_join'"));
 
 // 5. Veil constants sane
 check('VEIL_START_T defined',     gameSrc.includes('VEIL_START_T'));

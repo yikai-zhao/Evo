@@ -1951,6 +1951,18 @@ function recalcStats(p){
     p.atk = Math.floor(p.atk * 1.15);
     p.def = Math.floor(p.def * 1.15);
   }
+  // v3.8.0: Path passive multipliers (gu refinement / sector buff / fish aqua hp / bird range)
+  if (p.isPlayer){
+    if (p._gusMul && p._gusMul > 1) p.atk = Math.floor(p.atk * p._gusMul);
+    if (p._sectorMul && p._sectorMul !== 1){
+      p.atk = Math.floor(p.atk * p._sectorMul);
+      p.def = Math.floor(p.def * p._sectorMul);
+    }
+    if (p._aquaHp && p._aquaHp > 1) p.maxHp = Math.floor(p.maxHp * p._aquaHp);
+    if (p._terrainBonus && p._terrainBonus > 1) p.spd = Math.min(620, Math.floor(p.spd * p._terrainBonus));
+    if (p._rangeMul && p._rangeMul > 1){ p.atkR = (p.atkR||0) * p._rangeMul; if (p.rngR) p.rngR *= p._rangeMul; }
+    if (p.hp > p.maxHp) p.hp = p.maxHp;
+  }
 }
 
 // =====================================================================
@@ -2366,6 +2378,8 @@ function setupInput(canvas){
     if (k==='y' && G.started && !G.dead){ e.preventDefault(); try{ togglePartyPanel(); }catch(err){} }
     if (k==='a' && G.started && G.partyInvites && G.partyInvites.length && !document.getElementById('partyPanel')){ try{ partyAccept(G.partyInvites[0]); }catch(err){} }
     if (k==='d' && G.started && G.partyInvites && G.partyInvites.length && !document.getElementById('partyPanel')){ G.partyInvites.shift(); }
+    // v3.8.0: matchmaking modal (works both on title and in-game)
+    if (k==='n'){ e.preventDefault(); try { openMatchmakingModal(); } catch(err){} }
   });
   window.addEventListener('keyup', e=>{ KEYS[e.key.toLowerCase()]=false; });
   canvas.addEventListener('mousemove', e=>{
@@ -2404,6 +2418,8 @@ function setupInput(canvas){
 // 玩家更新
 // =====================================================================
 function updatePlayer(p, dt){
+  // v3.8.0: per-path passive + biome sector buff ticks (lightweight, 4Hz)
+  try { _tickPathPassive(p, dt); _tickSectorBuff(p, dt); } catch(e){}
   // 狀態
   if (p.invuln>0) p.invuln-=dt;
   if (p.bleed>0){ p.hp -= 6*dt; p.bleed-=dt; }
@@ -2554,6 +2570,8 @@ function doMelee(p){
     dealDamage(p, e, p.atk, '#fff', false);
     hitCount++;
   }
+  // v3.8.0: per-hit path-passive trigger (Dragon every-3rd-hit shock)
+  if (hitCount > 0 && p === G.player) { try { _onPlayerMeleeHit(p); } catch(_){} }
   // v1.2.0 PvP 近戰對遠端玩家
   if (p===G.player && window.Net && Net.online){
     for (const [id, peer] of Net.peers){
@@ -2793,6 +2811,8 @@ function onKill(attacker, target){
     }
     // v3.7.0: Power Inheritance — high-rank kills empower killer + nearby survivors
     if (target.rank >= 7) { try { awardInheritance(target, attacker); } catch(e){} }
+    // v3.8.0: per-path on-kill trigger (Insect spawns minion etc.)
+    if (attacker && attacker.isPlayer) { try { _onPlayerKill(attacker, target); } catch(e){} }
     let qiReward = 5 + target.rank*4;
     // v1.8.1: STRATEGY — penalize farming much-weaker enemies (must hunt up your weight class)
     if (target.rank < attacker.rank - 1){
@@ -4223,6 +4243,272 @@ function winGameLastStand(){
   try { _setupWinShareButton(); } catch(e){}
 }
 
+// =====================================================================
+// v3.8.0: Path Passives + Biome Sectors + Matchmaking
+// =====================================================================
+
+// ----- Path passives: each of the 6 paths has a unique, always-on identity -----
+// Designed so playstyles diverge rather than just being stat reskins.
+const PATH_PASSIVES = {
+  human:  { name:'Gu Refinement',  desc:'+0.5% ATK per 1% lifespan burned (caps +50%).' },
+  dragon: { name:'Scaled Burst',   desc:'Every 3rd melee hit unleashes a 160r shock for 60% ATK.' },
+  beast:  { name:'Primal Sprint',  desc:'+25% sprint speed, dash cooldown −50%, +10% movespeed in forests/snow.' },
+  bird:   { name:'Skyborn Volley', desc:'+40% projectile range; at rank ≥5, ranged fires +1 bolt.' },
+  fish:   { name:'Tidal Mending',  desc:'+200% regen when stationary; +20% maxHP while in water tiles.' },
+  insect: { name:'Hive Mind',      desc:'Each kill spawns a tiny minion (max 6) that fights for you for 20s.' },
+};
+function _tickPathPassive(p, dt){
+  if (!p || !p.isPlayer || !p.pathKey) return;
+  p._pp = p._pp || { hits:0, lastShockT:0, lastMinionT:0, scrollDmg:0 };
+
+  if (p.pathKey === 'human'){
+    // ATK scaling from gu-refinement (lifeMax → life ratio)
+    const burnPct = p.maxLife>0 ? Math.max(0, 1 - (p.life||0)/p.maxLife) : 0;
+    p._gusMul = 1 + Math.min(0.5, burnPct * 0.5);
+  } else if (p.pathKey === 'beast'){
+    p._dashMul = 1.5;
+    const tile = G.terrain && _biomeAt(p.x, p.y);
+    p._terrainBonus = (tile === 'forest' || tile === 'snow') ? 1.10 : 1.0;
+  } else if (p.pathKey === 'fish'){
+    const tile = G.terrain && _biomeAt(p.x, p.y);
+    p._aquaHp = (tile === 'water') ? 1.20 : 1.0;
+    // bonus regen when stationary
+    const speed = Math.hypot(p.vx||0, p.vy||0);
+    if (speed < 12 && p.hp>0 && p.hp<p.maxHp){
+      p.hp = Math.min(p.maxHp, p.hp + 4*p.zhenyuan*dt);
+    }
+  } else if (p.pathKey === 'bird'){
+    p._rangeMul = 1.4;
+    if ((p.rank||1) >= 5) p.rangedMult = Math.max(p.rangedMult||1, 2);
+  }
+}
+// Called from doMelee on each landed hit (player only). Triggers Dragon shock.
+function _onPlayerMeleeHit(p){
+  if (!p || !p.isPlayer) return;
+  p._pp = p._pp || { hits:0, lastShockT:0, lastMinionT:0 };
+  if (p.pathKey === 'dragon'){
+    p._pp.hits = (p._pp.hits||0) + 1;
+    if (p._pp.hits % 3 === 0){
+      // Mini shock: damage all enemies within 160r for 0.6 * atk
+      const r = 160, dmg = Math.max(4, Math.floor((p.atk||10) * 0.6));
+      G.shockwaves.push({ x:p.x, y:p.y, r:20, max:r, life:0.32, lifeMax:0.32, color:'#88e0ff', arc:Math.PI*2, facing:0 });
+      for (const e of G.enemies){
+        if (!e || e.hp<=0) continue;
+        if (Math.hypot(e.x-p.x, e.y-p.y) <= r + (e.r||14)){
+          dealDamage(p, e, dmg, '#88e0ff', false);
+        }
+      }
+      try { playSound('block'); } catch(_){}
+    }
+  }
+}
+// Called from onKill (when player kills an enemy). Insect minion spawn.
+function _onPlayerKill(p, victim){
+  if (!p || !p.isPlayer || !victim) return;
+  if (p.pathKey !== 'insect') return;
+  const aliveMinions = G.minions.filter(m => m && m.hp>0 && m._fromPlayer).length;
+  if (aliveMinions >= 6) return;
+  // Spawn a tiny minion: low HP, low atk, expires in 20s
+  const m = {
+    isPlayer:false, _fromPlayer:true, name:'Hive Spawn', color:'#aaff66',
+    x: p.x + rand(-30,30), y: p.y + rand(-30,30),
+    vx:0, vy:0, facing:0, r: 10,
+    hp: 40 + (p.rank||1)*8, maxHp: 40 + (p.rank||1)*8,
+    atk: Math.max(3, Math.floor((p.atk||10)*0.18)),
+    def: 0, spd: 240, base:{ hp:40, atk:6, def:0, spd:240, sta:30, life:20, r:10 },
+    sta:30, maxSta:30, life:20, maxLife:20, zhenyuan:1.0,
+    bonusAtkMult:1, bonusDefMult:1, bonusSpdMult:1, bonusSizeMult:0.6,
+    perks:{}, q:{ kills:0 }, rank:1, sp:{ name:'Spawn', path:'insect', emoji:'🐛' },
+    pathKey:'insect', authoritySlots:[], authCdT:[],
+    invuln:0, slow:0, freeze:0, stun:0, isMinion:true, ownerPlayer:p,
+  };
+  G.minions.push(m);
+}
+
+// ----- Biome Sectors: 6 wedges around world center, one per path -----
+// Player standing in own path's sector → +12% atk/def. In a rival sector → -8%.
+// Order matches sectors clockwise from 12 o'clock.
+const PATH_SECTORS = ['human','dragon','beast','bird','fish','insect'];
+function _sectorAt(x, y){
+  const cx = WORLD.w*0.5, cy = WORLD.h*0.5;
+  const dx = x - cx, dy = y - cy;
+  const dist = Math.hypot(dx, dy);
+  // Inside neutral central arena (radius 1800) → no sector (the "Throne Plaza")
+  if (dist < 1800) return null;
+  // Angle 0 = up (12 o'clock), clockwise.
+  let ang = Math.atan2(dx, -dy);  // -PI..PI, 0=up
+  if (ang < 0) ang += Math.PI*2;
+  const idx = Math.floor(ang / (Math.PI*2/6)) % 6;
+  return PATH_SECTORS[idx];
+}
+function _biomeAt(x, y){
+  if (!G.terrain || !G.terrain.map) return null;
+  const tx = Math.floor(x / (typeof TILE !== 'undefined' ? TILE : 64));
+  const ty = Math.floor(y / (typeof TILE !== 'undefined' ? TILE : 64));
+  if (ty<0 || ty>=G.terrain.rows || tx<0 || tx>=G.terrain.cols) return null;
+  return G.terrain.map[ty][tx];
+}
+function _tickSectorBuff(p, dt){
+  if (!p || !p.isPlayer || !p.pathKey) return;
+  p._sectorT = (p._sectorT||0) - dt;
+  if (p._sectorT > 0) return;
+  p._sectorT = 0.5;
+  const s = _sectorAt(p.x, p.y);
+  const prev = p._sectorOwner;
+  p._sectorOwner = s;
+  if (!s){
+    p._sectorMul = 1.0; // neutral plaza
+  } else if (s === p.pathKey){
+    p._sectorMul = 1.12;
+  } else {
+    p._sectorMul = 0.92;
+  }
+  if (s !== prev){
+    if (s === p.pathKey) pushKillFeed(`✦ Home sector: +12% ATK/DEF (${PATHS[s].name})`, PATHS[s].color);
+    else if (s && prev === p.pathKey) pushKillFeed(`✦ Left home sector — buff lost`, '#888');
+    else if (s) pushKillFeed(`⚠ Rival sector (${PATHS[s].name}): −8% ATK/DEF`, '#cc8866');
+  }
+}
+
+function drawBiomeSectors(){
+  // Faint radial wedges + ring delineating the Throne Plaza
+  const cx = WORLD.w*0.5, cy = WORLD.h*0.5;
+  // Skip if camera is far away
+  if (Math.abs(cx - G.cam.x) > window.innerWidth*0.8 + 6000) return;
+  ctx.save();
+  ctx.globalAlpha = 0.13;
+  const R_inner = 1800, R_outer = Math.min(WORLD.w, WORLD.h)*0.48;
+  for (let i=0;i<6;i++){
+    const a0 = (i/6)*Math.PI*2 - Math.PI/2;
+    const a1 = ((i+1)/6)*Math.PI*2 - Math.PI/2;
+    ctx.fillStyle = PATHS[PATH_SECTORS[i]].color;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a0)*R_inner, cy + Math.sin(a0)*R_inner);
+    ctx.lineTo(cx + Math.cos(a0)*R_outer, cy + Math.sin(a0)*R_outer);
+    ctx.arc(cx, cy, R_outer, a0, a1);
+    ctx.lineTo(cx + Math.cos(a1)*R_inner, cy + Math.sin(a1)*R_inner);
+    ctx.arc(cx, cy, R_inner, a1, a0, true);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = '#ffd66b';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(cx, cy, R_inner, 0, Math.PI*2); ctx.stroke();
+  // Throne Plaza label
+  ctx.globalAlpha = 0.7;
+  ctx.font = 'bold 36px serif';
+  ctx.fillStyle = '#ffd66b'; ctx.textAlign = 'center';
+  ctx.fillText('THRONE PLAZA', cx, cy - R_inner - 18);
+  ctx.restore();
+}
+
+// ----- Timeline HUD: persistent banner of endgame milestones -----
+function drawTimelineHUD(){
+  if (!G.started || G.dead || G.won) return;
+  const W = 320, H = 28, x = window.innerWidth/2 - W/2, y = 32;
+  const t = G.time||0;
+  // milestones: 0 → VEIL_START_T (5min) → VEIL_END_T (17min) → throne/last-stand
+  const T0 = 0, T1 = (typeof VEIL_START_T!=='undefined'?VEIL_START_T:300), T2 = (typeof VEIL_END_T!=='undefined'?VEIL_END_T:1020);
+  const total = T2 + 60;
+  const pct = Math.min(1, Math.max(0, t / total));
+  ctx.save();
+  // bar bg
+  ctx.fillStyle = 'rgba(20,16,32,0.7)';
+  ctx.fillRect(x, y, W, H);
+  // hunt phase
+  ctx.fillStyle = 'rgba(120,200,120,0.5)';
+  ctx.fillRect(x, y, W*(T1/total), H);
+  // veil phase
+  ctx.fillStyle = 'rgba(200,80,200,0.5)';
+  ctx.fillRect(x + W*(T1/total), y, W*((T2-T1)/total), H);
+  // final tribulation
+  ctx.fillStyle = 'rgba(255,200,80,0.6)';
+  ctx.fillRect(x + W*(T2/total), y, W*(60/total), H);
+  // playhead
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x + W*pct, y-3); ctx.lineTo(x + W*pct, y + H + 3); ctx.stroke();
+  // labels
+  ctx.fillStyle = '#eaeaea';
+  ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+  let label = 'Hunt Phase';
+  if (t >= T1 && t < T2) label = `Veil shrinks — flee to centre (${Math.max(0,Math.ceil(T2-t))}s)`;
+  else if (t >= T2) label = 'Final Tribulation';
+  else label = `Hunt — Veil in ${Math.ceil(T1-t)}s`;
+  ctx.fillText(label, x + W/2, y + H/2 + 3);
+  // tier indicator on far right
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#ffd66b';
+  if (G.player){
+    ctx.fillText(`Rank ${G.player.rank||1}/9${G.player.rank>=9?' (★ True God)':''}`, x + W + 10, y + H/2 + 3);
+  }
+  ctx.restore();
+}
+
+// ----- Matchmaking UI: lightweight modal triggered before game starts -----
+function openMatchmakingModal(){
+  if (document.getElementById('mmModal')) return;
+  const m = document.createElement('div');
+  m.id = 'mmModal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+  const inRoom = window.Net && Net.room;
+  const code = inRoom ? Net.room.code : '—';
+  const peers = inRoom ? (Net.room.peers||[]).length+1 : 0;
+  const cap = inRoom ? Net.room.capacity : 8;
+  m.innerHTML = `
+    <div style="background:#181425;border:2px solid #5fa8ff;border-radius:12px;padding:24px;min-width:340px;max-width:90%;color:#eaeaea;box-shadow:0 8px 40px rgba(0,0,0,0.7)">
+      <div style="font-size:18px;font-weight:700;color:#5fa8ff;margin-bottom:14px">🌐 Multiplayer Match</div>
+      <div style="font-size:12px;margin-bottom:14px;color:#aaa">
+        Currently in room: <span style="color:#7fd07f">${code}</span>
+        ${inRoom ? `(${peers}/${cap === 9999 ? '∞' : cap})` : ''}
+      </div>
+      <button id="mmFindBtn" style="display:block;width:100%;margin:6px 0;padding:10px;background:#2a5a8a;color:#cce8ff;border:1px solid #5fa8ff;border-radius:6px;cursor:pointer;font-size:14px">🎯 Find Public Match (max 8)</button>
+      <button id="mmCreateBtn" style="display:block;width:100%;margin:6px 0;padding:10px;background:#5a2a8a;color:#ddccff;border:1px solid #aa66ff;border-radius:6px;cursor:pointer;font-size:14px">🔒 Create Private Room</button>
+      <div style="margin:10px 0;display:flex;gap:6px">
+        <input id="mmCodeInput" placeholder="ROOM CODE" maxlength="6" style="flex:1;padding:8px;background:#0a0a14;color:#fff;border:1px solid #444;border-radius:4px;font-family:monospace;text-transform:uppercase;font-size:14px" />
+        <button id="mmJoinBtn" style="padding:8px 14px;background:#2a8a5a;color:#ccffdd;border:1px solid #66cc99;border-radius:6px;cursor:pointer">Join</button>
+      </div>
+      <button id="mmLeaveBtn" style="display:block;width:100%;margin:6px 0;padding:8px;background:#444;color:#ccc;border:1px solid #666;border-radius:6px;cursor:pointer;font-size:12px">↩ Solo Practice (Global Lobby)</button>
+      <div id="mmStatus" style="margin-top:10px;font-size:11px;color:#888;min-height:14px"></div>
+      <button id="mmCloseBtn" style="display:block;width:100%;margin-top:10px;padding:8px;background:transparent;color:#888;border:1px solid #333;border-radius:6px;cursor:pointer">Close</button>
+    </div>`;
+  document.body.appendChild(m);
+  const status = m.querySelector('#mmStatus');
+  function setStatus(t, c){ status.textContent = t; status.style.color = c||'#888'; }
+  if (!window.Net || !Net.online) setStatus('⚠ Net offline — start the local server or connect via ?net=1', '#ff8866');
+  m.querySelector('#mmCloseBtn').onclick = ()=>m.remove();
+  m.querySelector('#mmFindBtn').onclick = ()=>{
+    if (!Net.online){ setStatus('Net offline', '#ff8866'); return; }
+    Net.findMatch(8); setStatus('Searching…', '#88ccff');
+  };
+  m.querySelector('#mmCreateBtn').onclick = ()=>{
+    if (!Net.online){ setStatus('Net offline', '#ff8866'); return; }
+    Net.createRoom(8); setStatus('Creating private room…', '#aa66ff');
+  };
+  m.querySelector('#mmJoinBtn').onclick = ()=>{
+    const code = m.querySelector('#mmCodeInput').value.trim().toUpperCase();
+    if (code.length < 3){ setStatus('Enter a valid code', '#ff8866'); return; }
+    Net.joinRoom(code); setStatus('Joining ' + code + '…', '#7fd07f');
+  };
+  m.querySelector('#mmLeaveBtn').onclick = ()=>{
+    Net.leaveRoom(); setStatus('Returned to global lobby', '#888');
+  };
+}
+function drawRoomHUD(){
+  if (!window.Net || !Net.room) return;
+  const r = Net.room;
+  const isMatch = r.code.startsWith('M') || r.isPrivate;
+  if (!isMatch) return; // don't clutter HUD when in global lobby
+  const peerCnt = (r.peers||[]).length + 1;
+  ctx.save();
+  ctx.fillStyle = 'rgba(20,40,80,0.75)';
+  ctx.fillRect(8, 8, 200, 22);
+  ctx.fillStyle = '#5fa8ff';
+  ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText(`${r.isPrivate?'🔒':'🎯'} Room ${r.code} · ${peerCnt}/${r.capacity}`, 14, 23);
+  ctx.restore();
+}
+
 let lastT=0;
 function loop(t){
   let dt = Math.min(0.05, (t-lastT)/1000 || 0); lastT=t;
@@ -4487,6 +4773,7 @@ function render(){
     drawSpirits();
     drawPickups();
     drawAuthoritiesWorld();
+    try{ drawBiomeSectors(); }catch(e){}
     try{ drawVeil(); }catch(e){}
     drawHazards();
     try{ drawBoss(); }catch(e){}
@@ -4530,6 +4817,8 @@ function render(){
   try{ drawLeaderboard(); }catch(e){}
   try{ drawVeilHUD(); }catch(e){}
   try{ drawPartyHUD(); }catch(e){}
+  try{ drawTimelineHUD(); }catch(e){}
+  try{ drawRoomHUD(); }catch(e){}
   ctx.fillStyle = G.fps<30 ? '#ff6666' : (G.fps<50 ? '#ffcc66' : '#88ff88');
   ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
   ctx.fillText('FPS '+G.fps, 8, window.innerHeight-8);
@@ -7301,6 +7590,19 @@ async function startGame(){
     Net.onParty = (fromId, action, toId, partyId, members)=>{
       try { partyOnMessage(fromId, action, toId, partyId, members); } catch(e){ console.warn('[party]', e); }
     };
+    // v3.8.0: room/matchmaking events
+    Net.onRoom = (room)=>{
+      try {
+        const peerCnt = (room.peers||[]).length + 1;
+        pushKillFeed(`🌐 Room ${room.code} · ${peerCnt}/${room.capacity === 9999 ? '∞' : room.capacity}${room.isPrivate ? ' (private)' : ''}`, '#5fa8ff');
+        // Refresh modal if open
+        const m = document.getElementById('mmModal');
+        if (m){ m.remove(); openMatchmakingModal(); }
+      } catch(e){}
+    };
+    Net.onMmError = (reason)=>{
+      pushKillFeed('⚠ Match error: ' + reason, '#ff8866');
+    };
     // v3.2.0: skip multiplayer on platform builds (Poki/CrazyGames) — avoid
     // bleeding bandwidth to our own Render server when distributed on portals.
     // Standalone (own domain) still gets multiplayer.
@@ -7368,6 +7670,9 @@ window.addEventListener('load', async ()=>{
   if (_tutClose && _tutEl){
     _tutClose.onclick = ()=>{ _tutEl.classList.add('hidden'); };
   }
+  // v3.8.0: matchmaking modal button on title
+  const _mmBtn = document.getElementById('mmBtn');
+  if (_mmBtn){ _mmBtn.onclick = ()=>{ try{ openMatchmakingModal(); }catch(e){} }; }
   // Auto-show tutorial on first visit
   try {
     if (!localStorage.getItem('evo_tut_seen')){

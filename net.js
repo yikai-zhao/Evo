@@ -26,6 +26,10 @@
     log: [],
     lastTry: 0,
     url: '',
+    // v3.8.0: room/matchmaking state
+    room: null,          // current room info { code, capacity, peers, isPrivate }
+    onRoom: null,        // fn(roomInfo)
+    onMmError: null,     // fn(reason)
   };
 
   function detectUrl(){
@@ -136,6 +140,19 @@
         // v3.7.0: party invite/accept/decline/leave routing
         if (Net.onParty) Net.onParty(m.from, m.action, m.to, m.partyId, m.members);
         break;
+      case 'room':
+        // v3.8.0: server tells us we're now in a room (with peer list)
+        Net.room = { code: m.code, capacity: m.capacity, peers: m.peers||[], isPrivate: !!m.isPrivate };
+        // when changing room, clear peer cache (old room's peers vanish)
+        Net.peers.clear();
+        for (const p of (m.peers||[])){
+          Net.peers.set(p.id, { name: p.name, rank: p.rank||1, lastT: performance.now(), alive: true });
+        }
+        if (Net.onRoom) Net.onRoom(Net.room);
+        break;
+      case 'mm_error':
+        if (Net.onMmError) Net.onMmError(m.reason||'unknown');
+        break;
     }
   }
 
@@ -198,5 +215,14 @@
     if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return;
     try{ Net.ws.send(JSON.stringify({ t:'party', action, to: to|0, partyId: partyId|0, members: members||null })); }catch(e){}
   };
+  // v3.8.0: matchmaking helpers
+  function _mm(obj){
+    if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return false;
+    try { Net.ws.send(JSON.stringify(obj)); return true; } catch(e){ return false; }
+  }
+  Net.findMatch  = function(cap){ return _mm({ t:'mm_find', cap: cap||8 }); };
+  Net.createRoom = function(cap){ return _mm({ t:'mm_create', cap: cap||8 }); };
+  Net.joinRoom   = function(code){ return _mm({ t:'mm_join', code: String(code||'').toUpperCase() }); };
+  Net.leaveRoom  = function(){ return _mm({ t:'mm_leave' }); };
   setInterval(()=>{if(!Net.disabled && !Net.online&&Net.url)Net.connect();},4000);
 })();
