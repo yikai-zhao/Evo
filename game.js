@@ -788,6 +788,8 @@ const G = {
   // v3.10.0: Bounty system — most wanted entity on the map
   bountyTarget: null,  // reference to the highest-rank living entity; null = none
   _bountyTimer: 0,     // countdown to next bounty refresh
+  // v3.11.0: Evolution time-slow — dt multiplier during evo cinematic
+  _evoSlow: 0,         // seconds remaining at slow speed (0.2x dt)
 };
 const FAKE_NAMES = ['Witch','Mystic Name','Brahman','Red Lord','Hermit','Spear of Society','Dark Philosopher','Sun','High Dyke','Trance','Rule','Deceiver','Hidden Lord','Reverberation','Conductor','Jiao One','Black Night','Student','Void Reducer','Elder Day','Devourer','Joy','Falsehood','Flame Tongue','Phantom Light','Kunlun','Penguin','Apostle of Flame','Medium','King'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
@@ -2044,6 +2046,10 @@ function tryPromote(p){
     }
     p.hp = p.maxHp; p.sta = p.maxSta; p.life = p.maxLife; // 晉階回滿所有狀態
     if (p.isPlayer) p.invuln = Math.max(p.invuln, 3); // 晉階短暫無敵
+    // v3.11.0: Evolution time-slow — world slows for the ascension moment
+    if (p.isPlayer){
+      G._evoSlow = (p.rank === 9) ? 1.5 : 0.8; // True God gets longer freeze
+    }
     promoted = true;
     if (p.isPlayer){
       const td = tierData(p);
@@ -2240,6 +2246,17 @@ function spawnEnemy(initial=false){
   if (e.rank===9 && G.thrones && !G.thrones[sp.path]){
     G.thrones[sp.path] = e;
     pushKillFeed(`★ The ${sp.path.toUpperCase()} Throne is seized by ${e.name||e.sp.name}!`, '#ffd66b');
+  }
+  // v3.11.0: high-rank AI get 1-2 authority slots for 權柄對抗
+  if (tier >= 5 && AUTHORITIES && AUTHORITIES.length){
+    e.authoritySlots = e.authoritySlots || [];
+    e.authCdT = e.authCdT || [];
+    const picks = tier >= 8 ? 2 : 1;
+    const shuffled = AUTHORITIES.slice().sort(()=>Math.random()-0.5);
+    for (let i=0; i<Math.min(picks, shuffled.length); i++){
+      e.authoritySlots.push({...shuffled[i]});
+      e.authCdT.push(rand(4, 12)); // stagger initial CD so they don't all fire at once
+    }
   }
   G.enemies.push(e);
 }
@@ -3457,6 +3474,39 @@ function aiUpdate(e, dt){
     if (e.skillQT<=0 && td<380 && Math.random()<0.005 && !(tgt&&tgt.isPlayer&&(tgt.invuln||0)>0) && e.rank>=(e.sp.skillQ.unlockRank||1)){
       try{ castSkill(e, e.sp.skillQ, 'Q'); }catch(_){}
       e.skillQT = e.sp.skillQ.cd * 1.5;
+    }
+    // v3.11.0: 權柄對抗 — R5+ AI cast authorities in combat
+    if ((e.rank||1) >= 5 && e.authoritySlots && e.authoritySlots.length && td < 900 && Math.random() < 0.004 * dt * 60){
+      try { castAuthorityAI(e); } catch(_){}
+    }
+    // v3.11.0: 聖域爭奪 — if player is channeling a rift, all R3+ rush it
+    if (!_isRetreating && (e.rank||1) >= 3 && G.rifts){
+      for (const rf of G.rifts){
+        if (rf.used || rf.ownT > 0) continue;
+        if (!G.player || G.player.hp <= 0) continue;
+        const pd = dist(G.player, rf);
+        if (pd < rf.r && (rf.cap||0) > 0){
+          const ed = dist(e, rf);
+          if (ed < 1400){
+            // rush the rift to contest
+            const ang = angTo(e, rf);
+            e.vx = Math.cos(ang)*e.spd*0.95; e.vy = Math.sin(ang)*e.spd*0.95;
+            e.facing = ang;
+          }
+        }
+      }
+    }
+  }
+  // v3.11.0: idle R5+ AI patrol toward nearest open rift
+  if (!tgt && (e.rank||1) >= 5 && G.rifts && Math.random() < 0.003 * dt * 60){
+    let nearRift = null, nearD = 2000;
+    for (const rf of G.rifts){
+      if (rf.used || rf.ownT > 0) continue;
+      const d = dist(e, rf); if (d < nearD){ nearD = d; nearRift = rf; }
+    }
+    if (nearRift && nearD > 200){
+      const ang = angTo(e, nearRift);
+      e._wx = Math.cos(ang); e._wy = Math.sin(ang); e.aiTimer = 2;
     }
   }
   e.x = clamp(e.x+e.vx*dt, 20, WORLD.w-20);
@@ -4883,11 +4933,67 @@ function updateBounty(dt){
   try { if (!best.isPlayer) { flash('#ffd66b',0.25); } } catch(_){}
 }
 
+// =====================================================================
+// v3.11.0: AI 權柄施放 — 高階 AI 在戰鬥中釋放權柄製造對抗感
+// =====================================================================
+function castAuthorityAI(e){
+  if (!e.authoritySlots || !e.authoritySlots.length) return;
+  let slot = -1;
+  for (let i = 0; i < e.authoritySlots.length; i++){
+    if (!e.authCdT) e.authCdT = [];
+    if ((e.authCdT[i]||0) <= 0){ slot = i; break; }
+  }
+  if (slot < 0) return;
+  const a = e.authoritySlots[slot];
+  if (!a) return;
+  e.authCdT[slot] = (a.cd || 16) * 1.6; // AI uses longer CD than player
+  const dh = e.daohen || 1;
+  pushKillFeed(`⚡ ${e.name||e.sp.name} unleashed ${a.name}!`, a.color||'#ff8800');
+  flash(a.color || '#ff8800', 0.35); shake(10);
+  G.shockwaves.push({x:e.x, y:e.y, r:0, max:700, life:0.7, color:a.color||'#ff8800'});
+  const targets = enemiesOf(e);
+  switch(a.id){
+    case 'frost':
+      for (const t of targets) if (dist(e,t)<1200){ dealDamage(e,t,80*dh,'#88e0ff'); t.freeze=Math.max(t.freeze||0,3); }
+      break;
+    case 'thunder':
+      try { chainLightning(e, 12, 110*dh, 380); } catch(_){}
+      break;
+    case 'gale':
+      for (const t of targets){ const d=dist(e,t); if(d<600){ const ang=angTo(e,t); t.x+=Math.cos(ang)*280; t.y+=Math.sin(ang)*280; t.slow=Math.max(t.slow||0,3); dealDamage(e,t,60*dh,'#aaffcc'); } }
+      break;
+    case 'fire':
+      for (const t of targets) if (dist(e,t)<600){ dealDamage(e,t,150*dh,'#ff5530'); t.bleed=Math.max(t.bleed||0,4); }
+      G.shockwaves.push({x:e.x, y:e.y, r:0, max:600, life:0.5, color:'#ff5530'});
+      break;
+    case 'titan':
+      if (!e.titanT || e.titanT<=0){ e.titanT=12; e.bonusAtkMult*=1.7; e.bonusDefMult*=1.5; e.bonusSizeMult*=1.5; recalcStats(e); }
+      break;
+    case 'time':
+      for (const t of targets) if (dist(e,t)<1400) t.freeze=Math.max(t.freeze||0,4);
+      break;
+    case 'void':
+      for (const t of targets){ const d=dist(e,t); if(d<900){ const ang=angTo(t,e); t.x+=Math.cos(ang)*Math.min(d*0.5,380); t.y+=Math.sin(ang)*Math.min(d*0.5,380); dealDamage(e,t,180*dh,'#7a00cc'); if(t.hp<=0) try{onKill(e,t);}catch(_){} } }
+      G.shockwaves.push({x:e.x,y:e.y,r:0,max:900,life:1.1,color:'#7a00cc'});
+      break;
+    case 'life':
+      e.maxHp += 60; e.hp = Math.min(e.hp+200, e.maxHp);
+      break;
+    default:
+      for (const t of targets) if (dist(e,t)<500){ dealDamage(e,t,90*dh, a.color||'#fff'); }
+  }
+}
+
 let lastT=0;
 function loop(t){
   let dt = Math.min(0.05, (t-lastT)/1000 || 0); lastT=t;
   // v1.5.0: pause when tab hidden / ad playing
   if (G.paused || document.hidden) dt = 0;
+  // v3.11.0: evolution time-slow — 0.2x speed during evo cinematic
+  if (G._evoSlow > 0 && dt > 0){
+    G._evoSlow -= dt;
+    dt *= 0.2;
+  }
   G.frameAcc += dt; G.frameN++;
   if (G.frameAcc >= 0.5){ G.fps = Math.round(G.frameN / G.frameAcc); G.frameAcc = 0; G.frameN = 0; }
   try {
@@ -6625,9 +6731,25 @@ function drawEvoReveal(){
   ctx.font = 'bold 30px sans-serif';
   ctx.fillStyle = '#ffffff';
   ctx.fillText(form.name, cx, cy + 108);
+  // v3.11.0: R9 True God — full-screen divine glow + throne text
+  if (rank === 9){
+    const godGrd = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W,H)*0.85);
+    godGrd.addColorStop(0, form.color + '55');
+    godGrd.addColorStop(0.5, form.color + '22');
+    godGrd.addColorStop(1, 'transparent');
+    ctx.globalAlpha = a * (0.35 + 0.15*Math.sin(elapsed*3));
+    ctx.fillStyle = godGrd;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = a;
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillStyle = '#ffd66b';
+    ctx.shadowColor = '#ffd66b'; ctx.shadowBlur = 20;
+    ctx.fillText('★  TRUE GOD  ★  THE THRONE IS YOURS  ★', cx, cy + 178);
+    ctx.shadowBlur = 0;
+  }
   ctx.font = '16px sans-serif';
-  ctx.fillStyle = '#aaaaaa';
-  ctx.fillText('Tier ' + rank + '  \u00b7  tap anywhere to dismiss', cx, cy + 148);
+  ctx.fillStyle = rank===9 ? '#ffd66b' : '#aaaaaa';
+  ctx.fillText(rank===9 ? 'Apotheosis · The Heavens Submit' : 'Tier ' + rank + '  \u00b7  tap anywhere to dismiss', cx, cy + 148);
   ctx.restore();
 }
 
