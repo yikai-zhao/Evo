@@ -132,6 +132,10 @@
         // v2.3.0: server-side global leaderboard
         if (window.G && Array.isArray(m.lb)) window.G._serverLB = m.lb;
         break;
+      case 'party':
+        // v3.7.0: party invite/accept/decline/leave routing
+        if (Net.onParty) Net.onParty(m.from, m.action, m.to, m.partyId, m.members);
+        break;
     }
   }
 
@@ -187,6 +191,12 @@
   Net.sendFx = function(kind, data){
     if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return;
     try{ Net.ws.send(JSON.stringify(Object.assign({ t:'fx', kind }, data||{}))); }catch(e){}
+  };
+  // v3.7.0: party invite messaging. action: 'invite' | 'accept' | 'decline' | 'leave' | 'roster'
+  Net.onParty = null;
+  Net.sendParty = function(action, to, partyId, members){
+    if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return;
+    try{ Net.ws.send(JSON.stringify({ t:'party', action, to: to|0, partyId: partyId|0, members: members||null })); }catch(e){}
   };
   setInterval(()=>{if(!Net.disabled && !Net.online&&Net.url)Net.connect();},4000);
 })();

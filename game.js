@@ -778,6 +778,13 @@ const G = {
   // v2.5.0: per-run metrics tracking (logged once into localStorage via recordFirst*Time)
   _metricsLogged: { firstKill:false, firstEvo:false },
   _runStartT: 0,
+  // v3.7.0: "Twilight of the Gods" — battle royale endgame
+  veil: null,        // { active, t, r, targetR, startR, damageT } — shrinking world boundary
+  party: null,       // { id, leader, members:Set<peerId>, invitedBy } — in-game social party
+  partyInvites: [], // [{from, fromName, partyId, t}] pending invites
+  ascended: null,   // { until, mult } — Apotheosis Inheritance buff after slaying a True God
+  finalT: 0,        // "Final Tribulation" banner timer
+  finalTriggered: false,
 };
 const FAKE_NAMES = ['Witch','Mystic Name','Brahman','Red Lord','Hermit','Spear of Society','Dark Philosopher','Sun','High Dyke','Trance','Rule','Deceiver','Hidden Lord','Reverberation','Conductor','Jiao One','Black Night','Student','Void Reducer','Elder Day','Devourer','Joy','Falsehood','Flame Tongue','Phantom Light','Kunlun','Penguin','Apostle of Flame','Medium','King'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
@@ -1930,6 +1937,20 @@ function recalcStats(p){
   if (p.life > p.maxLife) p.life = p.maxLife;
   // 被動回血
   p._regen = perk.regen;
+  // v3.7.0: Apotheosis Inheritance / Final Tribulation +30% buff
+  if (p.isPlayer && G.ascended && G.time < G.ascended.until){
+    const m = G.ascended.mult || 1.3;
+    p.maxHp = Math.floor(p.maxHp * m);
+    p.atk   = Math.floor(p.atk * m);
+    p.def   = Math.floor(p.def * m);
+    p.spd   = Math.min(620, Math.floor(p.spd * m));
+    if (p.hp > p.maxHp) p.hp = p.maxHp;
+  }
+  // v3.7.0: Path Bond — +15% atk/def while party member is in range
+  if (p.isPlayer && p._pathBondActive){
+    p.atk = Math.floor(p.atk * 1.15);
+    p.def = Math.floor(p.def * 1.15);
+  }
 }
 
 // =====================================================================
@@ -2341,6 +2362,10 @@ function setupInput(canvas){
     // v1.2.0 T 鍵開Chat — v2.7.0: 若 tutorial 顯示中，T 改為 skip
     if (k==='t' && G._tut && !G._tut.hidden){ e.preventDefault(); G._tut.hidden = true; markTutorialDone(); return; }
     if (k==='t' && G.started && window.Net && Net.online && !G._chatOpen){ e.preventDefault(); openChatInput(); }
+    // v3.7.0: party panel + quick-accept invite
+    if (k==='y' && G.started && !G.dead){ e.preventDefault(); try{ togglePartyPanel(); }catch(err){} }
+    if (k==='a' && G.started && G.partyInvites && G.partyInvites.length && !document.getElementById('partyPanel')){ try{ partyAccept(G.partyInvites[0]); }catch(err){} }
+    if (k==='d' && G.started && G.partyInvites && G.partyInvites.length && !document.getElementById('partyPanel')){ G.partyInvites.shift(); }
   });
   window.addEventListener('keyup', e=>{ KEYS[e.key.toLowerCase()]=false; });
   canvas.addEventListener('mousemove', e=>{
@@ -2533,6 +2558,7 @@ function doMelee(p){
   if (p===G.player && window.Net && Net.online){
     for (const [id, peer] of Net.peers){
       if (!peer || !peer.alive || peer.x===undefined) continue;
+      if (partyHas(id)) continue; // v3.7.0: party members can't damage each other
       const dx=peer.x-p.x, dy=peer.y-p.y, dd=Math.hypot(dx,dy);
       if (dd > r + (peer.r||14)) continue;
       const ang = Math.atan2(dy,dx);
@@ -2574,6 +2600,8 @@ function fireProjectile(p, ang, dmg, spd, color, pierce=1){
 function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
   // v1.2.0: PvP — 遠端玩家當作 target 時改派網路訊息
   if (target && target._isRemotePeer && window.Net && Net.online){
+    // v3.7.0: party members can't damage each other
+    if (partyHas(target._remoteId)) return 0;
     const d = Math.max(1, Math.round(dmg));
     Net.sendHit(target._remoteId, d, 'ranged');
     target.hitT = 0.3;
@@ -2763,6 +2791,8 @@ function onKill(attacker, target){
     if (target.rank===9 && target.sp && attacker.sp && target.sp.path === attacker.sp.path){
       attacker.q.killThrone = (attacker.q.killThrone||0) + 1;
     }
+    // v3.7.0: Power Inheritance — high-rank kills empower killer + nearby survivors
+    if (target.rank >= 7) { try { awardInheritance(target, attacker); } catch(e){} }
     let qiReward = 5 + target.rank*4;
     // v1.8.1: STRATEGY — penalize farming much-weaker enemies (must hunt up your weight class)
     if (target.rank < attacker.rank - 1){
@@ -3776,6 +3806,375 @@ function drawStatusBanner(){
     ctx.strokeText(t, cx, window.innerHeight-90); ctx.fillText(t, cx, window.innerHeight-90);
   }
 }
+
+// =====================================================================
+// v3.7.0: "Twilight of the Gods" — Shrinking Veil + Party + Power Inheritance
+// =====================================================================
+const VEIL_START_T   = 300;   // 5 min — Veil of Erasure begins
+const VEIL_END_T     = 1020;  // 17 min — fully shrunken (300 + 720s = 12 min shrink)
+const VEIL_MIN_R     = 1500;  // final ring radius
+const VEIL_TICK_DMG  = 0.018; // 1.8% maxHP per second outside the ring
+const PARTY_MAX      = 4;
+const PARTY_RANGE_BOND = 800; // within this range, party members get Path Bond buff
+
+function veilCenterX(){ return WORLD.w*0.5; }
+function veilCenterY(){ return WORLD.h*0.5; }
+function veilMaxR(){ return Math.min(WORLD.w, WORLD.h)*0.5 - 200; }
+function veilTargetRadius(){
+  if (!G.veil || !G.veil.active) return veilMaxR();
+  const elapsed = G.time - VEIL_START_T;
+  const total   = VEIL_END_T - VEIL_START_T;
+  const k = Math.max(0, Math.min(1, elapsed/total));
+  const easing = 1 - Math.pow(1-k, 1.4); // ease-out so early shrink is faster
+  return veilMaxR() - (veilMaxR()-VEIL_MIN_R)*easing;
+}
+function updateVeil(dt){
+  if (!G.started || G.dead || G.won) return;
+  if (!G.veil && G.time >= VEIL_START_T){
+    G.veil = { active:true, t:0, r:veilMaxR(), targetR:veilMaxR(), damageT:0, announceT:5 };
+    pushKillFeed('☄ The Veil of Erasure descends — flee to the centre!', '#ff66cc');
+    try { flash('#ff66cc', 0.5); shake(20); playSound('auth'); } catch(e){}
+    G.stageBannerText = 'Twilight of the Gods';
+    G.stageBannerSub = 'A purple void closes in. Survive at the centre.';
+    G.stageBannerT = 6;
+  }
+  if (!G.veil || !G.veil.active) return;
+  G.veil.t += dt;
+  G.veil.targetR = veilTargetRadius();
+  // Smooth lerp so the ring visibly contracts each frame
+  G.veil.r += (G.veil.targetR - G.veil.r) * Math.min(1, dt*0.6);
+  // Outside-ring damage to player
+  const p = G.player;
+  if (p && p.hp>0){
+    const dx = p.x - veilCenterX(), dy = p.y - veilCenterY();
+    const d = Math.hypot(dx, dy);
+    if (d > G.veil.r){
+      G.veil.damageT += dt;
+      if (G.veil.damageT >= 1){
+        G.veil.damageT = 0;
+        const dmg = Math.max(2, Math.floor(p.maxHp * VEIL_TICK_DMG));
+        p.hp -= dmg;
+        try { addFloat(p.x, p.y-30, '-'+dmg+' Erasure', '#ff66cc', 14, 1.2); } catch(e){}
+        if (p.hp<=0){ p.hp=0; G.deathBy = 'Consumed by the Veil of Erasure'; }
+      }
+    }
+  }
+  // Outside-ring damage to AI too (so endgame focuses everyone)
+  for (const e of G.enemies){
+    if (!e || e.hp<=0) continue;
+    const dx=e.x-veilCenterX(), dy=e.y-veilCenterY();
+    if (Math.hypot(dx,dy) > G.veil.r){
+      e.hp -= Math.max(1, e.maxHp * VEIL_TICK_DMG * dt);
+    }
+  }
+  // Trigger Final Tribulation when ring at min radius + few survivors
+  if (!G.finalTriggered && G.veil.r <= VEIL_MIN_R + 50){
+    const aliveAI = G.enemies.filter(e=>e&&e.hp>0&&e.rank>=6).length;
+    const alivePeers = (window.Net&&Net.peers) ? Array.from(Net.peers.values()).filter(pe=>pe.alive).length : 0;
+    if (aliveAI + alivePeers <= 5){
+      G.finalTriggered = true;
+      G.finalT = 8;
+      pushKillFeed('★★★ FINAL TRIBULATION — last gods standing ★★★', '#ffd66b');
+      try { flash('#ffd66b', 0.8); shake(40); playSound('promote'); } catch(e){}
+      // Survivors all get +30% stats
+      if (G.player && G.player.hp>0){
+        G.ascended = G.ascended || { until: G.time+60, mult: 1.3 };
+        G.ascended.until = G.time + 60; G.ascended.mult = 1.3;
+        try { recalcStats(G.player); } catch(e){}
+      }
+      // Drop an extra Outer God for chaos
+      try { spawnOuterGod && spawnOuterGod(); } catch(e){}
+    }
+  }
+}
+function drawVeil(){
+  if (!G.veil || !G.veil.active) return;
+  const cx = veilCenterX(), cy = veilCenterY(), r = G.veil.r;
+  // Outside dome — purple corruption gradient
+  const g = ctx.createRadialGradient(cx, cy, r*0.85, cx, cy, r*1.8);
+  g.addColorStop(0, 'rgba(80,20,120,0)');
+  g.addColorStop(0.55, 'rgba(120,30,160,0.35)');
+  g.addColorStop(1, 'rgba(200,40,255,0.7)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r*1.8, 0, Math.PI*2);
+  ctx.arc(cx, cy, r, 0, Math.PI*2, true);
+  ctx.fill('evenodd');
+  // Ring boundary
+  ctx.save();
+  const pulse = 0.5 + 0.5*Math.sin(G.time*3);
+  ctx.strokeStyle = 'rgba(255,90,220,' + (0.6+0.3*pulse) + ')';
+  ctx.lineWidth = 8 + 3*pulse;
+  ctx.shadowBlur = 30;
+  ctx.shadowColor = '#ff44cc';
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+  ctx.restore();
+}
+function drawVeilHUD(){
+  if (!G.veil || !G.veil.active || !G.player) return;
+  const p = G.player;
+  const dx = p.x - veilCenterX(), dy = p.y - veilCenterY();
+  const d = Math.hypot(dx, dy);
+  const outside = d > G.veil.r;
+  const timeLeft = Math.max(0, VEIL_END_T - G.time);
+  const mins = Math.floor(timeLeft/60), secs = Math.floor(timeLeft%60);
+  const txt = outside
+    ? `☠ Outside the Veil! — ring shrinks in ${mins}:${secs.toString().padStart(2,'0')}`
+    : `Veil radius: ${(G.veil.r/1000).toFixed(1)}k · final in ${mins}:${secs.toString().padStart(2,'0')}`;
+  ctx.save();
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = outside ? '#ff6688' : '#ff99dd';
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+  ctx.strokeText(txt, window.innerWidth/2, 60);
+  ctx.fillText(txt, window.innerWidth/2, 60);
+  ctx.restore();
+}
+
+// ----- Party System (in-game social) -----
+function partyHas(peerId){
+  return G.party && G.party.members && G.party.members.has(peerId|0);
+}
+function partyCreate(){
+  if (G.party) return G.party;
+  G.party = {
+    id: (Net && Net.myId ? Net.myId : ((Math.random()*1e9)|0)),
+    leader: (Net && Net.myId) || 0,
+    members: new Set([(Net && Net.myId) || 0]),
+  };
+  return G.party;
+}
+function partyLeave(){
+  if (!G.party) return;
+  // Notify members
+  if (window.Net && Net.online){
+    for (const id of G.party.members){
+      if (id !== Net.myId) try { Net.sendParty('leave', id, G.party.id); } catch(e){}
+    }
+  }
+  G.party = null;
+  pushKillFeed('You left the party', '#ffcc66');
+}
+function partyInvite(peerId){
+  if (!window.Net || !Net.online) { pushKillFeed('Multiplayer offline', '#ff8888'); return; }
+  partyCreate();
+  if (G.party.members.size >= PARTY_MAX){ pushKillFeed('Party full', '#ff8888'); return; }
+  try { Net.sendParty('invite', peerId, G.party.id); } catch(e){}
+  const peer = Net.peers.get(peerId);
+  pushKillFeed('★ Invited '+((peer&&peer.name)||('Player#'+peerId))+' to your party', '#ffd66b');
+}
+function partyAccept(invite){
+  if (!invite) return;
+  partyCreate();
+  G.party.id = invite.partyId;
+  G.party.leader = invite.from;
+  G.party.members.add(invite.from);
+  G.party.members.add((Net && Net.myId) || 0);
+  try { Net.sendParty('accept', invite.from, invite.partyId, Array.from(G.party.members)); } catch(e){}
+  pushKillFeed('★ Joined '+invite.fromName+"'s party", '#7fd07f');
+  G.partyInvites = G.partyInvites.filter(x=>x.partyId !== invite.partyId);
+}
+function partyOnMessage(fromId, action, toId, partyId, members){
+  if (toId && toId !== ((Net && Net.myId)||0)) return; // not addressed to us
+  if (action === 'invite'){
+    const peer = Net.peers.get(fromId);
+    G.partyInvites.push({ from:fromId, fromName:(peer&&peer.name)||('Player#'+fromId), partyId, t: 30 });
+    pushKillFeed('🤝 '+((peer&&peer.name)||('Player#'+fromId))+' invites you to a party — press Y to view', '#ffd66b');
+  } else if (action === 'accept'){
+    if (!G.party) partyCreate();
+    G.party.id = partyId;
+    if (Array.isArray(members)) for (const id of members) G.party.members.add(id|0);
+    G.party.members.add(fromId);
+    const peer = Net.peers.get(fromId);
+    pushKillFeed('★ '+((peer&&peer.name)||('Player#'+fromId))+' joined the party', '#7fd07f');
+  } else if (action === 'leave'){
+    if (G.party){ G.party.members.delete(fromId); if (G.party.members.size<=1){ G.party = null; pushKillFeed('Party disbanded', '#ffcc66'); } }
+  }
+}
+function updatePartyInvites(dt){
+  if (!G.partyInvites || !G.partyInvites.length) return;
+  for (const inv of G.partyInvites) inv.t -= dt;
+  G.partyInvites = G.partyInvites.filter(x=>x.t>0);
+}
+function drawPartyHUD(){
+  // Party panel (toggled by Y key) shown over the world; small banner always visible if in party
+  if (G.party && G.party.members.size>1){
+    const cnt = G.party.members.size;
+    ctx.save();
+    ctx.fillStyle = 'rgba(40,60,40,0.7)';
+    ctx.fillRect(window.innerWidth-180, 8, 170, 22);
+    ctx.fillStyle = '#7fd07f';
+    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('🤝 Party: '+cnt+'/'+PARTY_MAX+' (Y to manage)', window.innerWidth-174, 23);
+    ctx.restore();
+  }
+  // Incoming invites
+  if (G.partyInvites && G.partyInvites.length){
+    const inv = G.partyInvites[0];
+    ctx.save();
+    ctx.fillStyle = 'rgba(120,80,20,0.85)';
+    ctx.fillRect(window.innerWidth/2-200, 80, 400, 50);
+    ctx.fillStyle = '#ffd66b';
+    ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('🤝 '+inv.fromName+' invites you to a party', window.innerWidth/2, 100);
+    ctx.fillText('[Y] Open panel · [A] Accept · [D] Decline', window.innerWidth/2, 120);
+    ctx.restore();
+  }
+}
+function togglePartyPanel(){
+  let pnl = document.getElementById('partyPanel');
+  if (pnl){ pnl.remove(); return; }
+  pnl = document.createElement('div');
+  pnl.id = 'partyPanel';
+  pnl.style.cssText = 'position:fixed;right:14px;top:48px;width:280px;max-height:60vh;overflow:auto;background:rgba(20,16,32,0.94);border:2px solid #7fd07f;border-radius:8px;padding:10px;color:#eaeaea;font:13px sans-serif;z-index:99;box-shadow:0 4px 20px rgba(0,0,0,0.6)';
+  let html = '<div style="font-weight:700;color:#7fd07f;margin-bottom:6px">🤝 Party (press Y to close)</div>';
+  // Current party
+  if (G.party){
+    html += '<div style="color:#9fd09f;margin-bottom:4px">Your party ('+G.party.members.size+'/'+PARTY_MAX+'):</div>';
+    for (const id of G.party.members){
+      const isMe = id === ((Net&&Net.myId)||0);
+      const peer = isMe ? null : (Net&&Net.peers.get(id));
+      const name = isMe ? (G.player.name||'You') : (peer ? (peer.name||('Player#'+id)) : ('Player#'+id+' (offline)'));
+      html += '<div style="padding:3px 4px;color:'+(isMe?'#ffd66b':'#9fd09f')+'">• '+name+(isMe?' (you)':'')+'</div>';
+    }
+    html += '<button id="partyLeaveBtn" style="margin-top:6px;width:100%;padding:5px;background:#552222;color:#ffaaaa;border:1px solid #aa5555;border-radius:4px;cursor:pointer">Leave Party</button>';
+  } else {
+    html += '<div style="color:#888;margin-bottom:6px">No party. Invite a nearby player below.</div>';
+  }
+  // Pending invites
+  if (G.partyInvites && G.partyInvites.length){
+    html += '<div style="margin-top:10px;color:#ffd66b">Pending invites:</div>';
+    for (let i=0;i<G.partyInvites.length;i++){
+      const inv = G.partyInvites[i];
+      html += '<div style="margin-top:4px;padding:5px;background:rgba(120,80,20,0.4);border-radius:4px">'
+        + '<div style="color:#ffd66b">'+inv.fromName+'</div>'
+        + '<button class="acceptInvBtn" data-i="'+i+'" style="margin-right:4px;padding:3px 8px;background:#2a5a2a;color:#7fd07f;border:1px solid #5a8a5a;border-radius:3px;cursor:pointer">Accept</button>'
+        + '<button class="declineInvBtn" data-i="'+i+'" style="padding:3px 8px;background:#552222;color:#ffaaaa;border:1px solid #aa5555;border-radius:3px;cursor:pointer">Decline</button>'
+        + '</div>';
+    }
+  }
+  // Nearby peers (within 2500px)
+  if (window.Net && Net.peers && G.player){
+    const nearby = [];
+    for (const [id, peer] of Net.peers){
+      if (!peer.alive || partyHas(id)) continue;
+      const d = Math.hypot((peer.x||0)-G.player.x, (peer.y||0)-G.player.y);
+      if (d < 4000) nearby.push({id, peer, d});
+    }
+    nearby.sort((a,b)=>a.d-b.d);
+    if (nearby.length){
+      html += '<div style="margin-top:10px;color:#88ccff">Nearby players:</div>';
+      for (const {id, peer, d} of nearby.slice(0,8)){
+        html += '<div style="margin-top:4px;padding:5px;background:rgba(40,60,80,0.4);border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
+          + '<span>'+(peer.name||('Player#'+id))+' <span style="color:#888">R'+(peer.rank||1)+' · '+(d/1000).toFixed(1)+'k</span></span>'
+          + '<button class="invBtn" data-id="'+id+'" style="padding:3px 8px;background:#2a4a6a;color:#88ccff;border:1px solid #5a7aaa;border-radius:3px;cursor:pointer">Invite</button>'
+          + '</div>';
+      }
+    } else {
+      html += '<div style="margin-top:10px;color:#888">No other players nearby (within 4000px)</div>';
+    }
+  } else {
+    html += '<div style="margin-top:10px;color:#888">Multiplayer offline</div>';
+  }
+  pnl.innerHTML = html;
+  document.body.appendChild(pnl);
+  // Wire buttons
+  const leaveBtn = pnl.querySelector('#partyLeaveBtn');
+  if (leaveBtn) leaveBtn.onclick = ()=>{ partyLeave(); pnl.remove(); };
+  pnl.querySelectorAll('.invBtn').forEach(b=> b.onclick = ()=>{ partyInvite(parseInt(b.dataset.id,10)); pnl.remove(); });
+  pnl.querySelectorAll('.acceptInvBtn').forEach(b=> b.onclick = ()=>{ partyAccept(G.partyInvites[parseInt(b.dataset.i,10)]); pnl.remove(); });
+  pnl.querySelectorAll('.declineInvBtn').forEach(b=> b.onclick = ()=>{ G.partyInvites.splice(parseInt(b.dataset.i,10),1); pnl.remove(); });
+}
+
+// ----- Power Inheritance: high-rank kills empower survivors -----
+function awardInheritance(victim, killer){
+  if (!victim || (victim.rank||0) < 7) return;
+  const qiPool = Math.floor((victim.qi||0) * 0.5) + (victim.rank||0)*80;
+  // Killer gets the lion's share
+  if (killer && killer.isPlayer){
+    killer.qi = (killer.qi||0) + Math.floor(qiPool*0.6);
+    try { addFloat(killer.x, killer.y-40, '☄ Inherited +'+Math.floor(qiPool*0.6)+' Qi', '#ffd66b', 16, 2.5); } catch(e){}
+    if ((victim.rank||0) >= 9){
+      G.ascended = { until: G.time+30, mult: 1.3 };
+      try { recalcStats(killer); } catch(e){}
+      pushKillFeed('★★★ APOTHEOSIS INHERITANCE — +30% all stats for 30s ★★★', '#ffd66b');
+      try { flash('#ffd66b', 0.7); shake(35); playSound('promote'); } catch(e){}
+    }
+  }
+  // Remainder distributed to nearby survivors (player only — peers handled by their own clients)
+  if (G.player && G.player !== killer && G.player.hp>0){
+    const dx = G.player.x - victim.x, dy = G.player.y - victim.y;
+    if (Math.hypot(dx,dy) < 1500){
+      const share = Math.floor(qiPool*0.4 / 3);
+      G.player.qi = (G.player.qi||0) + share;
+      try { addFloat(G.player.x, G.player.y-40, '+'+share+' Qi (inheritance)', '#ff99dd', 14, 2); } catch(e){}
+    }
+  }
+}
+function updateAscended(dt){
+  if (!G.ascended) return;
+  if (G.time >= G.ascended.until){
+    G.ascended = null;
+    if (G.player) try { recalcStats(G.player); } catch(e){}
+    pushKillFeed('Apotheosis Inheritance fades', '#888');
+  }
+}
+
+// ----- Path Bond: party members within range get a buff (passive) -----
+function updatePathBond(){
+  if (!G.player || !G.party || G.party.members.size<2 || !window.Net) return;
+  let bond = false;
+  for (const id of G.party.members){
+    if (id === Net.myId) continue;
+    const peer = Net.peers.get(id);
+    if (!peer || !peer.alive) continue;
+    const d = Math.hypot((peer.x||0)-G.player.x, (peer.y||0)-G.player.y);
+    if (d < PARTY_RANGE_BOND){ bond = true; break; }
+  }
+  G.player._pathBondActive = bond;
+}
+
+// ----- Last-survivor win check -----
+function checkLastSurvivorWin(){
+  if (G.won || G.dead || !G.player || G.player.hp<=0) return;
+  if (!G.veil || !G.veil.active) return;
+  if (G.time < VEIL_END_T - 60) return; // only in the last minute
+  // Count living peers not in our party
+  let hostilePeers = 0;
+  if (window.Net && Net.peers){
+    for (const [id, peer] of Net.peers){
+      if (peer.alive && !partyHas(id)) hostilePeers++;
+    }
+  }
+  // Count rank-7+ AI inside the ring
+  let strongAI = 0;
+  for (const e of G.enemies){
+    if (e && e.hp>0 && (e.rank||0)>=7){
+      const dx=e.x-veilCenterX(), dy=e.y-veilCenterY();
+      if (Math.hypot(dx,dy) <= G.veil.r) strongAI++;
+    }
+  }
+  if (hostilePeers === 0 && strongAI === 0){
+    // Player + party are sole survivors
+    try { winGameLastStand(); } catch(e){}
+  }
+}
+function winGameLastStand(){
+  if (G.won) return;
+  G.won = true;
+  const el = document.getElementById('win');
+  if (el) el.classList.remove('hidden');
+  const ws = document.getElementById('winStats');
+  if (ws){
+    const partySize = G.party ? G.party.members.size : 1;
+    ws.textContent = partySize > 1
+      ? `★ Last party standing! ${partySize} souls survived the Veil of Erasure — your pact triumphs over all.`
+      : `★ Sole survivor of the Twilight! The Veil of Erasure parts before you — you alone remain among the gods.`;
+  }
+  try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
+  try { addCoins(300); pushKillFeed('🪙 +300 coins — Twilight Champion!', '#ffd66b'); } catch(e){}
+}
+
 let lastT=0;
 function loop(t){
   let dt = Math.min(0.05, (t-lastT)/1000 || 0); lastT=t;
@@ -3809,6 +4208,8 @@ function loop(t){
 function update(dt){
   G.time += dt;
   G._mDt = dt;
+  // v3.7.0: Twilight of the Gods ticks
+  try { updateVeil(dt); updateAscended(dt); updatePartyInvites(dt); updatePathBond(); checkLastSurvivorWin(); if (G.finalT>0) G.finalT -= dt; } catch(e){}
   // 相機平滑跟隨 + 世界邊界夾限 + NaN 保護
   if (!isFinite(G.player.x) || !isFinite(G.player.y)){ G.player.x = WORLD.w/2; G.player.y = WORLD.h/2; G.player.vx=0; G.player.vy=0; }
   G.cam.tx = G.player.x; G.cam.ty = G.player.y;
@@ -4038,6 +4439,7 @@ function render(){
     drawSpirits();
     drawPickups();
     drawAuthoritiesWorld();
+    try{ drawVeil(); }catch(e){}
     drawHazards();
     try{ drawBoss(); }catch(e){}
     try{ drawMiniboss(); }catch(e){}
@@ -4078,6 +4480,8 @@ function render(){
   try{ drawEvoReveal(); }catch(e){}
   try{ drawJoystick(); }catch(e){}
   try{ drawLeaderboard(); }catch(e){}
+  try{ drawVeilHUD(); }catch(e){}
+  try{ drawPartyHUD(); }catch(e){}
   ctx.fillStyle = G.fps<30 ? '#ff6666' : (G.fps<50 ? '#ffcc66' : '#88ff88');
   ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
   ctx.fillText('FPS '+G.fps, 8, window.innerHeight-8);
@@ -6813,6 +7217,8 @@ async function startGame(){
     Net.onWelcome = (m)=>{ logMsg('★ Connected to multiplayer server (your ID: '+m.id+', currently online: '+((m.peers||[]).length+1)+' players)','promote'); };
     Net.onHit = (fromId, dmg, kind)=>{
       if (!G.player || G.player.hp<=0) return;
+      // v3.7.0: party members don't damage each other
+      if (partyHas(fromId)) { try { addFloat(G.player.x, G.player.y-30, '🛡 Bond', '#7fd07f', 12, 0.6); } catch(e){} return; }
       const peer = Net.peers.get(fromId);
       const fake = { isPlayer:false, isRemotePeerAttacker:true, name:(peer&&peer.name)||('Player#'+fromId), x:(peer&&peer.x)||G.player.x, y:(peer&&peer.y)||G.player.y, hp:1, atk:dmg, perks:{} };
       dealDamage(fake, G.player, dmg, '#ff6688');
@@ -6842,6 +7248,10 @@ async function startGame(){
     Net.onEnemyKill = (nid)=>{
       const _ee = G.enemies.find(x=>x.nid===nid);
       if (_ee && _ee.hp>0){ _ee.hp=0; _ee._dead=true; }
+    };
+    // v3.7.0: party invite/accept/leave messages
+    Net.onParty = (fromId, action, toId, partyId, members)=>{
+      try { partyOnMessage(fromId, action, toId, partyId, members); } catch(e){ console.warn('[party]', e); }
     };
     // v3.2.0: skip multiplayer on platform builds (Poki/CrazyGames) — avoid
     // bleeding bandwidth to our own Render server when distributed on portals.
