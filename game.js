@@ -210,9 +210,9 @@ function _loadPortrait(key){
       const png = new Image();
       png.onload = ()=>{ rec[slot] = png; rec.ready = true; };
       png.onerror = ()=>{};
-      png.src = 'assets/species/' + key + (suffix||'') + '.png';
+      png.src = 'assets/species/' + key + (suffix||'') + '.png?v=3.6.0';
     };
-    img.src = 'assets/species/' + key + (suffix||'') + '.webp';
+    img.src = 'assets/species/' + key + (suffix||'') + '.webp?v=3.6.0';
   };
   tryLoad('', 'base');
   tryLoad('-r3','r3'); tryLoad('-r5','r5'); tryLoad('-r7','r7'); tryLoad('-r9','r9');
@@ -1127,9 +1127,9 @@ function _loadBossArt(type){
     const png = new Image();
     png.onload = ()=>{ _bossArtCache[type] = png; };
     png.onerror = ()=>{ _bossArtCache[type] = false; };
-    png.src = 'assets/bosses/' + type + '.png';
+    png.src = 'assets/bosses/' + type + '.png?v=3.6.0';
   };
-  img.src = 'assets/bosses/' + type + '.webp';
+  img.src = 'assets/bosses/' + type + '.webp?v=3.6.0';
   return null;
 }
 function updateBoss(b, dt){
