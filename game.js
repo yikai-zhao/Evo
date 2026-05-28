@@ -719,7 +719,7 @@ const G = {
   evoReveal:null,
   firstHunt:null,
   fps:60, frameAcc:0, frameN:0, mapOpen:false,
-  boss:null, bossSpawnT:240, bossDefeated:0,
+  bosses:[], bossSpawnT:240, bossDefeated:0,
   miniboss:null, minibossSpawnT:180, miniDefeated:0,
   event:null, eventCdT:120,  // Stars Align
   stage:1, stageBannerT:0, stageBannerText:'', stageBannerSub:'',
@@ -1036,19 +1036,26 @@ const BOSS_POOL = [
   { type:'phoenix', name:'Ashen Phoenix · Cycle-Breaker',     color:'#ffaa30', hp:27000, atk:175, accent:'#ff3344' },
   { type:'serpent', name:'Nine-Headed Verdant Serpent',       color:'#44dd66', hp:29000, atk:165, accent:'#aa44ff' },
 ];
+// v3.5.1: returns the closest living outer god to pos (for skills / melee / projectiles)
+function nearestBoss(pos){
+  let best=null, bd=Infinity;
+  for (const b of G.bosses){ if (!b||b.hp<=0) continue; const d=Math.hypot(b.x-(pos?pos.x:0),b.y-(pos?pos.y:0)); if(d<bd){bd=d;best=b;} }
+  return best;
+}
 function spawnBoss(){
   const cx=WORLD.w/2, cy=WORLD.h/2;
   // v2.9.0: cycle through pool (avoid repeating last one)
   let pick;
   do { pick = BOSS_POOL[(Math.random()*BOSS_POOL.length)|0]; } while (G._lastBossType && pick.type===G._lastBossType && BOSS_POOL.length>1);
   G._lastBossType = pick.type;
-  G.boss = {
+  const nb = {
     isBoss:true, type:pick.type, name:pick.name,
     x:cx, y:cy, vx:0, vy:0, r:80,
     hp:pick.hp, maxHp:pick.hp, atk:pick.atk,
     atkCdT:0, projT:4, eyeT:0, phase:1,
     color:pick.color, accent:pick.accent,
   };
+  G.bosses.push(nb);
   pushKillFeed('☄ '+pick.name+' descends ☄', pick.color);
   logMsg('★★★ '+pick.name+' arrives at map center — approach with caution ★★★','promote');
   try{ playSound('auth'); flash(pick.color,0.6); shake(30); }catch(e){}
@@ -1137,8 +1144,8 @@ function onBossDeath(b){
   G.shockwaves.push({x:b.x,y:b.y,r:0,max:800,life:1.5,color:'#aa44ff'});
 }
 function drawBoss(){
-  if (!G.boss || G.boss.hp<=0) return;
-  const b = G.boss;
+  for (const b of G.bosses){
+  if (!b || b.hp<=0) continue;
   const pul = 1 + Math.sin(b.eyeT*3)*0.1;
   const col = b.color || '#aa44ff';
   const acc = b.accent || '#ff44aa';
@@ -1392,9 +1399,11 @@ function drawBoss(){
   hg.addColorStop(0, col); hg.addColorStop(1, acc);
   ctx.fillStyle = hg; ctx.fillRect(b.x-bw/2, b.y-b.r*pul-26, bw*(b.hp/b.maxHp), bh);
   ctx.strokeStyle='#ffd66b'; ctx.lineWidth=1.5; ctx.strokeRect(b.x-bw/2, b.y-b.r*pul-26, bw, bh);
+  } // end bosses loop
 }
-function applyDamageToBoss(dmg){
-  if (G.boss && G.boss.hp>0){ G.boss.hp -= dmg; if (dmg>0) G.cam.hitFlash = Math.max(G.cam.hitFlash, 0.1); }
+function applyDamageToBoss(dmg, tgt){
+  const b = tgt || nearestBoss(G.player);
+  if (b && b.hp>0){ b.hp -= dmg; if (dmg>0) G.cam.hitFlash = Math.max(G.cam.hitFlash, 0.1); }
 }
 
 
@@ -1864,6 +1873,8 @@ function recalcStats(p){
   }
   p.def = Math.floor(def*zy*p.bonusDefMult*perk.def);
   p.spd = Math.floor(spd*zy*p.bonusSpdMult*perk.spd);
+  // v3.5.1: speed cap — high-rank entities shouldn't be visually untrackable
+  p.spd = Math.min(p.spd, p.isPlayer ? 560 : 320 + (p.rank||1)*20);
   p.r = p.base.r * (p.bonusSizeMult||1) * perk.size * (1 + (p.rank-1)*0.05);
   p.atkR = (p.base.atkR||0) * perk.range;
   if (p.base.rngR) p.rngR = p.base.rngR * perk.range;
@@ -2025,7 +2036,7 @@ function spawnInitialWorld(){
   const vw = Math.ceil(WORLD.w/vcs), vh = Math.ceil(WORLD.h/vcs);
   G.visited = [];
   for (let y=0;y<vh;y++){ const row=[]; for (let x=0;x<vw;x++) row.push(0); G.visited.push(row); }
-  G.stage = 1; G.eventCdT = 120; G.minibossSpawnT = 180; G.bossSpawnT = 240; G.timeline = [];
+  G.stage = 1; G.eventCdT = 120; G.minibossSpawnT = 180; G.bossSpawnT = 240; G.bosses = []; G.timeline = [];
   // 大地圖：道具/靈氣 — v1.7.0: leaner ambient density for combat focus
   for (let i=0;i<220;i++) spawnPickup();
   for (let i=0;i<160;i++) spawnSpirit();
@@ -2105,11 +2116,9 @@ function spawnEnemy(initial=false){
     } else if (G.time < 120){
       maxTier = Math.min(2, _pRank);
     } else {
-      // After tutorial: enemies match player ±1 tier, with elite spawns far from player
-      const baseTier = Math.max(1, _pRank - 1);
-      const farBonus = d > 3800 ? 2 : (d > 2500 ? 1 : 0);
-      const timeBonus = Math.floor((G.time - 120) / 180); // +1 max tier per 3min
-      maxTier = baseTier + farBonus + timeBonus;
+      // v3.5.1: max 1 rank above player — no time-based escalation that skips tiers
+      const farBonus = d > 4000 ? 1 : 0;
+      maxTier = _pRank + farBonus;
     }
   } else maxTier = 1;
   // v2.0: 9-level cap. Per-path population caps keep the True God tier scarce.
@@ -3081,7 +3090,7 @@ function castAuthority(p, slot){
           if (e.hp<=0) onKill(p,e);
         }
       }
-      if (G.boss && G.boss.hp>0 && dist(p,G.boss)<1200){ applyDamageToBoss(300*dh); }
+      { const _nb=nearestBoss(p); if (_nb && _nb.hp>0 && dist(p,_nb)<1200){ applyDamageToBoss(300*dh, _nb); } }
       flash('#7a00cc', 0.6);
       break;
     }
@@ -3089,7 +3098,7 @@ function castAuthority(p, slot){
       // 揭示全圖 + 重擊 Boss + 全圖修為加成
       G.revealT = 12;
       p.qiBonusT = 90; p.qiBonusMul = 1.5;
-      if (G.boss && G.boss.hp>0){ applyDamageToBoss(800*dh); addFloat(G.boss.x,G.boss.y-G.boss.r-40,'Starfall 800!','#ffdd66',20,1.5); }
+      { const _nb=nearestBoss(p); if (_nb && _nb.hp>0){ applyDamageToBoss(800*dh,_nb); addFloat(_nb.x,_nb.y-_nb.r-40,'Starfall 800!','#ffdd66',20,1.5); } }
       flash('#ffdd66', 1.0); shake(20);
       // 揭示時填滿 visited
       if (G.visited){ for (let y=0;y<G.visited.length;y++) for (let x=0;x<G.visited[0].length;x++) G.visited[y][x] = 1; }
@@ -3286,16 +3295,19 @@ function aiUpdate(e, dt){
 // 投射物 / 危險區 / 召喚物
 // =====================================================================
 function _bossProjCheck(pr){
-  if (!G.boss || G.boss.hp<=0) return false;
+  if (!G.bosses.length) return false;
   if (pr.hostile) return false;
-  if (Math.hypot(pr.x-G.boss.x, pr.y-G.boss.y) < G.boss.r + (pr.r||4)){
-    applyDamageToBoss(pr.dmg||10); pr._dead=true; G.particles.push({x:pr.x,y:pr.y,vx:0,vy:0,life:0.3,color:"#aa44ff",r:3}); return true;
+  for (const b of G.bosses){
+    if (!b || b.hp<=0) continue;
+    if (Math.hypot(pr.x-b.x, pr.y-b.y) < b.r + (pr.r||4)){
+      applyDamageToBoss(pr.dmg||10, b); pr._dead=true; G.particles.push({x:pr.x,y:pr.y,vx:0,vy:0,life:0.3,color:"#aa44ff",r:3}); return true;
+    }
   }
   return false;
 }
 function _playerMeleeBoss(p){
-  if (!G.boss || G.boss.hp<=0 || !p || !p.isPlayer) return;
-  if (dist(p, G.boss) < (p.atkR||50) + G.boss.r && p.atkCdT<=0){
+  if (!G.bosses.length || !p || !p.isPlayer) return;
+  if (dist(p, G.bosses[0]) < (p.atkR||50) + G.bosses[0].r && p.atkCdT<=0){
     /* melee handled in player attack code */
   }
 }
@@ -3305,7 +3317,7 @@ function updateProjectiles(dt){
     if (pr.life<=0 || pr.x<0||pr.y<0||pr.x>WORLD.w||pr.y>WORLD.h){ pr._gone=true; continue; }
     let targets = pr.owner.isPlayer ? G.enemies : (pr.owner.isMinion ? G.enemies.filter(e=>e!==pr.owner) : [G.player, ...G.minions]);
     if (pr.owner && pr.owner.isPlayer){
-      if (G.boss && G.boss.hp>0) targets = targets.concat([G.boss]);
+      for (const _b of G.bosses){ if (_b && _b.hp>0) targets.push(_b); }
       if (G.miniboss && G.miniboss.hp>0) targets = targets.concat([G.miniboss]);
       // v1.2.0 PvP 彈道：遠端玩家可被命中
       if (window.Net && Net.online){
@@ -3755,10 +3767,10 @@ function update(dt){
     const meleeReady = G.player._meleeTick<=0;
     if (meleeReady){
       let hit=false;
-      if (G.boss && G.boss.hp>0 && dist(G.player,G.boss)<(G.player.atkR||50)+G.boss.r+10){
-        dealDamage(G.player, G.boss, G.player.atk*0.8, '#ffd66b');
+      for (const _b of G.bosses){ if (_b && _b.hp>0 && dist(G.player,_b)<(G.player.atkR||50)+_b.r+10){
+        dealDamage(G.player, _b, G.player.atk*0.8, '#ffd66b');
         hit=true;
-      }
+      }}
       if (G.miniboss && G.miniboss.hp>0 && dist(G.player,G.miniboss)<(G.player.atkR||50)+G.miniboss.r+10){
         dealDamage(G.player, G.miniboss, G.player.atk*1.0, '#66ccff');
         hit=true;
@@ -3817,9 +3829,10 @@ function update(dt){
     }
   }
   // v0.9.0: 世界 Boss
-  if (G.boss && G.boss.hp<=0){ onBossDeath(G.boss); G.boss=null; G.bossSpawnT=150; }
-  if (!G.boss){ G.bossSpawnT -= dt; if (G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=150; } }
-  if (G.boss) updateBoss(G.boss, dt);
+  for (let _i=G.bosses.length-1;_i>=0;_i--){ if (G.bosses[_i].hp<=0){ onBossDeath(G.bosses[_i]); G.bosses.splice(_i,1); G.bossSpawnT=160; } }
+  const _maxB = G.stage>=5?3:(G.stage>=4?2:1);
+  if (G.stage>=3 && G.bosses.length<_maxB){ G.bossSpawnT-=dt; if(G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=150+G.bosses.length*40; } }
+  for (const _b of G.bosses) updateBoss(_b, dt);
   // v2.9.0: boss intro splash timer
   if (G._bossIntro && G._bossIntro.t > 0){ G._bossIntro.t -= dt; if (G._bossIntro.t <= 0) G._bossIntro = null; }
   // v1.0.0: 階段進程
@@ -3857,7 +3870,7 @@ function update(dt){
     for (let i=0;i<waveSize;i++){ try { spawnEnemy(false); } catch(e){} }
     // v3.5.0: miniboss from stage 1, Outer Gods from stage 3 (was stage 2/4) — escalate chaos faster
     if (newStage>=1 && !G.miniboss){ try { spawnMiniboss(); G.minibossSpawnT = 120; } catch(e){} }
-    if (newStage>=3 && !G.boss){ try { spawnBoss(); G.bossSpawnT = 120; } catch(e){} }
+    if (newStage>=3 && G.bosses.length===0){ try { spawnBoss(); G.bossSpawnT = 120; } catch(e){} }
     if (newStage>=4){ G.eventCdT = Math.min(G.eventCdT, 12); }
   }
   if (G.stageBannerT>0) G.stageBannerT -= dt;
@@ -4119,17 +4132,18 @@ function _drawVignette(){
   g.addColorStop(1, 'rgba(0,0,0,0.55)');
   ctx.fillStyle = g; ctx.fillRect(0,0,cw,ch);
   // Boss-active extra: animated colored aura on screen edges + low-frequency pulse
-  if (G.boss && G.boss.hp>0){
-    const col = G.boss.color || '#aa44ff';
-    const pul = 0.15 + Math.abs(Math.sin((G.boss.eyeT||0)*1.6))*0.18;
+  const _nb = nearestBoss(G.player);
+  if (_nb && _nb.hp>0){
+    const col = _nb.color || '#aa44ff';
+    const pul = 0.15 + Math.abs(Math.sin((_nb.eyeT||0)*1.6))*0.18;
     const g2 = ctx.createRadialGradient(cw/2, ch/2, Math.min(cw,ch)*0.25, cw/2, ch/2, Math.max(cw,ch)*0.7);
     g2.addColorStop(0, col + '00');
     g2.addColorStop(0.7, col + Math.floor(pul*120).toString(16).padStart(2,'0'));
     g2.addColorStop(1, col + Math.floor(pul*200).toString(16).padStart(2,'0'));
     ctx.fillStyle = g2; ctx.fillRect(0,0,cw,ch);
     // letter-box dark bars at low boss hp for "enraged" cinema
-    if (G.boss.hp < G.boss.maxHp * 0.3){
-      const barH = 28 + Math.sin((G.boss.eyeT||0)*4)*4;
+    if (_nb.hp < _nb.maxHp * 0.3){
+      const barH = 28 + Math.sin((_nb.eyeT||0)*4)*4;
       ctx.fillStyle = 'rgba(0,0,0,0.65)';
       ctx.fillRect(0, 0, cw, barH);
       ctx.fillRect(0, ch-barH, cw, barH);
@@ -5110,16 +5124,16 @@ function drawStarMap(){
     ctx.fillStyle = G.player.path.color; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
     ctx.fillText('You', px, py - 10);
   }
-  // v0.9.0: 外神 Boss
-  if (G.boss && G.boss.hp>0){
-    const bx = mx + G.boss.x*sx, by = my + G.boss.y*sy;
+  // v0.9.0: 外神 Boss (all alive)
+  for (const _ob of G.bosses){ if (!_ob || _ob.hp<=0) continue;
+    const bx = mx + _ob.x*sx, by = my + _ob.y*sy;
     const pul = 6 + Math.sin(G.time*4)*3;
-    ctx.fillStyle = '#aa44ff'; ctx.beginPath(); ctx.arc(bx,by,pul,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = '#ff44aa'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx,by,pul+4,0,Math.PI*2); ctx.stroke();
-    ctx.fillStyle = '#ff44aa'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('☄ '+G.boss.name, bx, by - 16);
+    ctx.fillStyle = _ob.color||'#aa44ff'; ctx.beginPath(); ctx.arc(bx,by,pul,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = _ob.accent||'#ff44aa'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx,by,pul+4,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle = _ob.accent||'#ff44aa'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('☄ '+_ob.name, bx, by - 16);
     ctx.fillStyle = '#aaa'; ctx.font='10px sans-serif';
-    ctx.fillText('HP '+(G.boss.hp|0)+'/'+G.boss.maxHp, bx, by + 18);
+    ctx.fillText('HP '+(_ob.hp|0)+'/'+_ob.maxHp, bx, by + 18);
   }
   // v1.3.0 線上玩家
   if(window.Net&&Net.peers)for(const[id,peer] of Net.peers){
@@ -5188,7 +5202,7 @@ function drawStarMap(){
     const ppx = mx + G.player.x*sx, ppy = my + G.player.y*sy;
     ctx.strokeStyle = '#aa44ff44'; ctx.lineWidth = 1; ctx.setLineDash([3,4]);
     for (const rf of G.rifts){ if (!rf.used){ ctx.beginPath(); ctx.moveTo(ppx,ppy); ctx.lineTo(mx+rf.x*sx, my+rf.y*sy); ctx.stroke(); } }
-    if (G.boss && G.boss.hp>0){ ctx.strokeStyle='#ff446688'; ctx.beginPath(); ctx.moveTo(ppx,ppy); ctx.lineTo(mx+G.boss.x*sx, my+G.boss.y*sy); ctx.stroke(); }
+    for (const _ob of G.bosses){ if (_ob && _ob.hp>0){ ctx.strokeStyle='#ff446688'; ctx.beginPath(); ctx.moveTo(ppx,ppy); ctx.lineTo(mx+_ob.x*sx, my+_ob.y*sy); ctx.stroke(); } }
     ctx.setLineDash([]);
   }
   // 羅盤
@@ -5250,8 +5264,8 @@ function drawMinimap(){
     const px = mx + (G.miniboss.x/WORLD.w)*mw, py = my + (G.miniboss.y/WORLD.h)*mh;
     ctx.fillStyle='#66ccff'; ctx.beginPath(); ctx.arc(px,py,3,0,Math.PI*2); ctx.fill();
   }
-  if (G.boss && G.boss.hp>0){
-    const px = mx + (G.boss.x/WORLD.w)*mw, py = my + (G.boss.y/WORLD.h)*mh;
+  if (G.bosses.length>0 && G.bosses[0].hp>0){
+    const px = mx + (G.bosses[0].x/WORLD.w)*mw, py = my + (G.bosses[0].y/WORLD.h)*mh;
     const pr = 5+Math.sin(G.time*4)*2;
     ctx.fillStyle='#aa44ff'; ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle='#ff44aa'; ctx.lineWidth=1; ctx.stroke();
@@ -5353,9 +5367,9 @@ function drawEdgeArrows(){
     }
     ctx.restore();
   }
-  // boss
-  if (G.boss && G.boss.hp>0){
-    const sc = worldToScreen(G.boss.x, G.boss.y);
+  // boss arrows (all alive outer gods)
+  for (const _ob of G.bosses){ if (!_ob||_ob.hp<=0) continue;
+    const sc = worldToScreen(_ob.x, _ob.y);
     if (sc.sx<0||sc.sx>W||sc.sy<0||sc.sy>H) drawArrow(sc.sx,sc.sy,'#aa44ff','BOSS');
   }
   // uncaptured rifts
@@ -5779,7 +5793,7 @@ function _bgmArpTick(){
     if (G.player && G.player.rank){
       intensity = Math.min(1, G.player.rank / 7);
     }
-    if (G.boss && G.boss.hp > 0) intensity = Math.min(1, intensity + 0.35);
+    if (G.bosses.some(b=>b&&b.hp>0)) intensity = Math.min(1, intensity + 0.35);
     if (G.killStreak >= 5) intensity = Math.min(1, intensity + 0.2);
   } catch(e){}
   // 每 8 步只播一次的玩家可感層；高強度時每 4 步一次
@@ -5808,7 +5822,7 @@ function _bgmArpTick(){
     o2.start(); o2.stop(a.currentTime + 0.5);
   }
   // v2.8.0: BOSS combat layer — sub-bass kick + dark sawtooth pulse every 4 steps when boss alive
-  if (G.boss && G.boss.hp > 0 && (BGM._step % 4) === 0){
+  if (G.bosses.some(b=>b&&b.hp>0) && (BGM._step % 4) === 0){
     // sub-bass kick (descending sine for that "boom" feel)
     const k = a.createOscillator(); k.type='sine';
     k.frequency.setValueAtTime(110, a.currentTime);
