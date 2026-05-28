@@ -31,6 +31,39 @@ const ROOT = __dirname;
 const DEFAULT_CAP = 8;
 const GLOBAL_ROOM = 'global';
 
+// ---- v3.9.0: leaderboard persistence ----
+const LB_FILE = path.join(ROOT, 'leaderboard.json');
+const LB_MAX = 200;
+let _lbCache = [];
+try { _lbCache = JSON.parse(fs.readFileSync(LB_FILE, 'utf8')); if (!Array.isArray(_lbCache)) _lbCache = []; } catch(e){ _lbCache = []; }
+function getTopScores(n){
+  return _lbCache.slice(0, n|0).map((e, i) => ({ ...e, rank: i+1 }));
+}
+function submitScore(entry){
+  // sanity: name 1-24 chars, score positive int, kills/rank positive ints, path string
+  if (!entry || typeof entry !== 'object') return null;
+  const name = String(entry.name || 'Anon').slice(0, 24).replace(/[\x00-\x1f<>]/g, '');
+  const score = Math.max(0, Math.min(9999999, Math.floor(+entry.score || 0)));
+  if (score <= 0) return null;
+  const item = {
+    name,
+    score,
+    rank: Math.max(1, Math.min(9, Math.floor(+entry.rank || 1))),
+    kills: Math.max(0, Math.min(9999, Math.floor(+entry.kills || 0))),
+    timeS: Math.max(0, Math.min(3600, Math.floor(+entry.timeS || 0))),
+    path: String(entry.path || '?').slice(0, 12),
+    won: !!entry.won,
+    ts: Date.now(),
+  };
+  _lbCache.push(item);
+  _lbCache.sort((a, b) => b.score - a.score);
+  if (_lbCache.length > LB_MAX) _lbCache.length = LB_MAX;
+  // best-effort persist (async, never blocks)
+  try { fs.writeFile(LB_FILE, JSON.stringify(_lbCache), () => {}); } catch(e){}
+  const idx = _lbCache.indexOf(item);
+  return { ...item, rank: idx + 1 };
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js':   'application/javascript; charset=utf-8',
@@ -49,6 +82,36 @@ const httpServer = http.createServer((req, res) => {
     return res.end(JSON.stringify({
       ok:true, clients: clients.size, rooms: rooms.size, time: Date.now()
     }));
+  }
+  // v3.9.0: global leaderboard (top 50 by score, persisted to disk)
+  if (req.url === '/leaderboard' || req.url.startsWith('/leaderboard?')){
+    res.writeHead(200, {
+      'Content-Type':'application/json',
+      'Cache-Control':'public, max-age=15',
+      'Access-Control-Allow-Origin':'*',
+    });
+    return res.end(JSON.stringify({ top: getTopScores(50) }));
+  }
+  if (req.method === 'POST' && req.url === '/leaderboard'){
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > 4096) req.destroy(); });
+    req.on('end', () => {
+      try {
+        const entry = JSON.parse(body);
+        const saved = submitScore(entry);
+        res.writeHead(200, {'Content-Type':'application/json', 'Access-Control-Allow-Origin':'*'});
+        res.end(JSON.stringify({ ok: !!saved, rank: saved ? saved.rank : null }));
+      } catch(e){ res.writeHead(400); res.end('bad json'); }
+    });
+    return;
+  }
+  if (req.method === 'OPTIONS' && req.url === '/leaderboard'){
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin':'*',
+      'Access-Control-Allow-Methods':'GET, POST',
+      'Access-Control-Allow-Headers':'Content-Type',
+    });
+    return res.end();
   }
   const urlPath = req.url.split('?')[0];
   const filePath = path.join(ROOT, urlPath === '/' ? 'index.html' : urlPath);

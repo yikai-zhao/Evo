@@ -1174,6 +1174,8 @@ function onBossDeath(b){
     G.bossDefeated++;
     // v3.6.0: Outer God kill = big Soul Shard reward + meta progression
     try { addSoulShards(40, 'Outer God slain'); const _m=getMeta(); _m.totalBossKills=(_m.totalBossKills||0)+1; saveMeta(_m); } catch(e){}
+    // v3.9.0: guaranteed Authority Shard from Outer God
+    try { spawnAuthorityShard(b.x + rand(-30,30), b.y + rand(-30,30), 'boss'); } catch(e){}
     // v3.2.0: max happyTime signal — boss kill is peak engagement
     try { if (window.SDK && SDK.happyTime) SDK.happyTime(1.0); } catch(e){}
     // v3.4.0: midroll ad on boss-kill euphoria (SDK throttles to >=120s gap, so safe-spam)
@@ -2380,6 +2382,8 @@ function setupInput(canvas){
     if (k==='d' && G.started && G.partyInvites && G.partyInvites.length && !document.getElementById('partyPanel')){ G.partyInvites.shift(); }
     // v3.8.0: matchmaking modal (works both on title and in-game)
     if (k==='n'){ e.preventDefault(); try { openMatchmakingModal(); } catch(err){} }
+    // v3.9.0: leaderboard (L key)
+    if (k==='l'){ e.preventDefault(); try { openLeaderboardModal(); } catch(err){} }
   });
   window.addEventListener('keyup', e=>{ KEYS[e.key.toLowerCase()]=false; });
   canvas.addEventListener('mousemove', e=>{
@@ -2536,13 +2540,13 @@ function updatePlayer(p, dt){
   if (KEYS['e'] && p.skillET<=0 && p.rank>=(p.sp.skillE.unlockRank||1)){ castSkill(p, p.sp.skillE, 'E'); p.skillET = _skillCd(p, p.sp.skillE, 'E'); }
   if (KEYS['r'] && p.skillRT<=0 && p.rank>=(p.sp.skillR.unlockRank||1)){ castSkill(p, p.sp.skillR, 'R'); p.skillRT = _skillCd(p, p.sp.skillR, 'R'); }
 
-  // 權柄
-  if (KEYS['1'] && p.authoritySlots[0] && p.authCdT[0]<=0){ castAuthority(p,0); p.authCdT[0] = p.authoritySlots[0].cd; }
-  if (KEYS['2'] && p.authoritySlots[1] && p.authCdT[1]<=0){ castAuthority(p,1); p.authCdT[1] = p.authoritySlots[1].cd; }
-  if (KEYS['3'] && p.authoritySlots[2] && p.authCdT[2]<=0){ castAuthority(p,2); p.authCdT[2] = p.authoritySlots[2].cd; }
-  if (KEYS['4'] && p.authoritySlots[3] && p.authCdT[3]<=0){ castAuthority(p,3); p.authCdT[3] = p.authoritySlots[3].cd; }
-  if (KEYS['5'] && p.authoritySlots[4] && p.authCdT[4]<=0){ castAuthority(p,4); p.authCdT[4] = p.authoritySlots[4].cd; }
-  if (KEYS['6'] && p.authoritySlots[5] && p.authCdT[5]<=0){ castAuthority(p,5); p.authCdT[5] = p.authoritySlots[5].cd; }
+  // 權柄 — v3.9.0: CD passes through _effectiveCD (path affinity = -40% CD)
+  if (KEYS['1'] && p.authoritySlots[0] && p.authCdT[0]<=0){ castAuthority(p,0); p.authCdT[0] = _effectiveCD(p, p.authoritySlots[0]); }
+  if (KEYS['2'] && p.authoritySlots[1] && p.authCdT[1]<=0){ castAuthority(p,1); p.authCdT[1] = _effectiveCD(p, p.authoritySlots[1]); }
+  if (KEYS['3'] && p.authoritySlots[2] && p.authCdT[2]<=0){ castAuthority(p,2); p.authCdT[2] = _effectiveCD(p, p.authoritySlots[2]); }
+  if (KEYS['4'] && p.authoritySlots[3] && p.authCdT[3]<=0){ castAuthority(p,3); p.authCdT[3] = _effectiveCD(p, p.authoritySlots[3]); }
+  if (KEYS['5'] && p.authoritySlots[4] && p.authCdT[4]<=0){ castAuthority(p,4); p.authCdT[4] = _effectiveCD(p, p.authoritySlots[4]); }
+  if (KEYS['6'] && p.authoritySlots[5] && p.authCdT[5]<=0){ castAuthority(p,5); p.authCdT[5] = _effectiveCD(p, p.authoritySlots[5]); }
 
   // 自動拾取
   autoPickup(p);
@@ -2737,6 +2741,8 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
     playSound('hurt');
   } else if (attacker && attacker.isPlayer){
     playSound('hit');
+    // v3.9.0: dealing damage charges authority cooldowns
+    try { _addAuthorityCharge(attacker, Math.max(0.03, final * 0.0015)); } catch(e){}
     // v1.6.2 combat juice: sparks + tiny shake + brief screen tint on player hits
     G.cam.shake = Math.max(G.cam.shake, isCrit ? 8 : 3);
     if (isCrit) flash('#ffeb40', 0.35);
@@ -3311,6 +3317,8 @@ function autoPickup(p){
       p.sanity = Math.min(p.maxSanity, p.sanity+25);
       G.timeline.push({t:G.time, text:'Captured '+rf.name});
       grantRiftReward(p, rf);
+      // v3.9.0: every 2nd rift drops an Authority Shard
+      try { if (p.q.riftsUsed % 2 === 0) spawnAuthorityShard(rf.x + rand(-20,20), rf.y + rand(-20,20), 'rift'); } catch(e){}
     }
   }
   // v1.7.0: SAN system removed — pin sanity full so legacy quest gates never block
@@ -3339,6 +3347,7 @@ function grantRiftReward(p, rf){
 }
 function applyPickup(p, it){
   playSound('pickup');
+  if (it._shard){ consumeAuthorityShard(p); logMsg(`Picked up ${it.name}`); return; }
   if (it.qi){ p.qi += it.qi; addFloat(p.x,p.y-20,`+${it.qi} XP`,'#bb88ff',12,1); }
   if (it.heal){ p.hp = Math.min(p.maxHp, p.hp+it.heal); addFloat(p.x,p.y-20,`+${it.heal} HP`,'#ff6677',12,1); }
   if (it.bighp){ p.maxHp += it.bighp; p.hp += it.bighp; addFloat(p.x,p.y-20,`+${it.bighp} max HP`,'#ff2244',14,1); }
@@ -3602,6 +3611,7 @@ function die(reason){
   G.killStreak = 0;
   G.dead = true;
   try { saveProgress({onDeath:true}); } catch(e){}
+  try { submitRunScore(); } catch(e){}
   playSound('death');
   // v2.8.0: cinematic death — explosive FX + 1.6s slow-mo before overlay (short-video gold)
   G._deathReason = reason || G.deathBy || 'Unknown cause';
@@ -3784,6 +3794,8 @@ function winGame(){
   try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
   // v3.7.0: viral share button — reward coins for sharing (drives organic acquisition)
   try { _setupWinShareButton(); } catch(e){}
+  // v3.9.0: submit to global + local leaderboards
+  try { submitRunScore(); } catch(e){}
 }
 
 // v3.7.0: win-screen share button — the biggest organic-growth lever for web games.
@@ -4241,6 +4253,8 @@ function winGameLastStand(){
   try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
   try { addCoins(300); pushKillFeed('🪙 +300 coins — Twilight Champion!', '#ffd66b'); } catch(e){}
   try { _setupWinShareButton(); } catch(e){}
+  // v3.9.0: submit to global + local leaderboards
+  try { submitRunScore(); } catch(e){}
 }
 
 // =====================================================================
@@ -4507,6 +4521,282 @@ function drawRoomHUD(){
   ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
   ctx.fillText(`${r.isPrivate?'🔒':'🎯'} Room ${r.code} · ${peerCnt}/${r.capacity}`, 14, 23);
   ctx.restore();
+}
+
+// =====================================================================
+// v3.9.0 — Authority Redesign + Leaderboards
+// =====================================================================
+
+// ----- Authority path affinity: each path has a signature authority that
+//       costs less CD and hits harder. Encourages thematic builds. -----
+const PATH_AUTHORITY_AFFINITY = {
+  human:  'time',     // Gu Masters bend time
+  dragon: 'thunder',  // Dragons command storms
+  beast:  'titan',    // Beasts grow titanic
+  bird:   'gale',     // Birds master wind
+  fish:   'frost',    // Fish freeze the seas
+  insect: 'void',     // Insects from rifts
+};
+// Returns affinity multiplier object for a given authority+player.
+function _authMod(p, a){
+  const sig = p && p.pathKey && PATH_AUTHORITY_AFFINITY[p.pathKey] === a.id;
+  // Tier from Authority Shards (collected from rifts/bosses). Stored on slot itself.
+  const tier = (a._tier || 1);
+  // damage scale: 1x / 1.5x / 2.2x for tier 1/2/3
+  const tierMul = tier === 3 ? 2.2 : (tier === 2 ? 1.5 : 1.0);
+  return {
+    sig,
+    tier,
+    cdMul: sig ? 0.6 : 1.0,            // signature → CD -40%
+    dmgMul: (sig ? 1.3 : 1.0) * tierMul,
+    radiusMul: sig ? 1.15 : 1.0,
+    label: tier === 3 ? 'True' : (tier === 2 ? 'Greater' : 'Lesser'),
+  };
+}
+// Hook: replace raw `a.cd` with effective CD after cast.
+function _effectiveCD(p, a){
+  const m = _authMod(p, a);
+  return Math.max(3, (a.cd || 10) * m.cdMul);
+}
+
+// ----- Authority Shards: rare loot that upgrades a held authority's tier -----
+// Spawned at rift captures and Outer-God deaths. Pick one up while having
+// any authority equipped and the lowest-tier slot upgrades by 1.
+function spawnAuthorityShard(x, y, source){
+  G.pickups.push({
+    id:'auth_shard', name:'Authority Shard', color:'#ffd66b', icon:'◆',
+    x, y, _shard:true, _source: source||'rift',
+    qi:0, heal:0,
+  });
+}
+// Called from applyPickup when player picks up an Authority Shard.
+function consumeAuthorityShard(p){
+  if (!p || !p.authoritySlots || p.authoritySlots.length === 0){
+    addCoins(15); pushKillFeed('◆ Authority Shard → +15 coins (no authority equipped)', '#ffd66b');
+    return;
+  }
+  // Find lowest-tier slot; if all tier 3, give bonus coins instead.
+  let bestIdx = -1, bestTier = 4;
+  for (let i=0; i<p.authoritySlots.length; i++){
+    const t = p.authoritySlots[i]._tier || 1;
+    if (t < bestTier){ bestTier = t; bestIdx = i; }
+  }
+  if (bestIdx === -1 || bestTier >= 3){
+    addCoins(30); pushKillFeed('◆ All authorities maxed → +30 coins', '#ffd66b');
+    return;
+  }
+  const a = p.authoritySlots[bestIdx];
+  a._tier = bestTier + 1;
+  const tierName = a._tier === 3 ? 'TRUE' : 'Greater';
+  pushKillFeed(`★ ${a.name} upgraded to ${tierName}!`, a.color);
+  try { flash(a.color, 0.7); shake(15); playSound('promote'); addFloat(p.x, p.y-40, `${tierName} ${a.name}`, a.color, 18, 2.0); } catch(e){}
+}
+
+// ----- Charge meter: dealing/taking damage charges authorities faster.
+//       Replaces dead-time waiting with active play reward. -----
+// Stores accumulated charge on player; spreads across all slots equally.
+function _addAuthorityCharge(p, amount){
+  if (!p || !p.authoritySlots || p.authoritySlots.length === 0) return;
+  for (let i=0;i<p.authCdT.length;i++){
+    if (p.authCdT[i] > 0) p.authCdT[i] = Math.max(0, p.authCdT[i] - amount);
+  }
+}
+
+// ----- Authority HUD: draws icons + tier + CD bar bottom-center -----
+function drawAuthorityHUD(){
+  if (!G.player || !G.player.authoritySlots) return;
+  const slots = G.player.authoritySlots.slice(0, 3); // we display 1/2/3 keys
+  if (slots.length === 0) return;
+  const size = 56, gap = 8;
+  const totalW = slots.length * size + (slots.length-1) * gap;
+  const startX = window.innerWidth/2 - totalW/2;
+  const y = window.innerHeight - 78;
+  ctx.save();
+  for (let i=0; i<slots.length; i++){
+    const a = slots[i];
+    const x = startX + i*(size+gap);
+    const cd = G.player.authCdT[i] || 0;
+    const maxCd = _effectiveCD(G.player, a);
+    const ready = cd <= 0;
+    const tier = a._tier || 1;
+    const sig = G.player.pathKey && PATH_AUTHORITY_AFFINITY[G.player.pathKey] === a.id;
+    // Outer frame
+    ctx.fillStyle = ready ? 'rgba(20,16,32,0.85)' : 'rgba(20,16,32,0.6)';
+    ctx.fillRect(x, y, size, size);
+    ctx.strokeStyle = sig ? '#ffd66b' : (ready ? a.color : '#444');
+    ctx.lineWidth = sig ? 3 : 2;
+    ctx.strokeRect(x+0.5, y+0.5, size-1, size-1);
+    // CD fill bottom-up
+    if (!ready){
+      const pct = Math.min(1, cd / maxCd);
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(x+2, y+2, size-4, (size-4) * pct);
+    }
+    // Icon
+    ctx.font = ready ? '32px serif' : '28px serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.globalAlpha = ready ? 1.0 : 0.5;
+    ctx.fillStyle = a.color;
+    ctx.fillText(a.icon || '?', x + size/2, y + size/2);
+    ctx.globalAlpha = 1.0;
+    // Tier pips top-left
+    for (let t=0;t<tier;t++){
+      ctx.fillStyle = '#ffd66b';
+      ctx.beginPath(); ctx.arc(x + 6 + t*6, y + 6, 2, 0, Math.PI*2); ctx.fill();
+    }
+    // CD seconds text
+    if (!ready){
+      ctx.font = 'bold 11px monospace';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+      const txt = cd < 10 ? cd.toFixed(1) : Math.ceil(cd).toString();
+      ctx.strokeText(txt, x + size/2, y + size - 10);
+      ctx.fillText(txt, x + size/2, y + size - 10);
+    }
+    // Key hint
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = '#aaa'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(String(i+1), x + size/2, y - 4);
+  }
+  ctx.restore();
+}
+
+// =====================================================================
+// Leaderboard — local season + global server
+// =====================================================================
+const EVO_LB_KEY = 'evo_lb_local_v1';
+function _computeScore(p){
+  if (!p) return 0;
+  const rank   = p.rank || 1;
+  const kills  = (p.q && p.q.kills) || 0;
+  const time   = Math.floor(G.time || 0);
+  const win    = G.won ? 1 : 0;
+  const veil   = (G.veil && G.veil.active) ? 1 : 0;
+  return rank * 1000
+    + kills * 10
+    + time
+    + win * 5000
+    + veil * 800;
+}
+function _localBoard(){
+  try { const a = JSON.parse(localStorage.getItem(EVO_LB_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch(e){ return []; }
+}
+function _saveLocalBoard(a){ try { localStorage.setItem(EVO_LB_KEY, JSON.stringify(a.slice(0, 50))); } catch(e){} }
+function submitLocalScore(entry){
+  const list = _localBoard();
+  list.push(entry);
+  list.sort((a, b) => b.score - a.score);
+  _saveLocalBoard(list);
+  return list.findIndex(e => e === entry) + 1;
+}
+function submitGlobalScore(entry, cb){
+  if (!window.fetch) return;
+  // Resolve server origin: same host as the WS server (if present), else current host.
+  let base = '';
+  try {
+    if (window.Net && Net.url){
+      // Net.url is like wss://host:port/ws — strip /ws and switch ws→http
+      base = Net.url.replace(/^wss?:\/\//, location.protocol + '//').replace(/\/ws$/, '');
+    } else {
+      base = location.origin;
+    }
+  } catch(e){ base = location.origin; }
+  fetch(base + '/leaderboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  }).then(r => r.json()).then(j => { if (cb) cb(j); }).catch(()=>{});
+}
+function fetchGlobalBoard(cb){
+  if (!window.fetch) return;
+  let base = '';
+  try {
+    if (window.Net && Net.url){
+      base = Net.url.replace(/^wss?:\/\//, location.protocol + '//').replace(/\/ws$/, '');
+    } else { base = location.origin; }
+  } catch(e){ base = location.origin; }
+  fetch(base + '/leaderboard').then(r => r.json()).then(j => cb && cb(j.top || [])).catch(() => cb && cb([]));
+}
+// Submit on game end (death or win). Called from die()/winGame()/winGameLastStand().
+function submitRunScore(){
+  if (!G.player || !G._scoreSubmitted){
+    G._scoreSubmitted = true;
+    const p = G.player;
+    if (!p) return;
+    const entry = {
+      name: p.name || (G.selectedSpecies && G.selectedSpecies.name) || 'Anon',
+      score: _computeScore(p),
+      rank: p.rank || 1,
+      kills: (p.q && p.q.kills) || 0,
+      timeS: Math.floor(G.time || 0),
+      path: (p.path && p.path.name) || (p.pathKey || '?'),
+      won: !!G.won,
+      ts: Date.now(),
+    };
+    const localRank = submitLocalScore(entry);
+    pushKillFeed(`📊 Local rank #${localRank} (score ${entry.score})`, '#5fa8ff');
+    submitGlobalScore(entry, (resp) => {
+      if (resp && resp.ok && resp.rank){
+        pushKillFeed(`🌐 Global rank #${resp.rank}!`, '#ffd66b');
+      }
+    });
+  }
+}
+
+// Leaderboard modal (title screen + post-game)
+function openLeaderboardModal(){
+  if (document.getElementById('lbModal')) return;
+  const m = document.createElement('div');
+  m.id = 'lbModal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+  m.innerHTML = `
+    <div style="background:#181425;border:2px solid #ffd66b;border-radius:12px;padding:24px;min-width:380px;max-width:90%;max-height:80vh;overflow:auto;color:#eaeaea;box-shadow:0 8px 40px rgba(0,0,0,0.7)">
+      <div style="font-size:18px;font-weight:700;color:#ffd66b;margin-bottom:14px">🏆 Leaderboards</div>
+      <div style="display:flex;gap:4px;margin-bottom:12px">
+        <button class="lbTab" data-tab="global" style="flex:1;padding:8px;background:#2a4a6a;color:#cce8ff;border:1px solid #5fa8ff;border-radius:4px;cursor:pointer">🌐 Global Top 50</button>
+        <button class="lbTab" data-tab="local" style="flex:1;padding:8px;background:#3a2a4a;color:#ddccff;border:1px solid #aa66ff;border-radius:4px;cursor:pointer">📜 Your Personal Best</button>
+      </div>
+      <div id="lbBody" style="font-size:12px;min-height:200px">Loading…</div>
+      <button id="lbCloseBtn" style="display:block;width:100%;margin-top:14px;padding:8px;background:#444;color:#ccc;border:1px solid #666;border-radius:6px;cursor:pointer">Close</button>
+    </div>`;
+  document.body.appendChild(m);
+  const body = m.querySelector('#lbBody');
+  function renderRows(rows, isGlobal){
+    if (!rows || rows.length === 0){
+      body.innerHTML = '<div style="color:#888;text-align:center;padding:30px">No scores yet — play a run!</div>';
+      return;
+    }
+    let h = '<table style="width:100%;border-collapse:collapse;font-size:11px">'
+      + '<tr style="color:#aaa;text-align:left;border-bottom:1px solid #444"><th style="padding:4px">#</th><th>Name</th><th>Path</th><th style="text-align:right">Score</th><th style="text-align:right">R</th><th style="text-align:right">Kills</th><th style="text-align:right">Time</th></tr>';
+    for (let i=0; i<rows.length; i++){
+      const e = rows[i];
+      const mins = Math.floor((e.timeS||0)/60), secs = (e.timeS||0)%60;
+      const tColor = e.won ? '#ffd66b' : (e.rank>=8 ? '#aa66ff' : (e.rank>=5 ? '#7fd07f' : '#eaeaea'));
+      h += `<tr style="color:${tColor};border-bottom:1px solid #222">`
+        + `<td style="padding:4px">${i+1}</td>`
+        + `<td>${e.won?'★ ':''}${(e.name||'?').slice(0,16)}</td>`
+        + `<td style="color:#888">${(e.path||'?').slice(0,8)}</td>`
+        + `<td style="text-align:right;font-weight:700">${e.score}</td>`
+        + `<td style="text-align:right">${e.rank||1}</td>`
+        + `<td style="text-align:right">${e.kills||0}</td>`
+        + `<td style="text-align:right">${mins}:${secs.toString().padStart(2,'0')}</td>`
+        + `</tr>`;
+    }
+    h += '</table>';
+    body.innerHTML = h;
+  }
+  function show(tab){
+    if (tab === 'local'){
+      renderRows(_localBoard().slice(0, 50), false);
+    } else {
+      body.innerHTML = '<div style="color:#888;text-align:center;padding:30px">Loading global…</div>';
+      fetchGlobalBoard((rows) => renderRows(rows, true));
+    }
+  }
+  m.querySelectorAll('.lbTab').forEach(b => b.onclick = () => show(b.dataset.tab));
+  m.querySelector('#lbCloseBtn').onclick = () => m.remove();
+  show('global');
 }
 
 let lastT=0;
@@ -4819,6 +5109,7 @@ function render(){
   try{ drawPartyHUD(); }catch(e){}
   try{ drawTimelineHUD(); }catch(e){}
   try{ drawRoomHUD(); }catch(e){}
+  try{ drawAuthorityHUD(); }catch(e){}
   ctx.fillStyle = G.fps<30 ? '#ff6666' : (G.fps<50 ? '#ffcc66' : '#88ff88');
   ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
   ctx.fillText('FPS '+G.fps, 8, window.innerHeight-8);
@@ -7673,6 +7964,9 @@ window.addEventListener('load', async ()=>{
   // v3.8.0: matchmaking modal button on title
   const _mmBtn = document.getElementById('mmBtn');
   if (_mmBtn){ _mmBtn.onclick = ()=>{ try{ openMatchmakingModal(); }catch(e){} }; }
+  // v3.9.0: leaderboard button on title
+  const _lbBtn = document.getElementById('lbBtn');
+  if (_lbBtn){ _lbBtn.onclick = ()=>{ try{ openLeaderboardModal(); }catch(e){} }; }
   // Auto-show tutorial on first visit
   try {
     if (!localStorage.getItem('evo_tut_seen')){
