@@ -1087,11 +1087,15 @@ function generateCosmos(){
 // Rotates each spawn so players see fresh art every 5 minutes (retention + screenshot variety).
 const BOSS_POOL = [
   // v3.5.0: outer gods buffed ~3x HP / 2x ATK — they should feel like a real raid threat
-  { type:'eye',     name:'Elder Day · Star-Touching Eye',     color:'#aa44ff', hp:26000, atk:160, accent:'#ff44aa' },
-  { type:'maw',     name:'Ravager · Thousand-Mouth Devourer', color:'#ff4444', hp:30000, atk:185, accent:'#ffaa30' },
-  { type:'crown',   name:'Sovereign · Frozen-Abyss Crown',    color:'#66ccff', hp:28000, atk:150, accent:'#ffffff' },
-  { type:'phoenix', name:'Ashen Phoenix · Cycle-Breaker',     color:'#ffaa30', hp:27000, atk:175, accent:'#ff3344' },
-  { type:'serpent', name:'Nine-Headed Verdant Serpent',       color:'#44dd66', hp:29000, atk:165, accent:'#aa44ff' },
+  { type:'eye',       name:'Elder Day · Star-Touching Eye',      color:'#aa44ff', hp:26000, atk:160, accent:'#ff44aa' },
+  { type:'maw',       name:'Ravager · Thousand-Mouth Devourer',  color:'#ff4444', hp:30000, atk:185, accent:'#ffaa30' },
+  { type:'crown',     name:'Sovereign · Frozen-Abyss Crown',     color:'#66ccff', hp:28000, atk:150, accent:'#ffffff' },
+  { type:'phoenix',   name:'Ashen Phoenix · Cycle-Breaker',      color:'#ffaa30', hp:27000, atk:175, accent:'#ff3344' },
+  { type:'serpent',   name:'Nine-Headed Verdant Serpent',        color:'#44dd66', hp:29000, atk:165, accent:'#aa44ff' },
+  // v3.12.0: three new outer god types
+  { type:'leviathan', name:'Abyssal Leviathan · Tide-Drinker',   color:'#1a88cc', hp:32000, atk:170, accent:'#00ffcc' },
+  { type:'spider',    name:'Void Weaver · Architect of Silence', color:'#cc44aa', hp:27500, atk:190, accent:'#ffccff' },
+  { type:'titan',     name:'Tempest Sovereign · Cloudborn God',  color:'#88aaff', hp:31000, atk:155, accent:'#ffffaa' },
 ];
 // v3.5.1: returns the closest living outer god to pos (for skills / melee / projectiles)
 function nearestBoss(pos){
@@ -1105,9 +1109,14 @@ function spawnBoss(){
   let pick;
   do { pick = BOSS_POOL[(Math.random()*BOSS_POOL.length)|0]; } while (G._lastBossType && pick.type===G._lastBossType && BOSS_POOL.length>1);
   G._lastBossType = pick.type;
+  // v3.12.0: spawn outer god at random offset so action spreads across map
+  const spawnAng = Math.random() * Math.PI * 2;
+  const spawnD   = rand(3500, 6000);
   const nb = {
     isBoss:true, type:pick.type, name:pick.name,
-    x:cx, y:cy, vx:0, vy:0, r:80,
+    x: cx + Math.cos(spawnAng)*spawnD,
+    y: cy + Math.sin(spawnAng)*spawnD,
+    vx:0, vy:0, r:80,
     hp:pick.hp, maxHp:pick.hp, atk:pick.atk,
     atkCdT:0, projT:4, eyeT:0, phase:1,
     color:pick.color, accent:pick.accent,
@@ -1138,10 +1147,10 @@ function updateBoss(b, dt){
     b.phase = 2; pushKillFeed('☄ Star-Touching Eye awakens','#ff44aa');
     try{ flash('#ff44aa',0.5); shake(20); }catch(e){}
   }
-  // 緩慢追玩家
+  // v3.12.0: 追玩家 — 速度提升讓外神能追上
   if (G.player){
     const dx = G.player.x - b.x, dy = G.player.y - b.y, d = Math.hypot(dx,dy)||1;
-    const sp = b.phase===2 ? 40 : 22;
+    const sp = b.phase===2 ? 65 : 42;
     b.x += (dx/d) * sp * dt;
     b.y += (dy/d) * sp * dt;
     // 撞擊近戰
@@ -1422,6 +1431,167 @@ function drawBoss(){
       ctx.fillStyle = acc;
       ctx.beginPath(); ctx.arc(headx + Math.cos(a)*8, heady + Math.sin(a)*8, 3, 0, Math.PI*2); ctx.fill();
     }
+  } else if (b.type === 'leviathan'){
+    // === 深淵海怪：發光鯨鱗巨體 + 觸手 + 生物發光斑點 ===
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    const lAng = Math.sin(b.eyeT*0.6)*0.18;
+    ctx.rotate(lAng);
+    // elongated whale body
+    const lg = ctx.createRadialGradient(0,0,0,0,0,b.r*pul);
+    lg.addColorStop(0, '#003355'); lg.addColorStop(0.6, col); lg.addColorStop(1, '#001122');
+    ctx.fillStyle = lg;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, b.r*pul*1.7, b.r*pul*0.85, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = acc; ctx.lineWidth = 3; ctx.stroke();
+    // bioluminescent spots
+    for (let i=0;i<14;i++){
+      const sa = (i/14)*Math.PI*2 + b.eyeT*0.2;
+      const sr = b.r*(0.3 + (i%3)*0.18)*pul;
+      const sx = Math.cos(sa)*sr*1.4, sy = Math.sin(sa)*sr*0.7;
+      const glow = 0.5 + Math.sin(b.eyeT*3+i)*0.5;
+      ctx.fillStyle = acc; ctx.globalAlpha = glow*0.9;
+      ctx.beginPath(); ctx.arc(sx, sy, 5+glow*3, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // giant maw at front
+    const mawOpen = 0.4 + Math.sin(b.eyeT*1.8)*0.4;
+    ctx.fillStyle = '#000011';
+    ctx.beginPath();
+    ctx.ellipse(b.r*1.4*pul, 0, b.r*0.35*pul, b.r*0.55*pul*mawOpen, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = acc; ctx.lineWidth = 2; ctx.stroke();
+    // dorsal fin
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(-b.r*0.3*pul, -b.r*0.8*pul);
+    ctx.lineTo(-b.r*0.1*pul, -b.r*0.3*pul);
+    ctx.lineTo(-b.r*0.6*pul, -b.r*0.3*pul);
+    ctx.closePath(); ctx.fill();
+    // tentacles (8 writhing)
+    for (let i=0;i<8;i++){
+      const ta = -Math.PI*0.6 + (i/7)*Math.PI*1.2;
+      const wob = Math.sin(b.eyeT*2.5+i*0.9)*20;
+      ctx.strokeStyle = col; ctx.lineWidth = 7; ctx.lineCap='round'; ctx.globalAlpha=0.8;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ta)*b.r*0.9*pul, Math.sin(ta)*b.r*0.9*pul);
+      ctx.quadraticCurveTo(
+        Math.cos(ta)*(b.r*1.3) + wob, Math.sin(ta)*(b.r*1.3) + wob,
+        Math.cos(ta)*(b.r*1.7) + wob*1.5, Math.sin(ta)*(b.r*1.7) + wob*2
+      );
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  } else if (b.type === 'spider'){
+    // === 虛空織者：幾何水晶蛛體 + 旋轉腿 + 蛛網 ===
+    ctx.save(); ctx.translate(b.x, b.y);
+    // web pattern background
+    ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.globalAlpha = 0.35;
+    for (let ring=1; ring<=4; ring++){
+      ctx.beginPath(); ctx.arc(0, 0, b.r*pul*ring*0.55, 0, Math.PI*2); ctx.stroke();
+    }
+    for (let spoke=0; spoke<12; spoke++){
+      const sa = spoke/12*Math.PI*2;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(sa)*b.r*pul*2.2, Math.sin(sa)*b.r*pul*2.2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // crystal body (irregular polygon)
+    ctx.fillStyle = '#0d001a';
+    ctx.beginPath();
+    for (let i=0;i<8;i++){
+      const a = (i/8)*Math.PI*2 + b.eyeT*0.15;
+      const rr = b.r*pul*(0.85 + Math.sin(b.eyeT*2+i*0.8)*0.15);
+      if(i===0) ctx.moveTo(Math.cos(a)*rr, Math.sin(a)*rr);
+      else ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.stroke();
+    // crystal shards on body
+    ctx.fillStyle = col; ctx.globalAlpha = 0.7;
+    for (let i=0;i<6;i++){
+      const a = (i/6)*Math.PI*2 + b.eyeT*0.1;
+      const rx = Math.cos(a)*b.r*0.5*pul, ry = Math.sin(a)*b.r*0.5*pul;
+      ctx.beginPath();
+      ctx.moveTo(rx, ry);
+      ctx.lineTo(rx+Math.cos(a+0.5)*22, ry+Math.sin(a+0.5)*22);
+      ctx.lineTo(rx+Math.cos(a-0.5)*22, ry+Math.sin(a-0.5)*22);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // 8 legs rotating
+    for (let i=0;i<8;i++){
+      const la = (i/8)*Math.PI*2 + b.eyeT*0.5;
+      const knee1x = Math.cos(la)*b.r*pul*1.2, knee1y = Math.sin(la)*b.r*pul*1.2;
+      const knee2x = Math.cos(la)*(b.r*pul*1.9) + Math.cos(la+0.7)*30;
+      const knee2y = Math.sin(la)*(b.r*pul*1.9) + Math.sin(la+0.7)*30;
+      ctx.strokeStyle = acc; ctx.lineWidth = 6; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(la)*b.r*0.8*pul, Math.sin(la)*b.r*0.8*pul);
+      ctx.lineTo(knee1x, knee1y); ctx.lineTo(knee2x, knee2y);
+      ctx.stroke();
+    }
+    // central eye
+    ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(0,0,b.r*0.28*pul,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0,0,b.r*0.12*pul,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(0,0,b.r*0.06*pul,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  } else if (b.type === 'titan'){
+    // === 雷霆天神：人形風暴雲巨體 + 閃電拳 + 旋轉光環 ===
+    ctx.save(); ctx.translate(b.x, b.y);
+    // storm cloud body
+    const tg = ctx.createRadialGradient(0,-b.r*0.2,0,0,0,b.r*pul*1.3);
+    tg.addColorStop(0, '#ccddff'); tg.addColorStop(0.4, col); tg.addColorStop(1, '#001133');
+    ctx.fillStyle = tg;
+    // lumpy cloud silhouette
+    ctx.beginPath();
+    for (let i=0;i<18;i++){
+      const a = (i/18)*Math.PI*2;
+      const lump = 1 + 0.22*Math.sin(b.eyeT*1.5 + i*1.3);
+      const rr = b.r*pul*lump;
+      if(i===0) ctx.moveTo(Math.cos(a)*rr, Math.sin(a)*rr);
+      else ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = acc; ctx.lineWidth = 3;
+    ctx.shadowColor = acc; ctx.shadowBlur = 18;
+    ctx.stroke(); ctx.shadowBlur = 0;
+    // head / face
+    ctx.fillStyle = '#eeeeff'; ctx.beginPath(); ctx.ellipse(0, -b.r*0.55*pul, b.r*0.38*pul, b.r*0.42*pul, 0, 0, Math.PI*2); ctx.fill();
+    // lightning bolt eyes
+    for (let s=-1;s<=1;s+=2){
+      const eyeX = s*b.r*0.14*pul, eyeY = -b.r*0.58*pul;
+      ctx.fillStyle = acc;
+      ctx.beginPath();
+      ctx.moveTo(eyeX, eyeY - 8);
+      ctx.lineTo(eyeX+s*5, eyeY);
+      ctx.lineTo(eyeX, eyeY+4);
+      ctx.lineTo(eyeX+s*8, eyeY+10);
+      ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.fill();
+    }
+    // fists (two glowing spheres)
+    for (let s=-1;s<=1;s+=2){
+      const fx = s*(b.r*1.1*pul), fy = b.r*0.1*pul + Math.sin(b.eyeT*2+s)*18;
+      const fg = ctx.createRadialGradient(fx,fy,0,fx,fy,b.r*0.38*pul);
+      fg.addColorStop(0, '#ffffff'); fg.addColorStop(0.4, acc); fg.addColorStop(1, col);
+      ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(fx,fy,b.r*0.38*pul,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    // spinning lightning halo
+    ctx.strokeStyle = acc; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.75;
+    for (let i=0;i<8;i++){
+      const ha = (i/8)*Math.PI*2 + b.eyeT*1.8;
+      const hx = Math.cos(ha)*b.r*1.65*pul, hy = Math.sin(ha)*b.r*1.65*pul;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(hx + Math.cos(ha+0.4)*(20+Math.sin(b.eyeT*4+i)*8),
+                 hy + Math.sin(ha+0.4)*(20+Math.sin(b.eyeT*4+i)*8));
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
   } else {
     // === 星瞳古神 (default 'eye'): 原版巨眼 ===
     ctx.fillStyle = '#0a0014'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*pul,0,Math.PI*2); ctx.fill();
@@ -2593,6 +2763,18 @@ function doMelee(p){
     if (delta > Math.PI*0.5) continue;
     dealDamage(p, e, p.atk, '#fff', false);
     hitCount++;
+  }
+  // v3.12.0: energy slash — melee fires a short-range projectile for reach + visual punch
+  if (hitCount >= 0 && p.isPlayer){
+    const slashAng = p.facing;
+    const slashColor = (p.path && p.path.color) || '#88ccff';
+    G.projectiles.push({
+      x: p.x + Math.cos(slashAng)*(p.r+8),
+      y: p.y + Math.sin(slashAng)*(p.r+8),
+      vx: Math.cos(slashAng)*480, vy: Math.sin(slashAng)*480,
+      life: 0.38, r: 7, dmg: Math.floor((p.atk||10)*0.55),
+      color: slashColor, owner: p, hit: new Set(), pierce: 2,
+    });
   }
   // v3.8.0: per-hit path-passive trigger (Dragon every-3rd-hit shock)
   if (hitCount > 0 && p === G.player) { try { _onPlayerMeleeHit(p); } catch(_){} }
@@ -3966,13 +4148,62 @@ function drawStatusBanner(){
   if (!G.player) return;
   const p = G.player;
   const cx = window.innerWidth/2;
+  ctx.save();
+  // v3.12.0: persistent objective hint
+  if (G.started && !G.dead && !G.won){
+    let goal = '';
+    if (p.rank >= 9){
+      goal = '★ TRUE GOD — win by slaying all rivals or last survivor';
+    } else if (p.rank >= 8){
+      const need = [];
+      if ((p.q.bossKilled||0) < 2) need.push(`Outer God ${p.q.bossKilled||0}/2`);
+      if ((p.q.riftsUsed||0) < 4) need.push(`Sanctum ${p.q.riftsUsed||0}/4`);
+      const throneHolder = G.thrones && G.thrones[p.pathKey];
+      if (throneHolder && throneHolder !== p && !(p.q.killThrone >= 1)) need.push('Usurp Throne');
+      goal = need.length ? '⚡ Apotheosis: ' + need.join(' · ') : '⚡ Ready to ascend! Keep leveling';
+    } else {
+      const QI_THR_VALS = [0,80,220,440,800,1400,2200,3200,4400,6000];
+      const need = QI_THR_VALS[p.rank] || 999;
+      const pct = Math.min(100, Math.floor((p.qi / need) * 100));
+      goal = `Rank ${p.rank}/9 → ${pct}% XP · Kill enemies & capture Sanctums`;
+    }
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.fillStyle = p.rank >= 8 ? '#ffd66b' : '#cccccc';
+    ctx.strokeText(goal, cx, 22);
+    ctx.fillText(goal, cx, 22);
+    // veil countdown
+    if (G.veil && G.veil.active){
+      const timeLeft = Math.max(0, VEIL_END_T - G.time);
+      const veilText = timeLeft > 0 ? `🌑 Veil closes in ${Math.ceil(timeLeft)}s` : '🌑 Final Tribulation';
+      ctx.fillStyle = '#ff66cc'; ctx.strokeStyle = '#000';
+      ctx.strokeText(veilText, cx, 40); ctx.fillText(veilText, cx, 40);
+    } else if (G.time < VEIL_START_T){
+      const starts = Math.max(0, VEIL_START_T - G.time);
+      ctx.fillStyle = '#aa88cc'; ctx.strokeStyle = '#000';
+      const vt = `Veil of Erasure in ${Math.ceil(starts)}s`;
+      ctx.strokeText(vt, cx, 40); ctx.fillText(vt, cx, 40);
+    }
+    // boss nearby
+    if (G.bosses && G.bosses.length){
+      for (const b of G.bosses){
+        if (!b || b.hp <= 0) continue;
+        const bd = Math.hypot(b.x - p.x, b.y - p.y);
+        ctx.fillStyle = '#aa44ff'; ctx.strokeStyle = '#000';
+        const hpPct = Math.floor(b.hp / b.maxHp * 100);
+        const bt = `☄ ${b.name} — ${Math.floor(bd)}px away · HP ${hpPct}%`;
+        ctx.strokeText(bt, cx, 58); ctx.fillText(bt, cx, 58);
+      }
+    }
+  }
   if (p.invuln>0 && p.isPlayer){
     ctx.fillStyle = '#ffff80';
     ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
     const t = `★ Spawn protect ${p.invuln.toFixed(1)}s ★`;
-    ctx.strokeText(t, cx, 60); ctx.fillText(t, cx, 60);
+    ctx.strokeText(t, cx, 80); ctx.fillText(t, cx, 80);
   }
   if (p.defending){
     ctx.fillStyle = '#88e0ff';
@@ -3982,6 +4213,7 @@ function drawStatusBanner(){
     const t = 'Defending (80% dmg reduction + reflect)';
     ctx.strokeText(t, cx, window.innerHeight-90); ctx.fillText(t, cx, window.innerHeight-90);
   }
+  ctx.restore();
 }
 
 // =====================================================================
@@ -4036,12 +4268,20 @@ function updateVeil(dt){
       }
     }
   }
-  // Outside-ring damage to AI too (so endgame focuses everyone)
+  // Outside-ring damage to AI + veil awareness: run toward center to survive
   for (const e of G.enemies){
     if (!e || e.hp<=0) continue;
     const dx=e.x-veilCenterX(), dy=e.y-veilCenterY();
-    if (Math.hypot(dx,dy) > G.veil.r){
+    const de = Math.hypot(dx, dy);
+    if (de > G.veil.r){
       e.hp -= Math.max(1, e.maxHp * VEIL_TICK_DMG * dt);
+      // flee toward veil center — overrides wander so AI don't just die outside
+      if (de > G.veil.r + 200){
+        const ang = Math.atan2(-dy, -dx);
+        e.vx = Math.cos(ang) * (e.spd || 80) * 1.2;
+        e.vy = Math.sin(ang) * (e.spd || 80) * 1.2;
+        e._wx = Math.cos(ang); e._wy = Math.sin(ang); e.aiTimer = 1.5;
+      }
     }
   }
   // Trigger Final Tribulation when ring at min radius + few survivors
