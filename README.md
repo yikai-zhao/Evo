@@ -1,138 +1,135 @@
-# 《終焉之地》The Land's End — Prototype
+# Evo — Twilight of the Gods
 
-融合 **Deeeep.io 生態對抗** + **果實能力爭奪** + **蠱真人壽元換實力** 的多人生存進化遊戲原型。
+A multiplayer mythic-evolution battle royale, playable in any browser.
+**Hunt → Ascend → Survive the shrinking Veil → Become the True God.**
 
-> 目標平台：Steam / Google Play
-> 當前階段：可玩 Web Prototype（單機 + AI）
+[![play now](https://img.shields.io/badge/play-now-ff66cc)](https://evo.example) [![version](https://img.shields.io/badge/version-3.7.0-7fd07f)]() [![smoke tests](https://img.shields.io/badge/tests-passing-7fd07f)]()
 
-## 立即試玩
-
-```bash
-# 任一靜態伺服器
-python3 -m http.server 8080
-# 開啟 http://localhost:8080
-```
-
-## 操作
-
-| 鍵位 | 功能 |
-|---|---|
-| WASD / 方向鍵 | 移動 |
-| 滑鼠左鍵 / 空白鍵 | 攻擊（扇形範圍） |
-| `E` | 進食 / 拾取 |
-| `Q` | **蠱道修煉**（消耗壽元換永久屬性，僅人類） |
-| `R` | 釋放日蝕（拾得日蝕果實後可用） |
-
-手機：虛擬搖桿 + 三顆按鈕。
-
-## 核心系統
-
-### 1. 三條核心數值
-- **HP** 受傷／回復
-- **STA** 攻擊與行動消耗
-- **LIFE** 壽命倒計時，歸零即死
-
-### 2. 七大族群
-人類 / 蜥蜴 / 鱷魚 / 恐龍 / 狼 / 鼠 / 鷹 / 巨蛙 / 食人魚 / 鯊魚 / 蜂群。
-
-### 3. 蠱道修煉（人類專屬差異化）
-按 `Q` 主動折壽：消耗 `30 + 15×境界` 秒壽命，換 +12 HP / +3 攻 / +2 護 / +4 速。
-**修得越多活得越短，必須更頻繁地獵殺進食。**
-
-### 4. 全圖唯一七大果實（先到先得）
-
-| 果實 | 效果 |
-|---|---|
-| 時光果實 | +600s 永久壽命 |
-| 日蝕果實 | 解鎖 R 鍵範圍真實傷害 |
-| 攻擊果實 | +25 攻擊 |
-| 生命甘露 | +150 HP |
-| 護甲之核 | +15 護甲 |
-| 疾風果實 | +80 移速 |
-| 適應果實 | 回血翻倍 + 30% 全屬性 |
-
-**集齊 7 顆 = 勝利（終焉之主）。**
-
-### 5. 普通拾取物（自動重生）
-食物 / 生肉 / 草藥 / 壽元晶 / 力量晶 / 護甲晶 / 疾風晶 / 明目晶。
-
-### 6. 地圖
-4000×4000 環形地圖，中央紅色區域 = 終焉之地。
-
-## 檔案結構
-
-```
-index.html   入口 + UI
-styles.css   樣式
-game.js      全部遊戲邏輯（單檔）
-```
-
-## Roadmap
-
-- [ ] 多人聯機（WebSocket / Photon Fusion，50 人房）
-- [ ] 毒圈收縮機制
-- [ ] 族群被動技能（巨蛙吐毒、狼嚎、鷹俯衝…）
-- [ ] 賽季 / 通行證 / 皮膚
-- [ ] Capacitor → Android APK
-- [ ] Steam Electron 包
-
-## 商業化原則
-- ✅ 賣外觀、賽季通行證、復活廣告位
-- ❌ 不賣壽命、不賣果實（守住核心張力）
 ---
 
-## v3.3.0 — Distribution & Marketing (CrazyGames / Poki / itch.io)
+## What it is
 
-### Build platform-ready package
+Evo is a single-file HTML5 Canvas game — no engine, no framework, no install.
+You choose one of **56 creatures across 6 evolutionary paths** (Human / Dragon / Beast / Bird / Fish / Insect), kill, eat, evolve through 9 mortal tiers and 10 mythic Sequences, and try to claim one of the 6 Thrones before the **Veil of Erasure** closes in and erases everyone outside the ring.
 
-```bash
-npm install      # one-time (terser)
-npm run build    # produces dist/Evo-platform.zip (~2.1 MB)
-```
+### The endgame loop
 
-The zip contains a self-contained HTML5 build:
-- minified `game.js` / `sdk.js` / `net.js`
-- platform SDK auto-detection (`?platform=poki`, `?platform=crazygames`, or hostname match)
-- multiplayer **disabled** in platform builds (avoids bandwidth bleed to the Render relay)
-- 120s ad-interval throttle, rewarded ads on revive + 2× coins
-- `happyTime` engagement signals on boss kill (1.0), Authority pickup (0.7), new form discovery (0.9), kill-streak, rank-up
+| Time | What happens |
+|---|---|
+| 0–5 min | Open world. Hunt, evolve, claim Authorities, fight Outer Gods. |
+| 5 min   | **Veil of Erasure** descends — purple ring shrinks over 12 minutes. |
+| 5–17 min| Outside the ring → 1.8 %/sec corruption damage. Form a party (press `Y`). |
+| 16–17 min | **Final Tribulation** — last 5 entities get +30 % all stats, an extra Outer God spawns. |
+| Victory | (a) Slay a True God and claim the throne, **or** (b) be the last party / individual alive. |
 
-### Upload checklist
+---
 
-**itch.io** (0 review — instant publish):
-1. https://itch.io/dashboard → Create new project → Kind: **HTML**
-2. Upload `dist/Evo-platform.zip`, tick "This file will be played in the browser"
-3. Viewport: `1280×720`, enable fullscreen
-4. Add 3-5 screenshots + 30s gameplay GIF
-
-**CrazyGames** (1-2 week review, ~$1-3 RPM):
-1. https://developer.crazygames.com → Submit game
-2. Upload same zip — they auto-test with `?platform=crazygames`
-3. Categories: `io`, `multiplayer`, `arena`, `survival`
-4. Provide thumbnail 800×500, 4× screenshots
-
-**Poki** (1-3 month review, $1-10k advance possible):
-1. Pitch first: email `developers@poki.com` with itch.io link
-2. After invite, upload via https://developers.poki.com
-
-### Local QA of platform build
+## Quick start (local dev)
 
 ```bash
-cd dist/standalone && python3 -m http.server 8080
-# test SDK fallback:                    http://localhost:8080/
-# simulate Poki:    http://localhost:8080/?platform=poki
-# simulate CG:      http://localhost:8080/?platform=crazygames
+npm install
+npm start          # local server on :8080 + WebSocket on :8081
+# open http://localhost:8080
 ```
 
-### Marketing copy (Reddit / Twitter)
+## Build for distribution
 
-> **Title:** I made a .io evolution game where you ascend through 22 divine sequences
->
-> **Body:** Lands End — pick 1 of 6 creature paths, hunt across a 14,000² Sea of Stars, evolve through 9 mortal tiers + 10 divine sequences, slay Outer Gods, claim Authority fruits, and finally usurp a True God Throne. Multiplayer PvP, ~5min runs, free in browser.
->
-> **CTA links:** [itch.io url] · [crazygames url]
->
-> **Subreddits:** r/incremental_games, r/iogames, r/WebGames, r/playmygame, r/IndieGaming
->
-> **Twitter/X:** `Lands End — a .io creature evolution PvP. 6 paths · 22 sequences · 14,000² map. Free in browser. [link] #indiedev #html5games #iogames`
+```bash
+npm run build               # builds all 3 platform zips
+npm run build:crazygames    # single platform
+npm run build:poki
+npm run build:itch
+# → dist/Evo-<platform>-v<VERSION>.zip
+```
 
+Build is gated by `prebuild` which runs `version:sync` (rewrites `?v=` in `index.html` from `package.json`) and `smoke-test.js`. **You cannot ship a build that fails tests.**
+
+## Tests
+
+```bash
+npm test                    # parses JS, checks 14 required functions, asserts cache-bust alignment, validates assets
+npm run version:check       # CI guard — fails if ?v= drift detected
+```
+
+---
+
+## Controls
+
+| Input | Action |
+|---|---|
+| WASD / Arrow keys | Move |
+| Left-click / Space | Melee (cone attack) |
+| Right-click | Defend (80 % reduction + 30 % reflect) |
+| `X` | Dash |
+| `E` | Eat / pickup |
+| `Q` | Refine Qi (humans only — burns lifespan for permanent stats) |
+| `R` | Authority ultimate |
+| `1` / `2` / `3` | Equipped Authority skills |
+| `Y` | **Party panel** (invite nearby players) |
+| `A` / `D` | Accept / decline incoming party invite |
+| `T` | Chat (multiplayer) |
+| `M` | Star map |
+| `P` | Ping |
+| `Esc` / `Shift+P` | Pause |
+
+Touch devices: virtual stick + 3 action buttons.
+
+---
+
+## Architecture
+
+```
+game.js     ~7400 lines · ~235 functions · vanilla JS, no framework
+net.js      WebSocket client (peer position / damage / chat / party sync)
+sdk.js      Platform SDK adapter (CrazyGames / Poki / standalone)
+server.js   Authoritative-lite Node WS relay (rooms, anti-cheat throttling)
+scripts/
+  build-platform.js   Per-platform zip builder (minify + cache-bust)
+  sync-version.js     Keeps ?v= aligned to package.json
+  smoke-test.js       Pre-build CI gate (parse, symbols, assets)
+  gen-portraits.mjs   AI portrait pipeline (114 species artworks)
+```
+
+### Known limitations
+
+- World state lives on a global `G` object — fine for the current single-room model, but a server-authoritative rewrite would mean unwinding it into reducer-style modules. Not blocking for ad-driven monetisation.
+- `try/catch` is used defensively around every render/update stage to keep one bad frame from killing the game; a future pass should distinguish recoverable from fatal errors.
+- Multiplayer is best-effort peer-sync, not lock-step deterministic. Damage is client-authoritative with server-side rate limits — fine for casual PvP, not for ranked.
+
+---
+
+## Distribution targets
+
+The same codebase ships to all of these in parallel (only Poki may require exclusivity):
+
+| Platform | Conflict? | eCPM range |
+|---|---|---|
+| CrazyGames | No (unless you sign Originals) | $3–$8 |
+| Poki | Yes (high-eCPM contract often exclusive) | $4–$10 |
+| GameMonetize / GameDistribution | No — rebroadcasts to 1000s of sites | $0.5–$2 |
+| itch.io (free or paid) | No | one-time $3–$5 |
+| Self-hosted + AdSense | No | $1–$3 |
+| Steam (web → Electron wrap) | Needs offline mode + extra content to justify | one-time $5–$10 |
+
+See `SUBMISSION.md` for portal-specific submission checklists.
+
+---
+
+## Versioning & releases
+
+All assets, scripts, and styles are cache-busted via `?v=` matching `package.json`.
+**To ship a new version:**
+
+```bash
+# 1. bump package.json version
+npm version patch        # or minor/major
+# 2. sync cache-bust + run smoke test + build
+npm run build
+# 3. upload dist/Evo-<platform>-v<VERSION>.zip
+```
+
+The build will refuse to start if smoke tests fail.
+
+## License
+
+ISC — see `LICENSE`.

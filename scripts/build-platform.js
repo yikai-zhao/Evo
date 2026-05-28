@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // =====================================================================
-// Build platform-ready zip for CrazyGames / Poki / itch.io
+// Build platform-ready zips for CrazyGames / Poki / itch.io.
 // Output:
-//   dist/standalone/ — self-contained HTML5 build
-//   dist/Evo-platform.zip — uploadable archive
-// Usage: node scripts/build-platform.js
+//   dist/<platform>/                        — minified self-contained build
+//   dist/Evo-<platform>-v<VERSION>.zip      — uploadable archive
+//
+// Usage:
+//   node scripts/build-platform.js                  # builds all 3 platforms
+//   node scripts/build-platform.js --platform=poki  # single platform
 // =====================================================================
 const fs = require('fs');
 const path = require('path');
@@ -12,7 +15,20 @@ const { execSync } = require('child_process');
 const { minify } = require('terser');
 
 const ROOT = path.resolve(__dirname, '..');
-const OUT = path.join(ROOT, 'dist', 'standalone');
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const VERSION = pkg.version;
+
+// Each platform gets its own build. The same code can be live on
+// CrazyGames + GameMonetize + itch.io simultaneously (no exclusivity).
+// Only Poki may require exclusivity if you sign their high-eCPM contract.
+const PLATFORMS = {
+  crazygames: { sdkHint: 'crazygames', label: 'CrazyGames', extraHtml: '<!-- platform=crazygames -->' },
+  poki:       { sdkHint: 'poki',       label: 'Poki',       extraHtml: '<!-- platform=poki -->' },
+  itch:       { sdkHint: 'standalone', label: 'itch.io',    extraHtml: '<!-- platform=itch -->' },
+};
+
+const arg = process.argv.find(a => a.startsWith('--platform='));
+const only = arg ? arg.split('=')[1] : null;
 
 function rmrf(p){ if (fs.existsSync(p)) fs.rmSync(p, {recursive:true, force:true}); }
 function copy(src, dst){
@@ -39,40 +55,58 @@ async function minifyTo(src, dst){
   fs.writeFileSync(dst, res.code);
   const before = (fs.statSync(src).size/1024).toFixed(1);
   const after = (fs.statSync(dst).size/1024).toFixed(1);
-  console.log(`  ✓ ${path.basename(src)}: ${before} KB → ${after} KB`);
+  console.log(`  \u2713 ${path.basename(src)}: ${before} KB \u2192 ${after} KB`);
 }
 
-(async ()=>{
-  console.log('▸ Cleaning dist/');
-  rmrf(path.join(ROOT, 'dist'));
+async function buildOne(platformKey){
+  const conf = PLATFORMS[platformKey];
+  if (!conf) throw new Error('unknown platform ' + platformKey);
+  const OUT = path.join(ROOT, 'dist', platformKey);
+  console.log(`\n\u2550\u2550 Building ${conf.label} (${platformKey}) \u2550\u2550`);
+  rmrf(OUT);
   fs.mkdirSync(OUT, {recursive:true});
 
-  console.log('▸ Minifying JS');
+  console.log('\u25b8 Minifying JS');
   await minifyTo(path.join(ROOT,'game.js'), path.join(OUT,'game.js'));
   await minifyTo(path.join(ROOT,'sdk.js'),  path.join(OUT,'sdk.js'));
   await minifyTo(path.join(ROOT,'net.js'),  path.join(OUT,'net.js'));
 
-  console.log('▸ Copying static assets');
+  console.log('\u25b8 Copying static assets');
   copy(path.join(ROOT,'styles.css'), path.join(OUT,'styles.css'));
   copy(path.join(ROOT,'assets'),    path.join(OUT,'assets'));
 
-  console.log('▸ Patching index.html (platform build: no Render multiplayer, no analytics)');
+  console.log('\u25b8 Patching index.html (cache-bust + platform hint)');
   let html = fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
-  // Force platform=crazygames by default for platform build (override via ?platform=)
-  html = html.replace('<head>', '<head>\n<!-- PLATFORM BUILD -->');
+  // Re-write all ?v= to current package.json version (idempotent)
+  html = html.replace(/\?v=[\d.]+/g, '?v=' + VERSION);
+  // Inject platform marker (SDK uses window.__EVO_PLATFORM__ to pick embed)
+  html = html.replace('<head>', '<head>\n' + conf.extraHtml);
+  html = html.replace('</head>', `<script>window.__EVO_PLATFORM__='${conf.sdkHint}';</script></head>`);
   fs.writeFileSync(path.join(OUT,'index.html'), html);
 
-  console.log('▸ Building zip');
-  const zipPath = path.join(ROOT, 'dist', 'Evo-platform.zip');
+  console.log('\u25b8 Building zip');
+  const zipPath = path.join(ROOT, 'dist', `Evo-${platformKey}-v${VERSION}.zip`);
+  if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   try {
     execSync(`cd "${OUT}" && zip -rq "${zipPath}" .`, { stdio:'inherit' });
     const kb = (fs.statSync(zipPath).size/1024).toFixed(1);
-    console.log(`\n✓ Built: ${zipPath} (${kb} KB)`);
-    console.log(`  Upload this zip to:`);
-    console.log(`    • CrazyGames: https://developer.crazygames.com/`);
-    console.log(`    • Poki:       https://developers.poki.com/`);
-    console.log(`    • itch.io:    https://itch.io/dashboard`);
+    console.log(`\u2713 ${conf.label} built: ${path.relative(ROOT,zipPath)} (${kb} KB)`);
   } catch(e){
     console.error('zip failed (install zip cli?):', e.message);
   }
+}
+
+(async ()=>{
+  console.log(`\u25b8 Cleaning dist/`);
+  rmrf(path.join(ROOT, 'dist'));
+  fs.mkdirSync(path.join(ROOT, 'dist'), {recursive:true});
+
+  const list = only ? [only] : Object.keys(PLATFORMS);
+  for (const p of list) await buildOne(p);
+
+  console.log(`\n\u2713 Done. v${VERSION}`);
+  console.log(`  Upload targets:`);
+  console.log(`    \u2022 dist/Evo-crazygames-v${VERSION}.zip  \u2192 https://developer.crazygames.com/`);
+  console.log(`    \u2022 dist/Evo-poki-v${VERSION}.zip        \u2192 https://developers.poki.com/`);
+  console.log(`    \u2022 dist/Evo-itch-v${VERSION}.zip        \u2192 https://itch.io/dashboard`);
 })().catch(e=>{ console.error(e); process.exit(1); });

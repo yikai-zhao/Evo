@@ -3762,6 +3762,53 @@ function winGame(){
   document.getElementById('winStats').textContent = `${G.player.path.name} · Seq 0 [Fool, the True God] enthroned! From mortal creature to ruler of all stars — the path is complete.`;
   // v3.4.0: stop active gameplay session + show end-of-game commercial (peak satisfaction — high engagement ad slot)
   try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
+  // v3.7.0: viral share button — reward coins for sharing (drives organic acquisition)
+  try { _setupWinShareButton(); } catch(e){}
+}
+
+// v3.7.0: win-screen share button — the biggest organic-growth lever for web games.
+// Generates a juicy boast string + URL with run params so friends can land on a personalised splash.
+function _setupWinShareButton(){
+  const btn = document.getElementById('winShareBtn');
+  if (!btn) return;
+  const url = (typeof location !== 'undefined' && location.href) ? location.href.split('?')[0].split('#')[0] : 'https://evo.example';
+  const pathName = (G.player && G.player.path && G.player.path.name) || 'a god';
+  const kills = G.player ? (G.player.q.kills||0) : 0;
+  const mins = Math.max(1, Math.floor((G.time||0)/60));
+  const isLastStand = !!(G.veil && G.veil.active);
+  const tagline = isLastStand
+    ? `★ I survived the Twilight of the Gods as the True God of the ${pathName} — ${kills} kills in ${mins}m. Can you outlast me?`
+    : `★ I just ascended to True God on the ${pathName} — ${kills} kills in ${mins}m. Think you can take my throne?`;
+  const text = `${tagline} 🔥 ${url}`;
+  let claimed = false;
+  btn.disabled = false;
+  btn.textContent = '📷 Brag to Friends (+50 🪙)';
+  btn.onclick = async ()=>{
+    btn.disabled = true; btn.textContent = 'Sharing…';
+    try { bumpMetric && bumpMetric('sharesClicked', 1); } catch(e){}
+    let shared = false;
+    try {
+      if (navigator.share){
+        await navigator.share({ title:'Evo — Twilight of the Gods', text:tagline, url });
+        shared = true;
+      } else if (navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        shared = true;
+      } else {
+        const tw = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
+        window.open(tw, '_blank');
+        shared = true;
+      }
+    } catch(e){ shared = false; }
+    if (shared && !claimed){
+      claimed = true;
+      try { addCoins(50); pushKillFeed('🪙 +50 coins — Brag bonus!', '#ffd66b'); } catch(e){}
+      btn.textContent = '✓ Shared — +50 coins!';
+    } else {
+      btn.textContent = '📷 Brag to Friends (+50 🪙)';
+      btn.disabled = false;
+    }
+  };
 }
 
 // =====================================================================
@@ -4173,6 +4220,7 @@ function winGameLastStand(){
   }
   try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
   try { addCoins(300); pushKillFeed('🪙 +300 coins — Twilight Champion!', '#ffd66b'); } catch(e){}
+  try { _setupWinShareButton(); } catch(e){}
 }
 
 let lastT=0;
