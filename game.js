@@ -157,9 +157,10 @@ function aggregatePerks(p){
 
 // v2.0: 9-level system. RANK_BONUS index N = bonus when promoting rank (N+1)→(N+2). 8 entries cover 1→2 ... 8→9.
 const RANK_BONUS = [
-  { hp:60,   atk:9,    def:3,   spd:5,  sta:10,  life:45,   zy:0.18, dh:0.18 },
-  { hp:110,  atk:16,   def:5,   spd:6,  sta:14,  life:70,   zy:0.26, dh:0.26 },
-  { hp:190,  atk:28,   def:9,   spd:8,  sta:18,  life:110,  zy:0.38, dh:0.38 },
+  // v3.5.2: rank 1-3 ATK/DEF softened so early game is player-skill, not attrition vs AI
+  { hp:50,   atk:6,    def:2,   spd:4,  sta:10,  life:40,   zy:0.14, dh:0.14 },
+  { hp:85,   atk:11,   def:4,   spd:5,  sta:13,  life:60,   zy:0.20, dh:0.20 },
+  { hp:150,  atk:20,   def:7,   spd:7,  sta:17,  life:90,   zy:0.30, dh:0.30 },
   { hp:340,  atk:48,   def:15,  spd:10, sta:22,  life:180,  zy:0.55, dh:0.55 },
   { hp:600,  atk:85,   def:25,  spd:13, sta:28,  life:300,  zy:0.80, dh:0.80 },
   { hp:1100, atk:155,  def:45,  spd:16, sta:36,  life:480,  zy:1.20, dh:1.20 },
@@ -3276,11 +3277,16 @@ function aiUpdate(e, dt){
     // 近戰範圍內：攻擊
     if (td < e.atkR + e.r + tgt.r){
       e.vx*=0.5; e.vy*=0.5;
-      if (e.atkCdT<=0 && Math.random()<0.7){ doMelee(e); e.atkCdT = e.atkCd * 1.35; }
-    } else if (e.rngDmg>0 && td<e.rngR && e.rngCdT<=0 && Math.random()<0.22){
-      doRanged(e); e.rngCdT = e.rngCd*2.2;
+      // v3.5.2: low-rank AI attacks less precisely — lower hit chance, longer cooldown
+      const hitChance = (e.rank||1) <= 3 ? 0.35 : 0.70;
+      const cdMult    = (e.rank||1) <= 3 ? 2.0  : 1.35;
+      if (e.atkCdT<=0 && Math.random()<hitChance){ doMelee(e); e.atkCdT = e.atkCd * cdMult; }
+    } else if (e.rngDmg>0 && td<e.rngR && e.rngCdT<=0 && Math.random()<((e.rank||1)<=3?0.07:0.22)){
+      doRanged(e); e.rngCdT = e.rngCd*((e.rank||1)<=3 ? 3.5 : 2.2);
     } else {
-      const ang=angTo(e,tgt); const sp = e.spd*0.85*(e.slow>0?0.5:1);
+      // v3.5.2: rank 1-3 AI chases at 65% speed — easy to kite
+      const chaseSp = (e.rank||1) <= 3 ? 0.60 : 0.85;
+      const ang=angTo(e,tgt); const sp = e.spd*chaseSp*(e.slow>0?0.5:1);
       e.vx=Math.cos(ang)*sp; e.vy=Math.sin(ang)*sp;
     }
     // AI 技能釋放機率大幅下調（1/8 以下）
