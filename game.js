@@ -197,7 +197,7 @@ function tierIcon(p){
 }
 
 // v3.4.4: AI-art portraits per species (drop PNGs into assets/species/<key>.png)
-// Loaded lazily; missing files silently fall back to procedural drawShape.
+// v3.6.0: prefer .webp (5–8× smaller), fall back to .png automatically
 const SPECIES_PORTRAITS = {}; // key -> {base:HTMLImageElement, r3?, r5?, r7?, r9?, ready}
 const _PORTRAIT_KEYS = ['swordsman','cultivator','dino','longSnake','lizard','croc','wolf','eagle','owl','bat','shark','electroEel','scorpion'];
 function _loadPortrait(key){
@@ -205,8 +205,14 @@ function _loadPortrait(key){
   const tryLoad = (suffix, slot)=>{
     const img = new Image();
     img.onload = ()=>{ rec[slot] = img; rec.ready = true; };
-    img.onerror = ()=>{};
-    img.src = 'assets/species/' + key + (suffix||'') + '.png';
+    img.onerror = ()=>{
+      // Fallback: try .png if .webp failed
+      const png = new Image();
+      png.onload = ()=>{ rec[slot] = png; rec.ready = true; };
+      png.onerror = ()=>{};
+      png.src = 'assets/species/' + key + (suffix||'') + '.png';
+    };
+    img.src = 'assets/species/' + key + (suffix||'') + '.webp';
   };
   tryLoad('', 'base');
   tryLoad('-r3','r3'); tryLoad('-r5','r5'); tryLoad('-r7','r7'); tryLoad('-r9','r9');
@@ -631,6 +637,51 @@ function earlyQiMultiplier(){
   if (t < 90) return 1.3;
   return 1.0;
 }
+
+// =====================================================================
+// v3.6.0: Revenge tracking + meta progression hooks (reuses existing coin system)
+// =====================================================================
+const EVO_META_KEY = 'evo_meta_v1';
+function getMeta(){
+  try { const m=JSON.parse(localStorage.getItem(EVO_META_KEY)||'null'); if (m) return m; } catch(e){}
+  return { totalKills:0, totalBossKills:0, totalEvos:0, totalRuns:0 };
+}
+function saveMeta(m){ try { localStorage.setItem(EVO_META_KEY, JSON.stringify(m)); } catch(e){} }
+// Award coins for in-run achievements (Outer God, evolution, PvP kills). Reuses existing coin currency.
+function addSoulShards(n, reason){
+  try { if (typeof addCoins === 'function') addCoins(n); } catch(e){}
+  if (G.player && G.started) addFloat(G.player.x, G.player.y-60, `+${n} 🪙 coins`+(reason?' · '+reason:''), '#ffd66b', 16, 2.2);
+  pushKillFeed(`🪙 +${n} coins`+(reason?' ('+reason+')':''), '#ffd66b');
+}
+// Update existing daily-quest progress live during the run (kills/rank/survive)
+function updateDailyProgress(){
+  if (!G.player || typeof getDailyQuest !== 'function') return;
+  try {
+    const dq = getDailyQuest();
+    if (!dq || dq.done) return;
+    const p=G.player, kills=(p.q&&p.q.kills)|0, rank=p.rank|0, t=(G.time||0);
+    let ok=false;
+    if (dq.type==='kills') ok = kills >= dq.target;
+    else if (dq.type==='rank') ok = rank >= dq.target;
+    else if (dq.type==='survive') ok = t >= dq.target;
+    if (ok){
+      dq.done = true; try{ localStorage.setItem(EVO_DAILY_QUEST_KEY, JSON.stringify(dq)); }catch(e){}
+      addSoulShards(dq.reward|0, 'Daily Quest!');
+      try { if (window.SDK && SDK.happyTime) SDK.happyTime(0.7); } catch(e){}
+    }
+  } catch(e){}
+}
+
+// Revenge tracking — remember who killed you, highlight them next run
+const EVO_REVENGE_KEY = 'evo_revenge_v1';
+function getRevengeList(){ try { return JSON.parse(localStorage.getItem(EVO_REVENGE_KEY)||'[]')||[]; } catch(e){ return []; } }
+function addRevengeTarget(name){
+  if (!name) return;
+  const list=getRevengeList();
+  if (!list.includes(name)){ list.push(name); if (list.length>10) list.shift(); }
+  try { localStorage.setItem(EVO_REVENGE_KEY, JSON.stringify(list)); } catch(e){}
+}
+function isRevengeTarget(name){ return getRevengeList().includes(name); }
 
 // =====================================================================
 // 權柄（巨型 AoE，必須超強）
@@ -1071,8 +1122,14 @@ function _loadBossArt(type){
   _bossArtCache[type] = null;
   const img = new Image();
   img.onload = ()=>{ _bossArtCache[type] = img; };
-  img.onerror = ()=>{ _bossArtCache[type] = false; };  // false = tried + failed, don't retry
-  img.src = 'assets/bosses/' + type + '.png';
+  img.onerror = ()=>{
+    // Fallback: try .png
+    const png = new Image();
+    png.onload = ()=>{ _bossArtCache[type] = png; };
+    png.onerror = ()=>{ _bossArtCache[type] = false; };
+    png.src = 'assets/bosses/' + type + '.png';
+  };
+  img.src = 'assets/bosses/' + type + '.webp';
   return null;
 }
 function updateBoss(b, dt){
@@ -1121,6 +1178,8 @@ function onBossDeath(b){
     logMsg('★★★ Outer God slain: +1500 XP + SAN restored ★★★','promote');
     try{ playSound('promote'); flash('#ffffff',0.9); shake(30); }catch(e){}
     G.bossDefeated++;
+    // v3.6.0: Outer God kill = big Soul Shard reward + meta progression
+    try { addSoulShards(40, 'Outer God slain'); const _m=getMeta(); _m.totalBossKills=(_m.totalBossKills||0)+1; saveMeta(_m); } catch(e){}
     // v3.2.0: max happyTime signal — boss kill is peak engagement
     try { if (window.SDK && SDK.happyTime) SDK.happyTime(1.0); } catch(e){}
     // v3.4.0: midroll ad on boss-kill euphoria (SDK throttles to >=120s gap, so safe-spam)
@@ -2496,6 +2555,14 @@ function doMelee(p){
       Net.sendHit(id, d, 'melee');
       peer.hitT = 0.3; peer.hp = Math.max(0, (peer.hp||0)-d);
       addFloat(peer.x, peer.y - (peer.r||14) - 10, '-'+d, '#ff8888', 13, 0.6);
+      // v3.6.0: killing a peer triggers Soul Shard reward + extra for revenge target
+      if (peer.hp<=0 && !peer._countedKill){
+        peer._countedKill = true;
+        const isRev = peer.name && isRevengeTarget(peer.name);
+        addSoulShards(isRev?40:15, isRev?'⚔ Revenge!':'PvP kill');
+        pushKillFeed(isRev?('☠ REVENGE on '+peer.name+'!'):('☠ You killed '+(peer.name||'a player')+'!'), '#ffd66b');
+        try{ flash('#ffd66b',0.6); shake(15); }catch(e){}
+      }
       hitCount++;
     }
   }
@@ -2679,7 +2746,9 @@ function onKill(attacker, target){
     const an = attacker.isPlayer?'You':(attacker.name||attacker.sp.name);
     const tn = target.isPlayer?'You':(target.name||target.sp.name);
     pushKillFeed(`${an} killed ${tn}`, attacker.isPlayer ? '#ffd66b' : (target.isPlayer ? '#ff4040' : '#aaa'));
-    if (target.isPlayer) G.deathBy = `Killed by ${attacker.sp.name} (${tierIcon(attacker)} ${tierName(attacker)})`;
+    if (target.isPlayer) { G.deathBy = `Killed by ${attacker.sp.name} (${tierIcon(attacker)} ${tierName(attacker)})`;
+      // v3.6.0: revenge tracking — remember a PvP attacker by name
+      try { if (attacker.name && (attacker.isRemotePeerAttacker || attacker._isRemotePeer)) addRevengeTarget(attacker.name); } catch(e){} }
   }
   // 玩家擊殺
   if (attacker && attacker.isPlayer){
@@ -2742,6 +2811,10 @@ function onKill(attacker, target){
     logMsg(`Killed ${target.sp.name} (${tierIcon(target)} ${tierName(target)}) +${qiReward} XP${_oppMul>1?' [rival path bonus]':''}`);
     const _preRank = attacker.rank;
     tryPromote(attacker);
+    if (attacker.rank>_preRank){
+      // v3.6.0: each evolution awards Soul Shards (meta progression)
+      try { addSoulShards(5*attacker.rank, 'Evolution Rank '+attacker.rank); const _m=getMeta(); _m.totalEvos=(_m.totalEvos||0)+1; saveMeta(_m); } catch(e){}
+    }
     if (window.SDK && attacker.rank>_preRank) SDK.happyTime(Math.min(1, attacker.rank/15));
     saveProgress();
     if (window.Net && Net.online && !target.isPlayer && target.nid && Net.sendEnemyKill) Net.sendEnemyKill(target.nid);
@@ -3906,6 +3979,9 @@ function update(dt){
   }
   // v0.9.0: 教學浮窗
   G.tutorialT += dt;
+  // v3.6.0: daily challenge tracking (cheap, throttled to 2/s)
+  G._dailyCheckT = (G._dailyCheckT||0) - dt;
+  if (G._dailyCheckT <= 0){ G._dailyCheckT = 0.5; try { updateDailyProgress(); } catch(e){} }
   if (G.firstHunt && G.firstHunt.active){
     G.firstHunt.t -= dt;
     if ((G.player.q.kills||0) > 0 || G.player.rank >= 3 || G.firstHunt.t <= 0){
@@ -3915,10 +3991,11 @@ function update(dt){
       G.firstHunt.shown = true;
     }
   }
-  if (G.tutorialStep===0 && G.tutorialT>3){ addFloat(G.player.x, G.player.y-60, isMobile()?"Left thumb move · Right buttons attack":"WASD move · Left-click melee", "#ffd66b", 18, 4); G.tutorialStep=1; }
-  if (G.tutorialStep===1 && G.tutorialT>9){ addFloat(G.player.x, G.player.y-60, "Stand near purple Qi springs for Qi", "#bb88ff", 18, 4); G.tutorialStep=2; }
-  if (G.tutorialStep===2 && G.tutorialT>15){ addFloat(G.player.x, G.player.y-60, "Press M for map · 1-6 cast Authority", "#88ccff", 18, 4); G.tutorialStep=3; }
-  if (G.tutorialStep===3 && G.tutorialT>22){ addFloat(G.player.x, G.player.y-60, "4 sanctums + slay Outer God = Apotheosis", "#ff88cc", 18, 5); G.tutorialStep=4; }
+  if (G.tutorialStep===0 && G.tutorialT>2.5){ addFloat(G.player.x, G.player.y-60, isMobile()?"Left thumb moves · Right buttons attack":"WASD move · Left-click attack", "#ffd66b", 18, 3.5); G.tutorialStep=1; }
+  if (G.tutorialStep===1 && G.tutorialT>7){ addFloat(G.player.x, G.player.y-60, "🪙 Coins reward kills, daily quests & boss slayings", "#ffd66b", 18, 3.5); G.tutorialStep=2; }
+  if (G.tutorialStep===2 && G.tutorialT>12){ addFloat(G.player.x, G.player.y-60, "Stand near purple Qi springs · 1-6 cast Authority · M opens map", "#bb88ff", 18, 4); G.tutorialStep=3; }
+  if (G.tutorialStep===3 && G.tutorialT>18){ addFloat(G.player.x, G.player.y-60, "⚔ Players who kill you join your REVENGE list — hunt them next run", "#ff6677", 18, 4); G.tutorialStep=4; }
+  if (G.tutorialStep===4 && G.tutorialT>24){ addFloat(G.player.x, G.player.y-60, "★ Capture 4 Sanctums + slay an Outer God = Apotheosis (win)", "#ff88cc", 18, 5); G.tutorialStep=5; }
   // 補充靈氣與道具
   if (G.spirits.length<70 && Math.random()<0.35) spawnSpirit();
   if (G.pickups.length<180 && Math.random()<0.25) spawnPickup();  // v1.7.0: leaner ambient
@@ -6432,6 +6509,15 @@ function buildMenu(){
   const _pctF  = Math.floor((_haveF/_totF)*100);
   const _formsTxt = `<span style="color:#9fd09f">📖 Forms: ${_haveF}/${_totF} (${_pctF}%)</span>`;
   topBar.innerHTML = `<span style="font-weight:700;color:#ffd66b;font-size:16px">🪙 ${_coins} coins</span> ${_formsTxt} ${_dqTxt}`;
+  // v3.6.0: revenge list + lifetime Outer God kills shown in menu
+  try {
+    const _rev = getRevengeList();
+    const _meta = getMeta();
+    const extras = [];
+    if (_meta.totalBossKills) extras.push(`<span style="color:#cc99ff">☄ Outer Gods slain: ${_meta.totalBossKills}</span>`);
+    if (_rev.length) extras.push(`<span style="color:#ff6677">⚔ Revenge list (${_rev.length}): ${_rev.slice(-3).join(', ')}</span>`);
+    if (extras.length) topBar.innerHTML += ' &nbsp; ' + extras.join(' &nbsp; ');
+  } catch(e){}
 
   const byPath = {};
   for (const k of Object.keys(SPECIES)){ const sp = SPECIES[k]; (byPath[sp.path]=byPath[sp.path]||[]).push(k); }
@@ -6618,6 +6704,16 @@ function drawRemotePeers(){
     ctx.strokeStyle = '#000a'; ctx.lineWidth = 3;
     ctx.strokeText(label, drawX, drawY - r - 18);
     ctx.fillText(label, drawX, drawY - r - 18);
+    // v3.6.0: revenge highlight — show pulsing red ring + REVENGE label if peer killed you last run
+    if (peer.name && isRevengeTarget(peer.name)){
+      const pulse = 1 + Math.sin(G.time*5)*0.15;
+      ctx.strokeStyle = '#ff3344'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(drawX, drawY, r*1.5*pulse, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle = '#ff3344'; ctx.font = 'bold 11px system-ui,sans-serif';
+      ctx.strokeStyle = '#000a'; ctx.lineWidth = 3;
+      ctx.strokeText('⚔ REVENGE', drawX, drawY - r - 32);
+      ctx.fillText('⚔ REVENGE', drawX, drawY - r - 32);
+    }
     // Chat泡泡
     if (peer.chatT>0 && peer.chatText){
       ctx.font = '13px system-ui,sans-serif';
