@@ -196,8 +196,7 @@ function tierIcon(p){
   return (p && p.sp && p.sp.icon) || '✦';
 }
 
-// v3.4.4: AI-art portraits per species (drop PNGs into assets/species/<key>.png)
-// v3.6.0: prefer .webp (5–8× smaller), fall back to .png automatically
+// v3.4.4: AI-art portraits per species (PNGs in assets/species/<key>.png)
 const SPECIES_PORTRAITS = {}; // key -> {base:HTMLImageElement, r3?, r5?, r7?, r9?, ready}
 const _PORTRAIT_KEYS = ['swordsman','cultivator','dino','longSnake','lizard','croc','wolf','eagle','owl','bat','shark','electroEel','scorpion'];
 function _loadPortrait(key){
@@ -205,14 +204,8 @@ function _loadPortrait(key){
   const tryLoad = (suffix, slot)=>{
     const img = new Image();
     img.onload = ()=>{ rec[slot] = img; rec.ready = true; };
-    img.onerror = ()=>{
-      // Fallback: try .png if .webp failed
-      const png = new Image();
-      png.onload = ()=>{ rec[slot] = png; rec.ready = true; };
-      png.onerror = ()=>{};
-      png.src = 'assets/species/' + key + (suffix||'') + '.png?v=3.6.1';
-    };
-    img.src = 'assets/species/' + key + (suffix||'') + '.webp?v=3.6.1';
+    img.onerror = ()=>{};
+    img.src = 'assets/species/' + key + (suffix||'') + '.png';
   };
   tryLoad('', 'base');
   tryLoad('-r3','r3'); tryLoad('-r5','r5'); tryLoad('-r7','r7'); tryLoad('-r9','r9');
@@ -1122,14 +1115,8 @@ function _loadBossArt(type){
   _bossArtCache[type] = null;
   const img = new Image();
   img.onload = ()=>{ _bossArtCache[type] = img; };
-  img.onerror = ()=>{
-    // Fallback: try .png
-    const png = new Image();
-    png.onload = ()=>{ _bossArtCache[type] = png; };
-    png.onerror = ()=>{ _bossArtCache[type] = false; };
-    png.src = 'assets/bosses/' + type + '.png?v=3.6.1';
-  };
-  img.src = 'assets/bosses/' + type + '.webp?v=3.6.1';
+  img.onerror = ()=>{ _bossArtCache[type] = false; };
+  img.src = 'assets/bosses/' + type + '.png';
   return null;
 }
 function updateBoss(b, dt){
