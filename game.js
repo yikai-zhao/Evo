@@ -4527,37 +4527,8 @@ function drawRoomHUD(){
 // v3.9.0 — Authority Redesign + Leaderboards
 // =====================================================================
 
-// ----- Authority path affinity: each path has a signature authority that
-//       costs less CD and hits harder. Encourages thematic builds. -----
-const PATH_AUTHORITY_AFFINITY = {
-  human:  'time',     // Gu Masters bend time
-  dragon: 'thunder',  // Dragons command storms
-  beast:  'titan',    // Beasts grow titanic
-  bird:   'gale',     // Birds master wind
-  fish:   'frost',    // Fish freeze the seas
-  insect: 'void',     // Insects from rifts
-};
-// Returns affinity multiplier object for a given authority+player.
-function _authMod(p, a){
-  const sig = p && p.pathKey && PATH_AUTHORITY_AFFINITY[p.pathKey] === a.id;
-  // Tier from Authority Shards (collected from rifts/bosses). Stored on slot itself.
-  const tier = (a._tier || 1);
-  // damage scale: 1x / 1.5x / 2.2x for tier 1/2/3
-  const tierMul = tier === 3 ? 2.2 : (tier === 2 ? 1.5 : 1.0);
-  return {
-    sig,
-    tier,
-    cdMul: sig ? 0.6 : 1.0,            // signature → CD -40%
-    dmgMul: (sig ? 1.3 : 1.0) * tierMul,
-    radiusMul: sig ? 1.15 : 1.0,
-    label: tier === 3 ? 'True' : (tier === 2 ? 'Greater' : 'Lesser'),
-  };
-}
-// Hook: replace raw `a.cd` with effective CD after cast.
-function _effectiveCD(p, a){
-  const m = _authMod(p, a);
-  return Math.max(3, (a.cd || 10) * m.cdMul);
-}
+// Authority CD — raw definition value (no affinity modifier).
+function _effectiveCD(p, a){ return Math.max(3, a.cd || 10); }
 
 // ----- Authority Shards: rare loot that upgrades a held authority's tier -----
 // Spawned at rift captures and Outer-God deaths. Pick one up while having
@@ -4610,21 +4581,21 @@ function drawAuthorityHUD(){
   const size = 56, gap = 8;
   const totalW = slots.length * size + (slots.length-1) * gap;
   const startX = window.innerWidth/2 - totalW/2;
-  const y = window.innerHeight - 78;
+  const isMob = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  const y = window.innerHeight - (isMob ? 220 : 78);
   ctx.save();
   for (let i=0; i<slots.length; i++){
     const a = slots[i];
     const x = startX + i*(size+gap);
     const cd = G.player.authCdT[i] || 0;
-    const maxCd = _effectiveCD(G.player, a);
+    const maxCd = a.cd || 10;
     const ready = cd <= 0;
     const tier = a._tier || 1;
-    const sig = G.player.pathKey && PATH_AUTHORITY_AFFINITY[G.player.pathKey] === a.id;
     // Outer frame
     ctx.fillStyle = ready ? 'rgba(20,16,32,0.85)' : 'rgba(20,16,32,0.6)';
     ctx.fillRect(x, y, size, size);
-    ctx.strokeStyle = sig ? '#ffd66b' : (ready ? a.color : '#444');
-    ctx.lineWidth = sig ? 3 : 2;
+    ctx.strokeStyle = ready ? a.color : '#444';
+    ctx.lineWidth = 2;
     ctx.strokeRect(x+0.5, y+0.5, size-1, size-1);
     // CD fill bottom-up
     if (!ready){
@@ -4660,12 +4631,23 @@ function drawAuthorityHUD(){
     ctx.fillText(String(i+1), x + size/2, y - 4);
   }
   ctx.restore();
+  // Mobile: sync touch button labels to current authority icons (only on slot change)
+  if (isMob){
+    const _ahash = slots.map(a=>a.id+'/'+(a._tier||1)).join(',');
+    if (drawAuthorityHUD._lhash !== _ahash){
+      drawAuthorityHUD._lhash = _ahash;
+      const _bids = ['btnF1','btnF2','btnF3'];
+      slots.forEach((a,i)=>{ const el=document.getElementById(_bids[i]); if(el) el.textContent=a.icon||String(i+1); });
+      for (let i=slots.length;i<3;i++){ const el=document.getElementById('btnF'+(i+1)); if(el) el.textContent=String(i+1); }
+    }
+  }
 }
 
 // =====================================================================
 // Leaderboard — local season + global server
 // =====================================================================
-const EVO_LB_KEY = 'evo_lb_local_v1';
+// Season key resets each calendar month — fresh competition every 30 days.
+function _lbKey(){ const d=new Date(); return 'evo_lb_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function _computeScore(p){
   if (!p) return 0;
   const rank   = p.rank || 1;
@@ -4680,9 +4662,9 @@ function _computeScore(p){
     + veil * 800;
 }
 function _localBoard(){
-  try { const a = JSON.parse(localStorage.getItem(EVO_LB_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch(e){ return []; }
+  try { const a = JSON.parse(localStorage.getItem(_lbKey()) || '[]'); return Array.isArray(a) ? a : []; } catch(e){ return []; }
 }
-function _saveLocalBoard(a){ try { localStorage.setItem(EVO_LB_KEY, JSON.stringify(a.slice(0, 50))); } catch(e){} }
+function _saveLocalBoard(a){ try { localStorage.setItem(_lbKey(), JSON.stringify(a.slice(0, 50))); } catch(e){} }
 function submitLocalScore(entry){
   const list = _localBoard();
   list.push(entry);
@@ -4750,12 +4732,14 @@ function openLeaderboardModal(){
   const m = document.createElement('div');
   m.id = 'lbModal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+  const _season = (()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); })();
   m.innerHTML = `
     <div style="background:#181425;border:2px solid #ffd66b;border-radius:12px;padding:24px;min-width:380px;max-width:90%;max-height:80vh;overflow:auto;color:#eaeaea;box-shadow:0 8px 40px rgba(0,0,0,0.7)">
-      <div style="font-size:18px;font-weight:700;color:#ffd66b;margin-bottom:14px">🏆 Leaderboards</div>
+      <div style="font-size:18px;font-weight:700;color:#ffd66b;margin-bottom:14px">🏆 Leaderboards · ${_season}</div>
       <div style="display:flex;gap:4px;margin-bottom:12px">
-        <button class="lbTab" data-tab="global" style="flex:1;padding:8px;background:#2a4a6a;color:#cce8ff;border:1px solid #5fa8ff;border-radius:4px;cursor:pointer">🌐 Global Top 50</button>
-        <button class="lbTab" data-tab="local" style="flex:1;padding:8px;background:#3a2a4a;color:#ddccff;border:1px solid #aa66ff;border-radius:4px;cursor:pointer">📜 Your Personal Best</button>
+        <button class="lbTab" data-tab="global" style="flex:1;padding:8px;background:#2a4a6a;color:#cce8ff;border:1px solid #5fa8ff;border-radius:4px;cursor:pointer">🌐 Global</button>
+        <button class="lbTab" data-tab="local" style="flex:1;padding:8px;background:#3a2a4a;color:#ddccff;border:1px solid #aa66ff;border-radius:4px;cursor:pointer">📜 Personal</button>
+        <button class="lbTab" data-tab="collect" style="flex:1;padding:8px;background:#1a3a2a;color:#9fd09f;border:1px solid #4aa86a;border-radius:4px;cursor:pointer">📖 Collection</button>
       </div>
       <div id="lbBody" style="font-size:12px;min-height:200px">Loading…</div>
       <button id="lbCloseBtn" style="display:block;width:100%;margin-top:14px;padding:8px;background:#444;color:#ccc;border:1px solid #666;border-radius:6px;cursor:pointer">Close</button>
@@ -4787,7 +4771,31 @@ function openLeaderboardModal(){
     body.innerHTML = h;
   }
   function show(tab){
-    if (tab === 'local'){
+    if (tab === 'collect'){
+      const seen = getFormsSeen();
+      const have = formsDiscoveredCount();
+      const tot = totalFormsCount();
+      const pct = Math.floor((have/tot)*100);
+      let h = '<div style="margin-bottom:8px;color:#9fd09f;font-weight:700;font-size:13px">📖 '+have+' / '+tot+' Forms Discovered ('+pct+'%)</div>';
+      h += '<div style="background:#222;border-radius:4px;height:8px;margin-bottom:12px"><div style="background:linear-gradient(90deg,#4aa86a,#8fd09f);height:100%;border-radius:4px;width:'+pct+'%"></div></div>';
+      h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+      for (const sp in RANK_FORMS){
+        const forms = RANK_FORMS[sp];
+        let disc = 0;
+        for (const f of forms){ if (seen[sp+':'+f.rank]) disc++; }
+        const full = disc >= forms.length;
+        h += '<div style="background:rgba(255,255,255,0.04);border:1px solid '+(full?'#4aa86a':'#333')+';border-radius:6px;padding:8px">';
+        h += '<div style="font-weight:700;text-transform:capitalize;color:#ccc;font-size:11px">'+sp+' '+(full?'✓':disc+'/'+forms.length)+'</div>';
+        h += '<div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">';
+        for (const f of forms){
+          const unlocked = !!seen[sp+':'+f.rank];
+          h += '<span title="'+(unlocked?f.name:'???')+'" style="font-size:20px;opacity:'+(unlocked?1:0.18)+';cursor:default">'+f.icon+'</span>';
+        }
+        h += '</div></div>';
+      }
+      h += '</div>';
+      body.innerHTML = h;
+    } else if (tab === 'local'){
       renderRows(_localBoard().slice(0, 50), false);
     } else {
       body.innerHTML = '<div style="color:#888;text-align:center;padding:30px">Loading global…</div>';
