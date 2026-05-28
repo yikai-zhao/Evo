@@ -785,6 +785,9 @@ const G = {
   ascended: null,   // { until, mult } — Apotheosis Inheritance buff after slaying a True God
   finalT: 0,        // "Final Tribulation" banner timer
   finalTriggered: false,
+  // v3.10.0: Bounty system — most wanted entity on the map
+  bountyTarget: null,  // reference to the highest-rank living entity; null = none
+  _bountyTimer: 0,     // countdown to next bounty refresh
 };
 const FAKE_NAMES = ['Witch','Mystic Name','Brahman','Red Lord','Hermit','Spear of Society','Dark Philosopher','Sun','High Dyke','Trance','Rule','Deceiver','Hidden Lord','Reverberation','Conductor','Jiao One','Black Night','Student','Void Reducer','Elder Day','Devourer','Joy','Falsehood','Flame Tongue','Phantom Light','Kunlun','Penguin','Apostle of Flame','Medium','King'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
@@ -2784,7 +2787,22 @@ function onKill(attacker, target){
   if (attacker){
     const an = attacker.isPlayer?'You':(attacker.name||attacker.sp.name);
     const tn = target.isPlayer?'You':(target.name||target.sp.name);
-    pushKillFeed(`${an} killed ${tn}`, attacker.isPlayer ? '#ffd66b' : (target.isPlayer ? '#ff4040' : '#aaa'));
+    const _isBountyKill = G.bountyTarget && G.bountyTarget === target;
+    const _kColor = attacker.isPlayer ? '#ffd66b' : (target.isPlayer ? '#ff4040' : (target.rank>=5 ? '#cc88ff' : '#666'));
+    const _rankTag = target.rank>=4 ? ` [R${target.rank} ${tierIcon(target)}]` : '';
+    const _bountyTag = _isBountyKill ? ' 💰 BOUNTY!' : '';
+    if (!attacker.isPlayer && !target.isPlayer && target.rank < 4) {
+      // silent low-rank AI kill — no feed spam
+    } else {
+      pushKillFeed(`${an} slew${_rankTag} ${tn}${_bountyTag}`, _kColor);
+    }
+    // Bounty kill: award player + clear bounty
+    if (_isBountyKill && attacker.isPlayer) {
+      try { addSoulShards(80, 'Bounty Kill!'); flash('#ffd66b', 0.5); shake(25); } catch(_){}
+      G.bountyTarget = null; G._bountyTimer = 6;
+    } else if (_isBountyKill) {
+      G.bountyTarget = null; G._bountyTimer = 6;
+    }
     if (target.isPlayer) { G.deathBy = `Killed by ${attacker.sp.name} (${tierIcon(attacker)} ${tierName(attacker)})`;
       // v3.6.0: revenge tracking — remember a PvP attacker by name
       try { if (attacker.name && (attacker.isRemotePeerAttacker || attacker._isRemotePeer)) addRevengeTarget(attacker.name); } catch(e){} }
@@ -3375,41 +3393,71 @@ function aiUpdate(e, dt){
   if (e.skillQT>0) e.skillQT-=dt;
   e.aiTimer-=dt;
   // 找目標（視野設為 500，比原 800 低）
+  // v3.10.0: target selection — AI vs AI creates organic conflict
   let tgt = null, td = Infinity;
-  const cands = e.isMinion ? G.enemies.filter(x=>x.hp>0) : [G.player, ...G.minions.filter(m=>m.hp>0)];
   const sightR = 500 + (e.rank||1)*20;
-  for (const c of cands){
-    if (!c||c.hp<=0) continue;
-    if (c.isPlayer && c.invuln>0) continue; // 出生保護時 AI 無視玩家
-    const d=dist(e,c); if (d<sightR && d<td){ td=d; tgt=c; }
+  if (e.isMinion) {
+    // Minions attack enemies
+    for (const x of G.enemies) {
+      if (!x||x.hp<=0) continue;
+      const d=dist(e,x); if (d<sightR && d<td){ td=d; tgt=x; }
+    }
+  } else {
+    // Prioritize bounty target (extended sight)
+    if (G.bountyTarget && G.bountyTarget !== e && G.bountyTarget.hp > 0) {
+      const bd = dist(e, G.bountyTarget);
+      if (bd < sightR * 1.8) { tgt = G.bountyTarget; td = bd; }
+    }
+    // Player and player's minions
+    const _pc = [G.player, ...G.minions.filter(m=>m&&m.hp>0)];
+    for (const c of _pc) {
+      if (!c||c.hp<=0) continue;
+      if (c.isPlayer && (c.invuln||0)>0) continue;
+      const d=dist(e,c); if (d<sightR && d<td){ td=d; tgt=c; }
+    }
+    // AI vs AI: rank 4+ entities hunt nearby enemies (battle-royale infighting)
+    if (!tgt && (e.rank||1) >= 4) {
+      for (const x of G.enemies) {
+        if (x===e||!x||x.hp<=0||x._dead) continue;
+        const d=dist(e,x); if (d<340 && d<td){ td=d; tgt=x; }
+      }
+    }
   }
-  // 每只 AI 有個「懶散度」：低階心虐手軟，高階才主動進攒
+  // 懶散度：高階更主動
   if (e.aiLazy === undefined) e.aiLazy = rand(0.3, 0.85) - (e.rank||1)*0.04;
-  if (!tgt || Math.random() < e.aiLazy*dt*0.6){
+  const _hpPct = e.hp / (e.maxHp || 1);
+  const _isRetreating = _hpPct < 0.25 && !!tgt && td < 700;
+  if (!tgt || (Math.random() < e.aiLazy*dt*0.6 && !_isRetreating)) {
     // 漫遊
     if (e.aiTimer<=0){ e.aiTimer=rand(1.5,4); e._wx=rand(-1,1); e._wy=rand(-1,1); const l=Math.hypot(e._wx,e._wy)||1; e._wx/=l; e._wy/=l; }
     e.vx = (e._wx||0)*e.spd*0.35; e.vy = (e._wy||0)*e.spd*0.35;
-    // 漫遊時頭部朝向與移動方向一致
     if (Math.hypot(e.vx, e.vy) > 0.05) e.facing = Math.atan2(e.vy, e.vx);
+  } else if (_isRetreating) {
+    // 血量低：撤退（與玩家的追逃感）
+    const _fleeAng = angTo(tgt, e);
+    e.vx = Math.cos(_fleeAng)*e.spd*1.1; e.vy = Math.sin(_fleeAng)*e.spd*1.1;
+    e.facing = _fleeAng;
   } else {
     e.facing = angTo(e,tgt);
-    // 近戰範圍內：攻擊
+    const _tgtHpPct = (tgt.hp||1)/(tgt.maxHp||100);
     if (td < e.atkR + e.r + tgt.r){
       e.vx*=0.5; e.vy*=0.5;
-      // v3.5.2: low-rank AI attacks less precisely — lower hit chance, longer cooldown
       const hitChance = (e.rank||1) <= 3 ? 0.35 : 0.70;
       const cdMult    = (e.rank||1) <= 3 ? 2.0  : 1.35;
       if (e.atkCdT<=0 && Math.random()<hitChance){ doMelee(e); e.atkCdT = e.atkCd * cdMult; }
     } else if (e.rngDmg>0 && td<e.rngR && e.rngCdT<=0 && Math.random()<((e.rank||1)<=3?0.07:0.22)){
       doRanged(e); e.rngCdT = e.rngCd*((e.rank||1)<=3 ? 3.5 : 2.2);
     } else {
-      // v3.5.2: rank 1-3 AI chases at 65% speed — easy to kite
-      const chaseSp = (e.rank||1) <= 3 ? 0.60 : 0.85;
-      const ang=angTo(e,tgt); const sp = e.spd*chaseSp*(e.slow>0?0.5:1);
+      // 目標殘血時全速追擊（製造追殺張力）
+      const chaseSp = _tgtHpPct < 0.3 ? 1.05 : ((e.rank||1) <= 3 ? 0.60 : 0.85);
+      const ang=angTo(e,tgt); const sp=e.spd*chaseSp*(e.slow>0?0.5:1);
       e.vx=Math.cos(ang)*sp; e.vy=Math.sin(ang)*sp;
     }
-    // AI 技能釋放機率大幅下調（1/8 以下）
-    if (e.skillQT<=0 && td<380 && Math.random()<0.0012 && !(tgt && tgt.isPlayer && tgt.invuln>0) && e.rank>=(e.sp.skillQ.unlockRank||1)){ try{ castSkill(e, e.sp.skillQ, 'Q'); }catch(err){ console.warn('AI skill err', err);} e.skillQT = e.sp.skillQ.cd * 1.5; }
+    // 技能：4x 頻率（更接近玩家行為）
+    if (e.skillQT<=0 && td<380 && Math.random()<0.005 && !(tgt&&tgt.isPlayer&&(tgt.invuln||0)>0) && e.rank>=(e.sp.skillQ.unlockRank||1)){
+      try{ castSkill(e, e.sp.skillQ, 'Q'); }catch(_){}
+      e.skillQT = e.sp.skillQ.cd * 1.5;
+    }
   }
   e.x = clamp(e.x+e.vx*dt, 20, WORLD.w-20);
   e.y = clamp(e.y+e.vy*dt, 20, WORLD.h-20);
@@ -4807,6 +4855,34 @@ function openLeaderboardModal(){
   show('global');
 }
 
+// =====================================================================
+// v3.10.0: Bounty — tracks the strongest entity on the map.
+// Everyone (AI + player) is pulled toward hunting it.
+// Creates the core "multiplayer tension": whoever is winning becomes the target.
+// =====================================================================
+function updateBounty(dt){
+  G._bountyTimer -= dt;
+  // Invalidate if dead
+  if (G.bountyTarget && (G.bountyTarget.hp<=0 || G.bountyTarget._dead)) {
+    G.bountyTarget = null; G._bountyTimer = 4;
+  }
+  if (G._bountyTimer > 0) return;
+  G._bountyTimer = 12;
+  // Find highest-rank living entity
+  let best = (G.player && G.player.hp>0 && !G.dead) ? G.player : null;
+  let bestRank = best ? (best.rank||1) : 0;
+  for (const e of G.enemies) {
+    if (!e||e.hp<=0||e._dead) continue;
+    if ((e.rank||1) > bestRank) { bestRank = e.rank; best = e; }
+  }
+  if (!best || bestRank < 5) { G.bountyTarget = null; return; } // no bounty for rank <5
+  if (best === G.bountyTarget) return; // unchanged
+  G.bountyTarget = best;
+  const name = best.isPlayer ? 'YOU' : (best.name||best.sp.name);
+  pushKillFeed(`💰 MOST WANTED: [R${bestRank} ${tierIcon(best)} ${name}] — +80 coins bounty!`, '#ffd66b');
+  try { if (!best.isPlayer) { flash('#ffd66b',0.25); } } catch(_){}
+}
+
 let lastT=0;
 function loop(t){
   let dt = Math.min(0.05, (t-lastT)/1000 || 0); lastT=t;
@@ -4842,6 +4918,7 @@ function update(dt){
   G._mDt = dt;
   // v3.7.0: Twilight of the Gods ticks
   try { updateVeil(dt); updateAscended(dt); updatePartyInvites(dt); updatePathBond(); checkLastSurvivorWin(); if (G.finalT>0) G.finalT -= dt; } catch(e){}
+  try { updateBounty(dt); } catch(e){}
   // 相機平滑跟隨 + 世界邊界夾限 + NaN 保護
   if (!isFinite(G.player.x) || !isFinite(G.player.y)){ G.player.x = WORLD.w/2; G.player.y = WORLD.h/2; G.player.vx=0; G.player.vy=0; }
   G.cam.tx = G.player.x; G.cam.ty = G.player.y;
@@ -5674,6 +5751,16 @@ function drawCreature(c){
       ctx.lineTo(c.x+10, _cy+5);
       ctx.closePath(); ctx.fill(); ctx.stroke();
     }
+    ctx.restore();
+  }
+  // Bounty target: pulsing 💰 above head
+  if (!isP && G.bountyTarget && G.bountyTarget === c) {
+    ctx.save();
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    ctx.font='20px serif';
+    ctx.globalAlpha = 0.75 + 0.25*Math.sin(G.time*5);
+    ctx.fillText('💰', c.x, c.y - c.r - 30);
+    ctx.globalAlpha=1;
     ctx.restore();
   }
   // HP bar
