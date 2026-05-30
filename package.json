@@ -1,6 +1,6 @@
 {
   "name": "evo",
-  "version": "3.11.0",
+  "version": "3.13.0",
   "description": "Twilight of the Gods — a multiplayer mythic battle royale on the open web.",
   "main": "server.js",
   "scripts": {
@@ -14,7 +14,9 @@
     "build:poki": "node scripts/build-platform.js --platform=poki",
     "build:itch": "node scripts/build-platform.js --platform=itch",
     "gen:portraits": "node scripts/gen-portraits.mjs",
-    "gen:portraits:force": "node scripts/gen-portraits.mjs --force"
+    "gen:portraits:force": "node scripts/gen-portraits.mjs --force",
+    "start:electron": "electron electron-main.js",
+    "build:electron": "electron-builder --config electron-builder.json"
   },
   "repository": {
     "type": "git",
@@ -32,6 +34,8 @@
     "ws": "^8.20.1"
   },
   "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.0.0",
     "sharp": "^0.34.5",
     "terser": "^5.48.0"
   }

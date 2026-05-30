@@ -1,0 +1,40 @@
+{
+  "appId": "com.yikaizhao.evo",
+  "productName": "Evo",
+  "copyright": "Copyright © 2025",
+  "asar": true,
+  "files": [
+    "index.html",
+    "game.js",
+    "net.js",
+    "sdk.js",
+    "electron-main.js",
+    "package.json",
+    "assets/**/*",
+    "!node_modules/**",
+    "!scripts/**",
+    "!dist/**",
+    "!*.zip"
+  ],
+  "directories": {
+    "output": "dist/electron"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "assets/icon.ico"
+  },
+  "mac": {
+    "target": "dmg",
+    "icon": "assets/icon.icns",
+    "category": "public.app-category.games"
+  },
+  "linux": {
+    "target": "AppImage",
+    "icon": "assets/icon.png",
+    "category": "Game"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}

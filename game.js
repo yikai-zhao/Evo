@@ -5200,7 +5200,17 @@ function castAuthorityAI(e){
       try { chainLightning(e, 12, 110*dh, 380); } catch(_){}
       break;
     case 'gale':
-      for (const t of targets){ const d=dist(e,t); if(d<600){ const ang=angTo(e,t); t.x+=Math.cos(ang)*280; t.y+=Math.sin(ang)*280; t.slow=Math.max(t.slow||0,3); dealDamage(e,t,60*dh,'#aaffcc'); } }
+      for (const t of targets){ const d=dist(e,t); if(d<600){
+        const ang=angTo(e,t);
+        const pushD = t.isPlayer ? 90 : 220;
+        const nx = t.x + Math.cos(ang)*pushD;
+        const ny = t.y + Math.sin(ang)*pushD;
+        if (isFinite(nx) && isFinite(ny)){
+          t.x = clamp(nx, 20, WORLD.w-20);
+          t.y = clamp(ny, 20, WORLD.h-20);
+        }
+        t.slow=Math.max(t.slow||0,3); dealDamage(e,t,60*dh,'#aaffcc');
+      } }
       break;
     case 'fire':
       for (const t of targets) if (dist(e,t)<600){ dealDamage(e,t,150*dh,'#ff5530'); t.bleed=Math.max(t.bleed||0,4); }
@@ -5213,7 +5223,20 @@ function castAuthorityAI(e){
       for (const t of targets) if (dist(e,t)<1400) t.freeze=Math.max(t.freeze||0,4);
       break;
     case 'void':
-      for (const t of targets){ const d=dist(e,t); if(d<900){ const ang=angTo(t,e); t.x+=Math.cos(ang)*Math.min(d*0.5,380); t.y+=Math.sin(ang)*Math.min(d*0.5,380); dealDamage(e,t,180*dh,'#7a00cc'); if(t.hp<=0) try{onKill(e,t);}catch(_){} } }
+      for (const t of targets){
+        const d=dist(e,t); if(d<900){
+          const ang=angTo(t,e);
+          // v3.13.0: player pull capped at 100px; enemies pulled up to 300px
+          const pullD = t.isPlayer ? 100 : Math.min(d*0.45, 300);
+          const nx = t.x + Math.cos(ang)*pullD;
+          const ny = t.y + Math.sin(ang)*pullD;
+          if (isFinite(nx) && isFinite(ny)){
+            t.x = clamp(nx, 20, WORLD.w-20);
+            t.y = clamp(ny, 20, WORLD.h-20);
+          }
+          dealDamage(e,t,180*dh,'#7a00cc'); if(t.hp<=0) try{onKill(e,t);}catch(_){}
+        }
+      }
       G.shockwaves.push({x:e.x,y:e.y,r:0,max:900,life:1.1,color:'#7a00cc'});
       break;
     case 'life':
