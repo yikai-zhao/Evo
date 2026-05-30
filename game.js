@@ -4074,6 +4074,32 @@ function winGame(){
   try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
   // v3.7.0: viral share button — reward coins for sharing (drives organic acquisition)
   try { _setupWinShareButton(); } catch(e){}
+  // v2.0.0: win-screen rewarded ad (+300 coins) — shown on ad-supported platforms only
+  try {
+    const _war = document.getElementById('winAdRewardBtn');
+    if (_war){
+      if (window.SDK && SDK.ready && !SDK.noAds && typeof SDK.rewardedBreak==='function'){
+        _war.classList.remove('hidden');
+        _war.disabled = false;
+        _war.onclick = async ()=>{
+          if (_war._used) return;
+          _war._used = true;
+          _war.disabled = true; _war.textContent = 'Loading ad…';
+          let ok = false;
+          try { ok = await SDK.rewardedBreak(); } catch(e){}
+          if (ok){
+            addCoins(300);
+            _war.textContent = '✓ +300 Divine Coins rewarded! 🪙';
+          } else {
+            _war.textContent = 'Ad unavailable — try again later';
+            setTimeout(()=>{ _war.disabled=false; _war._used=false; _war.textContent='▶ Watch Ad: 🪙 +300 Divine Coins!'; }, 5000);
+          }
+        };
+      } else {
+        _war.classList.add('hidden');
+      }
+    }
+  } catch(e){}
   // v3.9.0: submit to global + local leaderboards
   try { submitRunScore(); } catch(e){}
 }
@@ -8405,6 +8431,7 @@ async function restartGame(){
   document.getElementById('win').classList.add('hidden');
   const _rev = document.getElementById('reviveBtn'); if (_rev) _rev.classList.add('hidden');
   const _cdb = document.getElementById('coinDoubleBtn'); if (_cdb) _cdb.classList.add('hidden');
+  const _war = document.getElementById('winAdRewardBtn'); if (_war){ _war.classList.add('hidden'); _war._used=false; }
   G.started=false; G.selectedSpecies=null; G._reviveUsed=false; G._coinDoubleUsed=false; G._crateUsed=false;
   G.killFeed=[]; G.leaderboard=[]; G.deathBy=''; G.errorCount=0;
   if (window.SDK && SDK.ready){ try { await SDK.commercialBreak(); } catch(e){} }
@@ -8422,6 +8449,17 @@ window.addEventListener('load', async ()=>{
   document.getElementById('startBtn').onclick = startGame;
   document.getElementById('restartBtn').onclick = restartGame;
   document.getElementById('winRestartBtn').onclick = restartGame;
+
+  // v2.0.0: Steam cross-promo CTA — show on web platforms, hide on Steam itself
+  _sdkP.then(()=>{
+    const _cta = document.getElementById('steamCta');
+    const _ctaLink = document.getElementById('steamCtaLink');
+    if (_cta && window.SDK && SDK.platform !== 'steam'){
+      _cta.style.display = 'block';
+      // Update href once Steam store page URL is known
+      if (_ctaLink) _ctaLink.href = 'https://store.steampowered.com/app/0000000/Evo/';
+    }
+  }).catch(()=>{});
 
   // v1.6.0: Quick Start (random species) — Poki best practice: 1-click play
   const _qs = document.getElementById('quickStartBtn');
