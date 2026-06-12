@@ -2684,7 +2684,7 @@ function updatePlayer(p, dt){
   if (p.bleed>0){ p.hp -= 6*dt; p.bleed-=dt; }
   if (p.poison>0){ p.hp -= 10*p.daohen*dt; p.poison-=dt; }
   if (p.qiBonusT>0) p.qiBonusT -= dt;
-  // v1.0.0: visited fog 解除（每幀標記玩家附近）
+  // v1.0.0: visited fog 解除
   if (G.visited){
     const cs = G.visitedCellSize || 1;
     const cx = (p.x/cs)|0, cy = (p.y/cs)|0;
@@ -2694,43 +2694,20 @@ function updatePlayer(p, dt){
       if (xx>=0 && yy>=0 && yy<G.visited.length && xx<G.visited[0].length && dx*dx+dy*dy<=rad*rad) G.visited[yy][xx] = 1;
     }
   }
-  const _firstLock = p.isPlayer && _isFirstRunLocked();
-  const _mobAssist = p.isPlayer && isMobile();
-  if (!_firstLock && KEYS['x'] && p.dashCdT<=0 && p.sta>=20 && (mx||my)){
-    let _autoMelee = false;
-    if (_mobAssist && G.started && !G.dead && p.hp>0){
-      let _best = null, _bd = Infinity;
-      for (const e of G.enemies){
-        if (!e || e.hp<=0 || e._dead) continue;
-        const d = dist(p, e);
-        if (d < _bd){ _bd = d; _best = e; }
-      }
-      if (_best){
-        p.facing = angTo(p, _best);
-        if (_bd <= (p.atkR + p.r + (_best.r||14) + 20)) _autoMelee = true;
-      }
-    }
-    if ((MOUSE.ldown || KEYS[' '] || _autoMelee) && p.atkCdT<=0){ doMelee(p); p.atkCdT = p.atkCd / (p.rageT>0?2:1); }
+  if (p.slow>0) p.slow-=dt;
+  // 玩家不會被凍結
   if (p.isPlayer) p.freeze = 0;
-    if (!_firstLock && KEYS['f'] && p.rngCdT<=0 && p.rngDmg>0){ doRanged(p); p.rngCdT = p.rngCd; }
+  else if (p.freeze>0){ p.freeze-=dt; return; }
   if (p.stun>0){ p.stun-=dt; }
-    let _autoDef = false;
-    if (!_firstLock && _mobAssist && p.hp>0 && p.maxHp>0 && p.hp/p.maxHp < 0.35){
-      for (const e of G.enemies){
-        if (!e || e.hp<=0 || e._dead) continue;
-        if (dist(p, e) < 240){ _autoDef = true; break; }
-      }
-    }
-    p.defending = (!_firstLock) && ((MOUSE.rdown || KEYS['shift']) || _autoDef) && p.sta>0;
-    if (!_firstLock && KEYS['q'] && p.skillQT<=0 && p.rank>=(p.sp.skillQ.unlockRank||1)){ castSkill(p, p.sp.skillQ, 'Q'); p.skillQT = _skillCd(p, p.sp.skillQ, 'Q'); }
-    if (!_firstLock && KEYS['e'] && p.skillET<=0 && p.rank>=(p.sp.skillE.unlockRank||1)){ castSkill(p, p.sp.skillE, 'E'); p.skillET = _skillCd(p, p.sp.skillE, 'E'); }
-    if (!_firstLock && KEYS['r'] && p.skillRT<=0 && p.rank>=(p.sp.skillR.unlockRank||1)){ castSkill(p, p.sp.skillR, 'R'); p.skillRT = _skillCd(p, p.sp.skillR, 'R'); }
-    if (!_firstLock && KEYS['1'] && p.authoritySlots[0] && p.authCdT[0]<=0){ castAuthority(p,0); p.authCdT[0] = _effectiveCD(p, p.authoritySlots[0]); }
-    if (!_firstLock && KEYS['2'] && p.authoritySlots[1] && p.authCdT[1]<=0){ castAuthority(p,1); p.authCdT[1] = _effectiveCD(p, p.authoritySlots[1]); }
-    if (!_firstLock && KEYS['3'] && p.authoritySlots[2] && p.authCdT[2]<=0){ castAuthority(p,2); p.authCdT[2] = _effectiveCD(p, p.authoritySlots[2]); }
-    if (!_firstLock && KEYS['4'] && p.authoritySlots[3] && p.authCdT[3]<=0){ castAuthority(p,3); p.authCdT[3] = _effectiveCD(p, p.authoritySlots[3]); }
-    if (!_firstLock && KEYS['5'] && p.authoritySlots[4] && p.authCdT[4]<=0){ castAuthority(p,4); p.authCdT[4] = _effectiveCD(p, p.authoritySlots[4]); }
-    if (!_firstLock && KEYS['6'] && p.authoritySlots[5] && p.authCdT[5]<=0){ castAuthority(p,5); p.authCdT[5] = _effectiveCD(p, p.authoritySlots[5]); }
+  // 被動回血
+  if (p.isPlayer && p.hp>0 && p.hp<p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 2*p.zhenyuan*dt);
+  if (p._regen>0 && p.hp>0 && p.hp<p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p._regen*dt);
+  // 光環 tick
+  p._auraT = (p._auraT||0) - dt;
+  const perk = p.perks;
+  if (perk && (perk.slowAura||perk.dotAura||perk.pushAura) && p._auraT<=0){
+    p._auraT = 0.5;
+    const R = 220;
     const list = p.isPlayer ? G.enemies : [G.player];
     for (const e of list){
       if (!e||e.hp<=0) continue;
@@ -2747,16 +2724,14 @@ function updatePlayer(p, dt){
   if (p.rageT>0){ p.rageT-=dt; if (p.rageT<=0){ p.bonusAtkMult/=2; p.bonusDefMult/=2; recalcStats(p);} }
   if (p.titanT>0){ p.titanT-=dt; if (p.titanT<=0){ p.bonusAtkMult/=2.5; p.bonusDefMult/=2; p.bonusSizeMult/=2.2; recalcStats(p);} }
   if (p.darkT>0) p.darkT-=dt;
-  // v2.2.0: utility skill timers
   if (p.shieldT>0){ p.shieldT-=dt; if (p.shieldT<=0){ p.shieldHp=0; } }
   if (p.lifestealT>0) p.lifestealT-=dt;
   if (p.dmgTransferT>0) p.dmgTransferT-=dt;
-
   // 壽命扣減（玩家）
   if (p.isPlayer){ p.life -= dt; if (p.life<=0){ die('Lifespan exhausted'); return; } }
 
-  // 移動
-  applyJoystick(); // v2.4.0: 手機搖桿 → 注入 KEYS
+  // ── 移動 ────────────────────────────────────────────
+  applyJoystick();
   let mx=0,my=0;
   if (KEYS['w']||KEYS['arrowup']) my-=1;
   if (KEYS['s']||KEYS['arrowdown']) my+=1;
@@ -2778,23 +2753,19 @@ function updatePlayer(p, dt){
   p.x = clamp(p.x + p.vx*dt, 20, WORLD.w-20);
   p.y = clamp(p.y + p.vy*dt, 20, WORLD.h-20);
 
-  // 朝向：v2.9.7 行動裝置上跟隨搖桿方向，桌面用滑鼠
-  // v2.9.8 fix: 搖桿閒置時保持上次朝向（不 fallback 到 MOUSE，避免頭歪向左下）
+  // 朝向
   if (typeof TOUCH !== 'undefined' && TOUCH && TOUCH.joy){
-    // 搖桿啟動 → 頭朝搖桿方向
     p.facing = TOUCH.joy.ang;
   } else if (!(typeof isMobile === 'function' && isMobile())){
-    // 桌面 → 使用滑鼠
     p.facing = Math.atan2(MOUSE.wy - p.y, MOUSE.wx - p.x);
   }
-  // 手機 + 搖桿閒置 → p.facing 維持上次值，不修改
 
   // 地形紀錄
   const t = terrainAt(p.x,p.y);
   p.q.terrains.add(t);
   if (t==='end' && !p.q.enteredEnd){ p.q.enteredEnd = true; logMsg('★ Entered Lands End','promote'); }
 
-  // 攻擊
+  // ── 攻擊 & 技能 ──────────────────────────────────────
   if (p.atkCdT>0) p.atkCdT-=dt;
   if (p.rngCdT>0) p.rngCdT-=dt;
   if (p.skillQT>0) p.skillQT-=dt;
@@ -2802,22 +2773,37 @@ function updatePlayer(p, dt){
   if (p.skillRT>0) p.skillRT-=dt;
   for (let i=0;i<p.authCdT.length;i++) if (p.authCdT[i]>0) p.authCdT[i]-=dt;
 
-  if ((MOUSE.ldown || KEYS[' ']) && p.atkCdT<=0){ doMelee(p); p.atkCdT = p.atkCd / (p.rageT>0?2:1); }
-  // 遠程移到 F 鍵（右鍵改為防禦）
-  if (KEYS['f'] && p.rngCdT<=0 && p.rngDmg>0){ doRanged(p); p.rngCdT = p.rngCd; }
-  // 右鍵 = 防禦：80% 減傷、反射 30% 傷害、每秒消耗 12 STA；STA 不足自動結束
-  p.defending = (MOUSE.rdown || KEYS['shift']) && p.sta>0;
-  if (p.defending){
-    p.sta = Math.max(0, p.sta - 12*dt);
-    p.vx *= 0.4; p.vy *= 0.4; // 防禦時減速
+  // v3.13.3: mobile auto-aim + auto-melee assist
+  const _mobAssist = p.isPlayer && (typeof isMobile==='function') && isMobile();
+  let _autoMelee = false;
+  if (_mobAssist && G.started && !G.dead && p.hp>0){
+    let _best=null, _bd=Infinity;
+    for (const e of G.enemies){
+      if (!e||e.hp<=0||e._dead) continue;
+      const d=dist(p,e); if(d<_bd){_bd=d;_best=e;}
+    }
+    if (_best){
+      p.facing = angTo(p,_best);
+      if (_bd <= (p.atkR+p.r+(_best.r||14)+20)) _autoMelee=true;
+    }
   }
+  if ((MOUSE.ldown || KEYS[' '] || _autoMelee) && p.atkCdT<=0){ doMelee(p); p.atkCdT = p.atkCd / (p.rageT>0?2:1); }
+  if (KEYS['f'] && p.rngCdT<=0 && p.rngDmg>0){ doRanged(p); p.rngCdT = p.rngCd; }
+
+  // 防禦（低血手機自動防禦）
+  let _autoDef = false;
+  if (_mobAssist && p.hp>0 && p.maxHp>0 && p.hp/p.maxHp < 0.35){
+    for (const e of G.enemies){ if (e&&e.hp>0&&!e._dead&&dist(p,e)<240){ _autoDef=true; break; } }
+  }
+  p.defending = ((MOUSE.rdown || KEYS['shift']) || _autoDef) && p.sta>0;
+  if (p.defending){ p.sta = Math.max(0, p.sta - 12*dt); p.vx *= 0.4; p.vy *= 0.4; }
 
   // 技能
   if (KEYS['q'] && p.skillQT<=0 && p.rank>=(p.sp.skillQ.unlockRank||1)){ castSkill(p, p.sp.skillQ, 'Q'); p.skillQT = _skillCd(p, p.sp.skillQ, 'Q'); }
   if (KEYS['e'] && p.skillET<=0 && p.rank>=(p.sp.skillE.unlockRank||1)){ castSkill(p, p.sp.skillE, 'E'); p.skillET = _skillCd(p, p.sp.skillE, 'E'); }
   if (KEYS['r'] && p.skillRT<=0 && p.rank>=(p.sp.skillR.unlockRank||1)){ castSkill(p, p.sp.skillR, 'R'); p.skillRT = _skillCd(p, p.sp.skillR, 'R'); }
 
-  // 權柄 — v3.9.0: CD passes through _effectiveCD (path affinity = -40% CD)
+  // 權柄
   if (KEYS['1'] && p.authoritySlots[0] && p.authCdT[0]<=0){ castAuthority(p,0); p.authCdT[0] = _effectiveCD(p, p.authoritySlots[0]); }
   if (KEYS['2'] && p.authoritySlots[1] && p.authCdT[1]<=0){ castAuthority(p,1); p.authCdT[1] = _effectiveCD(p, p.authoritySlots[1]); }
   if (KEYS['3'] && p.authoritySlots[2] && p.authCdT[2]<=0){ castAuthority(p,2); p.authCdT[2] = _effectiveCD(p, p.authoritySlots[2]); }
