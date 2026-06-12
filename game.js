@@ -795,6 +795,7 @@ const G = {
   _matchBotTarget: 0,
   _matchHumansAtStart: 1,
   _matchSyncT: 0,
+  _firstRunMode: false,
 };
 const MATCH_TARGET_PLAYERS = 20;
 const MAX_PLAYER_FOCUS_BOTS = 4;
@@ -2295,6 +2296,12 @@ function _isActiveMatchRoom(){
   return !!(Net.room.code && Net.room.code !== 'global');
 }
 
+function _isFirstRunLocked(){
+  if (!G._firstRunMode || !G.player) return false;
+  // First 30s: only move / melee / absorb XP / get first evolution.
+  return (G.tutorialT < 30) && ((G.player.rank||1) < 2);
+}
+
 function _matchHumanCount(){
   if (!_isActiveMatchRoom()) return 1;
   const peers = (Net.room && Net.room.peers) ? Net.room.peers.length : 0;
@@ -2557,9 +2564,9 @@ function drawTutorial(){
   tut.t += 1/60; tut.totalT += 1/60;
   // Auto-advance
   const steps = [
-    { dur:5,  text:'Move with WASD or Arrow keys', sub:'(touch: drag the joystick on the left)' },
-    { dur:5,  text:'Left-click or SPACE to attack nearby enemies', sub:'Kill creatures to gain XP and evolve' },
-    { dur:4,  text:'Press Q for your special skill', sub:'E and R unlock at higher tiers' },
+    { dur:10, text:'Move', sub:'WASD / joystick' },
+    { dur:10, text:'Attack nearby enemies', sub:'Tap attack / auto-aim on mobile' },
+    { dur:10, text:'Absorb XP and evolve once', sub:'After first evolution, advanced systems unlock' },
   ];
   const s = steps[tut.step]; if (!s){ tut.hidden = true; markTutorialDone(); return; }
   if (tut.t >= s.dur){ tut.step++; tut.t = 0; return; }
@@ -2686,22 +2693,44 @@ function updatePlayer(p, dt){
       const xx = cx+dx, yy = cy+dy;
       if (xx>=0 && yy>=0 && yy<G.visited.length && xx<G.visited[0].length && dx*dx+dy*dy<=rad*rad) G.visited[yy][xx] = 1;
     }
+    const _firstLock = p.isPlayer && _isFirstRunLocked();
+    const _mobAssist = p.isPlayer && isMobile();
   }
-  if (p.slow>0) p.slow-=dt;
-  // 玩家不會被凍結（避免無法操作卡死）
+    if (!_firstLock && KEYS['x'] && p.dashCdT<=0 && p.sta>=20 && (mx||my)){
+    let _autoMelee = false;
+    if (_mobAssist && G.started && !G.dead && p.hp>0){
+      let _best = null, _bd = Infinity;
+      for (const e of G.enemies){
+        if (!e || e.hp<=0 || e._dead) continue;
+        const d = dist(p, e);
+        if (d < _bd){ _bd = d; _best = e; }
+      }
+      if (_best){
+        p.facing = angTo(p, _best);
+        if (_bd <= (p.atkR + p.r + (_best.r||14) + 20)) _autoMelee = true;
+      }
+    }
+    if ((MOUSE.ldown || KEYS[' '] || _autoMelee) && p.atkCdT<=0){ doMelee(p); p.atkCdT = p.atkCd / (p.rageT>0?2:1); }
   if (p.isPlayer) p.freeze = 0;
-  else if (p.freeze>0){ p.freeze-=dt; return; }
+    if (!_firstLock && KEYS['f'] && p.rngCdT<=0 && p.rngDmg>0){ doRanged(p); p.rngCdT = p.rngCd; }
   if (p.stun>0){ p.stun-=dt; }
-  // 被動回血：玩家 2/s（+真元），9 階前都有效
-  if (p.isPlayer && p.hp>0 && p.hp<p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 2*p.zhenyuan*dt);
-  // 進階能力：階位回血
-  if (p._regen>0 && p.hp>0 && p.hp<p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p._regen*dt);
-  // 進階能力：光環（每 0.5s tick）
-  p._auraT = (p._auraT||0) - dt;
-  const perk = p.perks;
-  if (perk && (perk.slowAura||perk.dotAura||perk.pushAura) && p._auraT<=0){
-    p._auraT = 0.5;
-    const R = 220;
+    let _autoDef = false;
+    if (!_firstLock && _mobAssist && p.hp>0 && p.maxHp>0 && p.hp/p.maxHp < 0.35){
+      for (const e of G.enemies){
+        if (!e || e.hp<=0 || e._dead) continue;
+        if (dist(p, e) < 240){ _autoDef = true; break; }
+      }
+    }
+    p.defending = (!_firstLock) && ((MOUSE.rdown || KEYS['shift']) || _autoDef) && p.sta>0;
+    if (!_firstLock && KEYS['q'] && p.skillQT<=0 && p.rank>=(p.sp.skillQ.unlockRank||1)){ castSkill(p, p.sp.skillQ, 'Q'); p.skillQT = _skillCd(p, p.sp.skillQ, 'Q'); }
+    if (!_firstLock && KEYS['e'] && p.skillET<=0 && p.rank>=(p.sp.skillE.unlockRank||1)){ castSkill(p, p.sp.skillE, 'E'); p.skillET = _skillCd(p, p.sp.skillE, 'E'); }
+    if (!_firstLock && KEYS['r'] && p.skillRT<=0 && p.rank>=(p.sp.skillR.unlockRank||1)){ castSkill(p, p.sp.skillR, 'R'); p.skillRT = _skillCd(p, p.sp.skillR, 'R'); }
+    if (!_firstLock && KEYS['1'] && p.authoritySlots[0] && p.authCdT[0]<=0){ castAuthority(p,0); p.authCdT[0] = _effectiveCD(p, p.authoritySlots[0]); }
+    if (!_firstLock && KEYS['2'] && p.authoritySlots[1] && p.authCdT[1]<=0){ castAuthority(p,1); p.authCdT[1] = _effectiveCD(p, p.authoritySlots[1]); }
+    if (!_firstLock && KEYS['3'] && p.authoritySlots[2] && p.authCdT[2]<=0){ castAuthority(p,2); p.authCdT[2] = _effectiveCD(p, p.authoritySlots[2]); }
+    if (!_firstLock && KEYS['4'] && p.authoritySlots[3] && p.authCdT[3]<=0){ castAuthority(p,3); p.authCdT[3] = _effectiveCD(p, p.authoritySlots[3]); }
+    if (!_firstLock && KEYS['5'] && p.authoritySlots[4] && p.authCdT[4]<=0){ castAuthority(p,4); p.authCdT[4] = _effectiveCD(p, p.authoritySlots[4]); }
+    if (!_firstLock && KEYS['6'] && p.authoritySlots[5] && p.authCdT[5]<=0){ castAuthority(p,5); p.authCdT[5] = _effectiveCD(p, p.authoritySlots[5]); }
     const list = p.isPlayer ? G.enemies : [G.player];
     for (const e of list){
       if (!e||e.hp<=0) continue;
@@ -3504,6 +3533,7 @@ function castAuthority(p, slot){
 // 自動拾取
 // =====================================================================
 function autoPickup(p){
+  const _firstLock = p.isPlayer && _isFirstRunLocked();
   const R2 = 70*70;
   // 靈氣磁吸
   for (const s of G.spirits){
@@ -3528,17 +3558,19 @@ function autoPickup(p){
   }
   G.pickups = G.pickups.filter(it=>!it._gone);
   // 權柄
-  for (const a of G.authorities){
-    if (dist2(p,a) < (60+40)*(60+40)){
-      if (p.authoritySlots.length<6){
-        p.authoritySlots.push(a); p.authCdT.push(0); p.q.authorities++;
-        logMsg(`★ Picked up [${a.name}]`, 'promote');
-        pushKillFeed(`You picked up ${a.name}`, a.color);
-        playSound('promote');
-        flash(a.color,0.5); shake(10);
-        // v3.3.0: happyTime on Authority pickup — peak loot moment
-        try { if (p.isPlayer && window.SDK && SDK.happyTime) SDK.happyTime(0.7); } catch(e){}
-        a._gone = true;
+  if (!_firstLock){
+    for (const a of G.authorities){
+      if (dist2(p,a) < (60+40)*(60+40)){
+        if (p.authoritySlots.length<6){
+          p.authoritySlots.push(a); p.authCdT.push(0); p.q.authorities++;
+          logMsg(`★ Picked up [${a.name}]`, 'promote');
+          pushKillFeed(`You picked up ${a.name}`, a.color);
+          playSound('promote');
+          flash(a.color,0.5); shake(10);
+          // v3.3.0: happyTime on Authority pickup — peak loot moment
+          try { if (p.isPlayer && window.SDK && SDK.happyTime) SDK.happyTime(0.7); } catch(e){}
+          a._gone = true;
+        }
       }
     }
   }
@@ -3559,7 +3591,7 @@ function autoPickup(p){
     }
   }
   // v2.1.0: capture-and-hold rifts — stand inside (no enemies) to channel; takes ~8s; contested if foes inside
-  for (const rf of G.rifts){
+  if (!_firstLock) for (const rf of G.rifts){
     if (rf.used) continue;
     const inside = dist(p, rf) < rf.r;
     if (!inside){
@@ -8572,7 +8604,7 @@ async function restartGame(){
   document.getElementById('menu').classList.remove('hidden');
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('startBtn').disabled=true;
-  document.getElementById('startBtn').textContent='Choose a species to start';
+  document.getElementById('startBtn').textContent = tutorialDone() ? 'Choose a species to start' : 'Start Hunt as Wolf';
   try { buildMenu(); } catch(e){}
 }
 window.addEventListener('load', async ()=>{
@@ -8602,8 +8634,7 @@ window.addEventListener('load', async ()=>{
   // v1.6.0: Quick Start (random species) — Poki best practice: 1-click play
   const _qs = document.getElementById('quickStartBtn');
   if (_qs) _qs.onclick = ()=>{
-    const keys = Object.keys(SPECIES);
-    G.selectedSpecies = keys[(Math.random()*keys.length)|0];
+    G.selectedSpecies = tutorialDone() ? Object.keys(SPECIES)[(Math.random()*Object.keys(SPECIES).length)|0] : 'wolf';
     // v3.13.1: click-to-play flow = auto-match then immediate start
     G._autoMatchWanted = true;
     try { if (window.Net){ Net.connect(); if (Net.online) Net.findMatch(MATCH_TARGET_PLAYERS); } } catch(e){}
