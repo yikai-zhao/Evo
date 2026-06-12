@@ -7,13 +7,13 @@
 //   - Each client lives in exactly one room. Default = "global" lobby.
 //   - state/hit/fx/chat/enemy_kill/dead/party messages scope to room.
 //   - "global" is the legacy free-for-all (unlimited) for solo-mode peeks.
-//   - Match rooms have capacity (default 8). Auto-matchmaking joins the
+//   - Match rooms have capacity (default 20). Auto-matchmaking joins the
 //     fullest non-full room, else creates a new one.
 //   - Private rooms use a 4-char ALPHA code. Anyone with the code can join
 //     if it isn't full.
 //
 // New messages (client → server)
-//   { t:'mm_find',  cap?:8 }       → join/create a public match
+//   { t:'mm_find',  cap?:20 }      → join/create a public match
 //   { t:'mm_create' }              → make a private room, returns code
 //   { t:'mm_join',  code:'ABCD' }  → join private room by code
 //   { t:'mm_leave' }               → return to "global"
@@ -28,7 +28,7 @@ const { WebSocketServer } = require('ws');
 
 const PORT = parseInt(process.argv[2] || process.env.PORT || '8081', 10);
 const ROOT = __dirname;
-const DEFAULT_CAP = 8;
+const DEFAULT_CAP = 20;
 const GLOBAL_ROOM = 'global';
 
 // ---- v3.9.0: leaderboard persistence ----

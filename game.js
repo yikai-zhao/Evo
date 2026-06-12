@@ -790,7 +790,14 @@ const G = {
   _bountyTimer: 0,     // countdown to next bounty refresh
   // v3.11.0: Evolution time-slow — dt multiplier during evo cinematic
   _evoSlow: 0,         // seconds remaining at slow speed (0.2x dt)
+  // v3.13.2: match pacing — target 20 players with smart AI fill
+  _matchTargetPlayers: 20,
+  _matchBotTarget: 0,
+  _matchHumansAtStart: 1,
+  _matchSyncT: 0,
 };
+const MATCH_TARGET_PLAYERS = 20;
+const MAX_PLAYER_FOCUS_BOTS = 4;
 const FAKE_NAMES = ['Witch','Mystic Name','Brahman','Red Lord','Hermit','Spear of Society','Dark Philosopher','Sun','High Dyke','Trance','Rule','Deceiver','Hidden Lord','Reverberation','Conductor','Jiao One','Black Night','Student','Void Reducer','Elder Day','Devourer','Joy','Falsehood','Flame Tongue','Phantom Light','Kunlun','Penguin','Apostle of Flame','Medium','King'];
 function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
 
@@ -2283,6 +2290,49 @@ function addFloat(x,y,text,color,size=12,life=0.8){
   G.floats.push({x,y,text,color,size,life,maxLife:life,vy:-30});
 }
 
+function _isActiveMatchRoom(){
+  if (!window.Net || !Net.room) return false;
+  return !!(Net.room.code && Net.room.code !== 'global');
+}
+
+function _matchHumanCount(){
+  if (!_isActiveMatchRoom()) return 1;
+  const peers = (Net.room && Net.room.peers) ? Net.room.peers.length : 0;
+  return Math.max(1, peers + 1);
+}
+
+function _assignBotPersona(e){
+  const personas = ['duelist', 'opportunist', 'raider', 'stalker'];
+  e._humanLike = true;
+  e._persona = personas[(Math.random()*personas.length)|0];
+  e._aggroPlayerT = 0;
+  e._duelLock = null;
+}
+
+function _spawnMatchBot(initial=false){
+  const keys = Object.keys(SPECIES);
+  const sk = keys[(Math.random()*keys.length)|0];
+  let x,y,tries=0;
+  do { x=rand(100,WORLD.w-100); y=rand(100,WORLD.h-100); tries++; }
+  while (G.player && Math.hypot(x-G.player.x, y-G.player.y) < (initial?1700:1200) && tries<18);
+  const e = makeCreature(sk, x, y, false);
+  // Human-like bots start stronger than wildlife, but not boss-tier.
+  const tier = initial ? (Math.random()<0.55?2:3) : (Math.random()<0.45?2:(Math.random()<0.8?3:4));
+  e.rank = tier;
+  if (tier>=2){ const b = RANK_BONUS[Math.min(tier-2, RANK_BONUS.length-1)]; e.zhenyuan += b.zy; e.daohen += b.dh; }
+  recalcStats(e); e.hp = e.maxHp; e.sta = e.maxSta;
+  e.nid = ++G._nidSeq;
+  _assignBotPersona(e);
+  G.enemies.push(e);
+}
+
+function _topUpMatchBots(initial=false){
+  if (!_isActiveMatchRoom()) return;
+  const aliveSmart = G.enemies.filter(e=>e && e.hp>0 && e._humanLike).length;
+  const need = Math.max(0, (G._matchBotTarget|0) - aliveSmart);
+  for (let i=0; i<need; i++) _spawnMatchBot(initial);
+}
+
 // =====================================================================
 // 世界初始化 / 補充
 // =====================================================================
@@ -2336,25 +2386,28 @@ function spawnInitialWorld(){
       G.pickups.push({...def, x:G.player.x+Math.cos(ang)*d, y:G.player.y+Math.sin(ang)*d, pulse:0});
     }
   }
-  // 敵人（出生點 2000px 內為絕對安全區）— v1.8.2: more enemies near player for combat density
-  for (let i=0;i<90;i++) spawnEnemy(true);
-  // v2.3.0 P0: spawn 16 rank-1/2 enemies within 600-1800px for immediate action
+  const _isMatch = _isActiveMatchRoom();
+  // 敵人：match room 降低初始雜魚密度，靠「擬真 bot」湊到目標玩家數
+  const _ambientInit = _isMatch ? 42 : 90;
+  for (let i=0;i<_ambientInit;i++) spawnEnemy(true);
   if (G.player){
     const nearKeys = Object.keys(SPECIES);
-    for (let i=0;i<16;i++){
+    const _nearInit = _isMatch ? 8 : 16;
+    for (let i=0;i<_nearInit;i++){
       const sp = nearKeys[(Math.random()*nearKeys.length)|0];
       const ang = Math.random()*Math.PI*2;
       const d = 600 + Math.random()*1200;
       const ex = clamp(G.player.x + Math.cos(ang)*d, 100, WORLD.w-100);
       const ey = clamp(G.player.y + Math.sin(ang)*d, 100, WORLD.h-100);
       const e = makeCreature(sp, ex, ey, false);
-      e.rank = i < 8 ? 1 : 2;
+      e.rank = i < (_nearInit/2) ? 1 : 2;
       const b = RANK_BONUS[0]; if (e.rank>=2){ e.zhenyuan+=b.zy; e.daohen+=b.dh; }
       recalcStats(e); e.hp=e.maxHp; e.sta=e.maxSta;
       e.nid = ++G._nidSeq;
       G.enemies.push(e);
     }
   }
+  if (_isMatch) _topUpMatchBots(true);
 }
 function spawnPickup(){
   const def = weightedPickup();
@@ -3600,6 +3653,15 @@ function aiUpdate(e, dt){
   // v3.10.0: target selection — AI vs AI creates organic conflict
   let tgt = null, td = Infinity;
   const sightR = 500 + (e.rank||1)*20;
+  const _isSmartBot = !!e._humanLike;
+  let _playerFocusN = 0;
+  if (G.player && G.player.hp>0){
+    for (const x of G.enemies){
+      if (!x || x===e || x.hp<=0 || x._dead || !x._humanLike) continue;
+      if ((x._aggroPlayerT||0) > 0.1 && dist(x, G.player) < 900) _playerFocusN++;
+    }
+  }
+  if (e._aggroPlayerT>0) e._aggroPlayerT -= dt;
   if (e.isMinion) {
     // Minions attack enemies
     for (const x of G.enemies) {
@@ -3607,8 +3669,9 @@ function aiUpdate(e, dt){
       const d=dist(e,x); if (d<sightR && d<td){ td=d; tgt=x; }
     }
   } else {
-    // Prioritize bounty target (extended sight)
-    if (G.bountyTarget && G.bountyTarget !== e && G.bountyTarget.hp > 0) {
+    // Prioritize bounty target (extended sight) — but only part of smart bots commit
+    const _canChaseBounty = !_isSmartBot || e._persona==='raider' || Math.random()<0.35;
+    if (_canChaseBounty && G.bountyTarget && G.bountyTarget !== e && G.bountyTarget.hp > 0) {
       const bd = dist(e, G.bountyTarget);
       if (bd < sightR * 1.8) { tgt = G.bountyTarget; td = bd; }
     }
@@ -3617,13 +3680,20 @@ function aiUpdate(e, dt){
     for (const c of _pc) {
       if (!c||c.hp<=0) continue;
       if (c.isPlayer && (c.invuln||0)>0) continue;
+      // Smart bots avoid obvious 1vN dogpile on player.
+      if (_isSmartBot && c.isPlayer && _playerFocusN >= MAX_PLAYER_FOCUS_BOTS && Math.random() < 0.75) continue;
       const d=dist(e,c); if (d<sightR && d<td){ td=d; tgt=c; }
     }
-    // AI vs AI: rank 4+ entities hunt nearby enemies (battle-royale infighting)
-    if (!tgt && (e.rank||1) >= 4) {
+    // AI vs AI: smart bots actively duel each other to mimic real players.
+    const _allowInfight = (e.rank||1) >= 4 || _isSmartBot;
+    if ((!tgt || (_isSmartBot && Math.random()<0.45)) && _allowInfight) {
       for (const x of G.enemies) {
         if (x===e||!x||x.hp<=0||x._dead) continue;
-        const d=dist(e,x); if (d<340 && d<td){ td=d; tgt=x; }
+        const d=dist(e,x);
+        const prefer = _isSmartBot
+          ? (e._persona==='duelist' ? 520 : (e._persona==='stalker' ? 380 : 440))
+          : 340;
+        if (d<prefer && d<td){ td=d; tgt=x; }
       }
     }
   }
@@ -3643,6 +3713,7 @@ function aiUpdate(e, dt){
     e.facing = _fleeAng;
   } else {
     e.facing = angTo(e,tgt);
+    if (_isSmartBot && tgt && tgt.isPlayer) e._aggroPlayerT = 2.5;
     const _tgtHpPct = (tgt.hp||1)/(tgt.maxHp||100);
     if (td < e.atkR + e.r + tgt.r){
       e.vx*=0.5; e.vy*=0.5;
@@ -4845,7 +4916,7 @@ function openMatchmakingModal(){
         Currently in room: <span style="color:#7fd07f">${code}</span>
         ${inRoom ? `(${peers}/${cap === 9999 ? '∞' : cap})` : ''}
       </div>
-      <button id="mmFindBtn" style="display:block;width:100%;margin:6px 0;padding:10px;background:#2a5a8a;color:#cce8ff;border:1px solid #5fa8ff;border-radius:6px;cursor:pointer;font-size:14px">🎯 Find Public Match (max 8)</button>
+      <button id="mmFindBtn" style="display:block;width:100%;margin:6px 0;padding:10px;background:#2a5a8a;color:#cce8ff;border:1px solid #5fa8ff;border-radius:6px;cursor:pointer;font-size:14px">🎯 Find Public Match (target 20)</button>
       <button id="mmCreateBtn" style="display:block;width:100%;margin:6px 0;padding:10px;background:#5a2a8a;color:#ddccff;border:1px solid #aa66ff;border-radius:6px;cursor:pointer;font-size:14px">🔒 Create Private Room</button>
       <div style="margin:10px 0;display:flex;gap:6px">
         <input id="mmCodeInput" placeholder="ROOM CODE" maxlength="6" style="flex:1;padding:8px;background:#0a0a14;color:#fff;border:1px solid #444;border-radius:4px;font-family:monospace;text-transform:uppercase;font-size:14px" />
@@ -4862,11 +4933,11 @@ function openMatchmakingModal(){
   m.querySelector('#mmCloseBtn').onclick = ()=>m.remove();
   m.querySelector('#mmFindBtn').onclick = ()=>{
     if (!Net.online){ setStatus('Net offline', '#ff8866'); return; }
-    Net.findMatch(8); setStatus('Searching…', '#88ccff');
+    Net.findMatch(MATCH_TARGET_PLAYERS); setStatus('Searching fast queue…', '#88ccff');
   };
   m.querySelector('#mmCreateBtn').onclick = ()=>{
     if (!Net.online){ setStatus('Net offline', '#ff8866'); return; }
-    Net.createRoom(8); setStatus('Creating private room…', '#aa66ff');
+    Net.createRoom(MATCH_TARGET_PLAYERS); setStatus('Creating private room…', '#aa66ff');
   };
   m.querySelector('#mmJoinBtn').onclick = ()=>{
     const code = m.querySelector('#mmCodeInput').value.trim().toUpperCase();
@@ -5388,9 +5459,20 @@ function update(dt){
   // 清理死敵 + 補充
   G.enemies = G.enemies.filter(e=>e.hp>0 && isFinite(e.x) && isFinite(e.y));
   G.minions = G.minions.filter(m=>m.hp>0);
+  G._matchSyncT -= dt;
+  if (G._matchSyncT <= 0){
+    G._matchSyncT = 3;
+    if (_isActiveMatchRoom()){
+      const humans = _matchHumanCount();
+      G._matchBotTarget = Math.max(0, (G._matchTargetPlayers||MATCH_TARGET_PLAYERS) - humans);
+      _topUpMatchBots(false);
+    }
+  }
   // v1.0.0: 大地圖敵人數量隨階段提升 — v1.8.2: denser, especially mid-game
   // v2.2.0: denser team-god-war map (was [180,240,300,360,460])
-  const enemyCap = [380, 480, 600, 720, 880][G.stage-1] || 380;
+  const enemyCap = _isActiveMatchRoom()
+    ? ([120, 150, 190, 230, 280][G.stage-1] || 120)
+    : ([380, 480, 600, 720, 880][G.stage-1] || 380);
   while (G.enemies.length < enemyCap) spawnEnemy();
   // v2.1.0: rift ownership countdown (was simple respawn)
   for (const rf of G.rifts){
@@ -8344,6 +8426,10 @@ async function startGame(){
   try { const _pb = document.getElementById('pauseBtn'); if (_pb) _pb.classList.add('show'); } catch(e){}
   G.enemies=[]; G.minions=[]; G.projectiles=[]; G.pickups=[]; G.spirits=[]; G.authorities=[]; G.particles=[]; G.floats=[]; G.shockwaves=[]; G.hazards=[];
   G.dead=false; G.won=false; G.time=0;
+  G._matchTargetPlayers = MATCH_TARGET_PLAYERS;
+  G._matchHumansAtStart = _matchHumanCount();
+  G._matchBotTarget = Math.max(0, G._matchTargetPlayers - G._matchHumansAtStart);
+  G._matchSyncT = 0;
   // v2.8.0: reset death-cinema state on new run
   G._deathCinT = 0; G._deathOverlayShown = false; G._deathReason = null;
   G.tutorialT = 0; G.tutorialStep = 0;
@@ -8393,7 +8479,7 @@ async function startGame(){
   if (window.Net){
     Net.onWelcome = (m)=>{
       logMsg('★ Multiplayer connected ('+((m.peers||[]).length+1)+' online)', 'promote');
-      if (G._autoMatchWanted){ try { Net.findMatch(8); } catch(e){} }
+      if (G._autoMatchWanted){ try { Net.findMatch(MATCH_TARGET_PLAYERS); } catch(e){} }
     };
     Net.onHit = (fromId, dmg, kind)=>{
       if (!G.player || G.player.hp<=0) return;
@@ -8452,7 +8538,7 @@ async function startGame(){
     const _plat = (window.SDK && SDK.platform) || 'standalone';
     if (_plat === 'standalone'){
       Net.connect();
-      if (G._autoMatchWanted && Net.online){ try { Net.findMatch(8); } catch(e){} }
+      if (G._autoMatchWanted && Net.online){ try { Net.findMatch(MATCH_TARGET_PLAYERS); } catch(e){} }
     } else {
       logMsg('★ Solo mode (platform build)', 'promote');
     }
@@ -8520,7 +8606,7 @@ window.addEventListener('load', async ()=>{
     G.selectedSpecies = keys[(Math.random()*keys.length)|0];
     // v3.13.1: click-to-play flow = auto-match then immediate start
     G._autoMatchWanted = true;
-    try { if (window.Net){ Net.connect(); if (Net.online) Net.findMatch(8); } } catch(e){}
+    try { if (window.Net){ Net.connect(); if (Net.online) Net.findMatch(MATCH_TARGET_PLAYERS); } } catch(e){}
     startGame();
   };
 

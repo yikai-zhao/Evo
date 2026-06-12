@@ -221,8 +221,8 @@
     if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return false;
     try { Net.ws.send(JSON.stringify(obj)); return true; } catch(e){ return false; }
   }
-  Net.findMatch  = function(cap){ return _mm({ t:'mm_find', cap: cap||8 }); };
-  Net.createRoom = function(cap){ return _mm({ t:'mm_create', cap: cap||8 }); };
+  Net.findMatch  = function(cap){ return _mm({ t:'mm_find', cap: cap||20 }); };
+  Net.createRoom = function(cap){ return _mm({ t:'mm_create', cap: cap||20 }); };
   Net.joinRoom   = function(code){ return _mm({ t:'mm_join', code: String(code||'').toUpperCase() }); };
   Net.leaveRoom  = function(){ return _mm({ t:'mm_leave' }); };
   setInterval(()=>{if(!Net.disabled && !Net.online&&Net.url)Net.connect();},4000);
