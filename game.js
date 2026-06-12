@@ -2309,14 +2309,19 @@ function spawnInitialWorld(){
   }
   for (let i=0;i<AUTHORITIES.length;i++){
     const a = AUTHORITIES[i];
-    // v3.5.0: random scatter across the whole world (not a uniform ring around center)
-    // Avoid spawn radius ~600 around player to stop instant freebies.
+    // v3.13.1: random scatter + separation so authorities feel truly "across the map"
     let ax, ay, tries = 0;
     do {
       ax = rand(WORLD.w*0.08, WORLD.w*0.92);
       ay = rand(WORLD.h*0.08, WORLD.h*0.92);
       tries++;
-    } while (G.player && Math.hypot(ax-G.player.x, ay-G.player.y) < 1200 && tries < 6);
+      const nearPlayer = !!(G.player && Math.hypot(ax-G.player.x, ay-G.player.y) < 1200);
+      let nearOther = false;
+      for (const ex of G.authorities){
+        if (Math.hypot(ax-ex.x, ay-ex.y) < 1400){ nearOther = true; break; }
+      }
+      if (!nearPlayer && !nearOther) break;
+    } while (tries < 20);
     G.authorities.push({...a, x: ax, y: ay, pulse:0});
   }
 // 出生點周遭塞一些靈氣與道具讓玩家先成長 (v1.8.2: drastically reduced — was instant +2 levels)
@@ -4581,23 +4586,23 @@ function updatePathBond(){
 function checkLastSurvivorWin(){
   if (G.won || G.dead || !G.player || G.player.hp<=0) return;
   if (!G.veil || !G.veil.active) return;
-  if (G.time < VEIL_END_T - 60) return; // only in the last minute
-  // Count living peers not in our party
+  if (G.time < VEIL_END_T - 120 && G.veil.r > VEIL_MIN_R + 220) return;
+  // Count living hostile peers (same room, not in our party)
   let hostilePeers = 0;
   if (window.Net && Net.peers){
     for (const [id, peer] of Net.peers){
       if (peer.alive && !partyHas(id)) hostilePeers++;
     }
   }
-  // Count rank-7+ AI inside the ring
-  let strongAI = 0;
+  // Count all living AI still contesting the safe zone
+  let hostileAI = 0;
   for (const e of G.enemies){
-    if (e && e.hp>0 && (e.rank||0)>=7){
+    if (e && e.hp>0 && !e._dead){
       const dx=e.x-veilCenterX(), dy=e.y-veilCenterY();
-      if (Math.hypot(dx,dy) <= G.veil.r) strongAI++;
+      if (Math.hypot(dx,dy) <= G.veil.r + 120) hostileAI++;
     }
   }
-  if (hostilePeers === 0 && strongAI === 0){
+  if (hostilePeers === 0 && hostileAI === 0){
     // Player + party are sole survivors
     try { winGameLastStand(); } catch(e){}
   }
@@ -4611,8 +4616,8 @@ function winGameLastStand(){
   if (ws){
     const partySize = G.party ? G.party.members.size : 1;
     ws.textContent = partySize > 1
-      ? `★ Last party standing! ${partySize} souls survived the Veil of Erasure — your pact triumphs over all.`
-      : `★ Sole survivor of the Twilight! The Veil of Erasure parts before you — you alone remain among the gods.`;
+      ? `★ Chicken Dinner: your party (${partySize}) stood last in the Veil.`
+      : '★ Chicken Dinner: you are the final survivor.';
   }
   try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
   try { addCoins(300); pushKillFeed('🪙 +300 coins — Twilight Champion!', '#ffd66b'); } catch(e){}
@@ -6620,6 +6625,44 @@ function drawCrosshair(){
   ctx.moveTo(MOUSE.x,MOUSE.y+3); ctx.lineTo(MOUSE.x,MOUSE.y+10); ctx.stroke();
 }
 
+function _drawAuthorityHoldersOnMap(mx, my, sx, sy, starMap){
+  // Include player, AI, and remote peers carrying at least one authority.
+  const holders = [];
+  if (G.player && G.player.hp>0 && G.player.authoritySlots && G.player.authoritySlots.length){
+    holders.push({ x:G.player.x, y:G.player.y, n:G.player.authoritySlots.length, c:G.player.path.color||'#ffffff', name:'YOU' });
+  }
+  for (const e of G.enemies){
+    if (!e || e.hp<=0 || e._dead || !e.authoritySlots || !e.authoritySlots.length) continue;
+    holders.push({ x:e.x, y:e.y, n:e.authoritySlots.length, c:e.color||'#ffaa30', name:(e.name||e.sp.name||'AI') });
+  }
+  if (window.Net && Net.peers){
+    for (const [id, p] of Net.peers){
+      if (!p || p.x===undefined || !p.alive) continue;
+      if ((p.authN|0) <= 0) continue;
+      holders.push({ x:p.x, y:p.y, n:p.authN|0, c:p.color||'#88ccff', name:p.name||('P'+id) });
+    }
+  }
+  for (const h of holders){
+    const px = mx + h.x*sx, py = my + h.y*sy;
+    ctx.strokeStyle = '#ffffffcc';
+    ctx.fillStyle = h.c;
+    ctx.lineWidth = starMap ? 1.6 : 1.2;
+    // Diamond marker
+    ctx.beginPath();
+    ctx.moveTo(px, py-6);
+    ctx.lineTo(px+6, py);
+    ctx.lineTo(px, py+6);
+    ctx.lineTo(px-6, py);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffd66b';
+    ctx.font = starMap ? 'bold 10px sans-serif' : 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(h.n), px, py + (starMap ? 18 : 15));
+  }
+}
+
 // =====================================================================
 // 星圖 v0.9.0 — 星座連線 + 生態標籤 + Boss 標記 + 羅盤 + 比例尺
 // =====================================================================
@@ -6749,6 +6792,8 @@ function drawStarMap(){
     const ax = mx + a.x*sx, ay = my + a.y*sy;
     ctx.fillStyle = a.color; ctx.beginPath(); ctx.arc(ax,ay,3,0,Math.PI*2); ctx.fill();
   }
+  // v3.13.1: authority holders (player / AI / remote peers)
+  _drawAuthorityHoldersOnMap(mx, my, sx, sy, true);
   // v1.0.0: Ping 標記
   if (G.pingT>0){
     const ppx = mx + G.pingX*sx, ppy = my + G.pingY*sy;
@@ -6826,7 +6871,7 @@ function drawStarMap(){
   ctx.fillStyle = '#ffdd66'; ctx.font='bold 13px sans-serif';
   ctx.fillText('★ Chapter '+G.stage+' Era · '+stageNamesM[G.stage-1]+'　|　Time '+G.time.toFixed(0)+'s', W/2, PAD/2 + 28);
   ctx.fillStyle = '#888'; ctx.font='11px sans-serif';
-  ctx.fillText('M/Esc close | Left-click = Ping | White=you Purple=XP Color=Sanctum Eye=OuterGod Cyan=Wraith Yellow=Authority', W/2, H - PAD/2 + 6);
+  ctx.fillText('M/Esc close | Click map to Ping | ◇ number = Authority holder', W/2, H - PAD/2 + 6);
 }
 
 function drawMinimap(){
@@ -6892,6 +6937,7 @@ function drawMinimap(){
   ctx.strokeRect(mx+G.cam.x*sx-vw/2, my+G.cam.y*sy-vh/2, vw, vh);
   // 權柄
   for (const a of G.authorities){ ctx.fillStyle=a.color; ctx.fillRect(mx+a.x*sx-3,my+a.y*sy-3,6,6); }
+  _drawAuthorityHoldersOnMap(mx, my, sx, sy, false);
   for (const qs of G.qiSprings){ ctx.fillStyle='#bb88ff'; ctx.beginPath(); ctx.arc(mx+qs.x*sx,my+qs.y*sy,3,0,Math.PI*2); ctx.fill(); }
   for (const rf of G.rifts){ ctx.fillStyle = rf.used ? '#444' : rf.color; ctx.beginPath(); ctx.arc(mx+rf.x*sx,my+rf.y*sy,4,0,Math.PI*2); ctx.fill(); if (!rf.used){ ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke(); } }
   // 敵人（階位越高越亮）
@@ -8096,6 +8142,7 @@ function buildMenu(){
         document.querySelectorAll('.species').forEach(d=>d.classList.remove('sel'));
         div.classList.add('sel');
         G.selectedSpecies = sk;
+        G._autoMatchWanted = false;
         document.getElementById('startBtn').disabled = false;
         document.getElementById('startBtn').textContent = `Play as ${sp.name} · Join ${PATHS[pk].name}`;
       };
@@ -8337,18 +8384,17 @@ async function startGame(){
   G.started = true;
   if (window.SDK) SDK.gameplayStart();
   logMsg(`You chose [${G.player.sp.name}] · ${G.player.path.name}`, 'promote');
-  logMsg('★ First goal: kill the nearest creature and trigger your first evolution hook.', 'promote');
-  logMsg('★ 10s spawn protection — get used to controls before attacking!', 'promote');
-  logMsg(isMobile() ? 'Controls: left thumb move / right buttons attack-defend-cast / tap right side to quick slash' : 'Controls: WASD move / LMB melee / RMB defend / F ranged / QER skills / X dash / 1-6 Authority / M map', 'promote');
-  logMsg('★ EVOLUTION BRAWL: kill enemies for Qi & loot. Higher-rank enemies drop Authority fruits!', 'promote');
-  logMsg('★ 9 unique Authorities scattered on the map — also dropped by rank 3+ enemies on death.', 'promote');
-  logMsg('★ Outer God descends every 5 min for +1500 Qi. Sanctums grant power. 5 eras escalate the war.', 'promote');
+  logMsg('★ Hunt, evolve, and survive the Veil. Next evolution is unknown.', 'promote');
+  logMsg('★ Tip: seize Authorities, then track holders on map (M).', 'promote');
   // v1.2.0 多人聯機
   const _ni=document.getElementById('playerName');
   const _nv=_ni?_ni.value.trim().slice(0,16):'';
   G.player.name=_nv||('Player#'+((Math.random()*9000|0)+1000));
   if (window.Net){
-    Net.onWelcome = (m)=>{ logMsg('★ Connected to multiplayer server (your ID: '+m.id+', currently online: '+((m.peers||[]).length+1)+' players)','promote'); };
+    Net.onWelcome = (m)=>{
+      logMsg('★ Multiplayer connected ('+((m.peers||[]).length+1)+' online)', 'promote');
+      if (G._autoMatchWanted){ try { Net.findMatch(8); } catch(e){} }
+    };
     Net.onHit = (fromId, dmg, kind)=>{
       if (!G.player || G.player.hp<=0) return;
       // v3.7.0: party members don't damage each other
@@ -8406,6 +8452,7 @@ async function startGame(){
     const _plat = (window.SDK && SDK.platform) || 'standalone';
     if (_plat === 'standalone'){
       Net.connect();
+      if (G._autoMatchWanted && Net.online){ try { Net.findMatch(8); } catch(e){} }
     } else {
       logMsg('★ Solo mode (platform build)', 'promote');
     }
@@ -8433,6 +8480,7 @@ async function restartGame(){
   const _cdb = document.getElementById('coinDoubleBtn'); if (_cdb) _cdb.classList.add('hidden');
   const _war = document.getElementById('winAdRewardBtn'); if (_war){ _war.classList.add('hidden'); _war._used=false; }
   G.started=false; G.selectedSpecies=null; G._reviveUsed=false; G._coinDoubleUsed=false; G._crateUsed=false;
+  G._autoMatchWanted = false;
   G.killFeed=[]; G.leaderboard=[]; G.deathBy=''; G.errorCount=0;
   if (window.SDK && SDK.ready){ try { await SDK.commercialBreak(); } catch(e){} }
   document.getElementById('menu').classList.remove('hidden');
@@ -8459,6 +8507,10 @@ window.addEventListener('load', async ()=>{
       // Update href once Steam store page URL is known
       if (_ctaLink) _ctaLink.href = 'https://store.steampowered.com/app/0000000/Evo/';
     }
+    // v3.13.1: pre-connect net on title so matchmaking works before entering a run
+    try {
+      if (window.Net && window.SDK && SDK.platform === 'standalone') Net.connect();
+    } catch(e){}
   }).catch(()=>{});
 
   // v1.6.0: Quick Start (random species) — Poki best practice: 1-click play
@@ -8466,6 +8518,9 @@ window.addEventListener('load', async ()=>{
   if (_qs) _qs.onclick = ()=>{
     const keys = Object.keys(SPECIES);
     G.selectedSpecies = keys[(Math.random()*keys.length)|0];
+    // v3.13.1: click-to-play flow = auto-match then immediate start
+    G._autoMatchWanted = true;
+    try { if (window.Net){ Net.connect(); if (Net.online) Net.findMatch(8); } } catch(e){}
     startGame();
   };
 
@@ -8485,13 +8540,7 @@ window.addEventListener('load', async ()=>{
   // v3.9.0: leaderboard button on title
   const _lbBtn = document.getElementById('lbBtn');
   if (_lbBtn){ _lbBtn.onclick = ()=>{ try{ openLeaderboardModal(); }catch(e){} }; }
-  // Auto-show tutorial on first visit
-  try {
-    if (!localStorage.getItem('evo_tut_seen')){
-      setTimeout(()=>{ if (_tutEl) _tutEl.classList.remove('hidden'); }, 600);
-      localStorage.setItem('evo_tut_seen','1');
-    }
-  } catch(e){}
+  // v3.13.1: keep menu concise — no forced tutorial popup
 
   // v1.6.0: Privacy / Terms inline overlays (required for Poki/CrazyGames)
   const _legalEl = document.getElementById('legal');

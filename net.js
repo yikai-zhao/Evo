@@ -105,7 +105,7 @@
         Object.assign(p, {
           x:m.x, y:m.y, hp:m.hp, maxHp:m.maxHp, rank:m.rank, name:m.name,
           color:m.color, r:m.r, facing:m.facing, path:m.path, species:m.species,
-          sanity:m.sanity, alive: m.hp > 0,
+          sanity:m.sanity, authN:(m.authN|0), alive: m.hp > 0,
         });
         p.lastT = performance.now();
         if (p.hitT === undefined) p.hitT = 0;
@@ -175,6 +175,7 @@
         path: player.path && player.path.name,
         species: player.species,
         sanity: player.sanity|0,
+        authN: (player.authoritySlots && player.authoritySlots.length) ? (player.authoritySlots.length|0) : 0,
         qi: player.qi|0,
       }));
     }catch(e){}
