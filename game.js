@@ -2693,10 +2693,10 @@ function updatePlayer(p, dt){
       const xx = cx+dx, yy = cy+dy;
       if (xx>=0 && yy>=0 && yy<G.visited.length && xx<G.visited[0].length && dx*dx+dy*dy<=rad*rad) G.visited[yy][xx] = 1;
     }
-    const _firstLock = p.isPlayer && _isFirstRunLocked();
-    const _mobAssist = p.isPlayer && isMobile();
   }
-    if (!_firstLock && KEYS['x'] && p.dashCdT<=0 && p.sta>=20 && (mx||my)){
+  const _firstLock = p.isPlayer && _isFirstRunLocked();
+  const _mobAssist = p.isPlayer && isMobile();
+  if (!_firstLock && KEYS['x'] && p.dashCdT<=0 && p.sta>=20 && (mx||my)){
     let _autoMelee = false;
     if (_mobAssist && G.started && !G.dead && p.hp>0){
       let _best = null, _bd = Infinity;
