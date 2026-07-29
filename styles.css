@@ -327,7 +327,22 @@ body:has(#menu.overlay:not(.hidden)) #pauseBtn { display: none !important; }
 }
 
 /* Death / win overlay polish */
-#death h1, #win h1 { font-size:48px; letter-spacing:8px; }
+#death h1 { font-size:48px; letter-spacing:8px; color:#ff6666; text-shadow: 0 0 30px rgba(255,80,80,.6); -webkit-text-fill-color:unset; }
+#win h1   {
+  font-size:54px; letter-spacing:10px;
+  background: linear-gradient(135deg,#ffd66b,#ffaa30,#cc88ff,#ffd66b);
+  background-size: 300% 300%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: godGlow 2.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 32px rgba(255,200,80,.7));
+}
+@keyframes godGlow {
+  0%,100% { background-position:0% 50%; filter:drop-shadow(0 0 24px rgba(255,200,80,.6)); }
+  50%     { background-position:100% 50%; filter:drop-shadow(0 0 48px rgba(204,136,255,.9)); }
+}
+#win { background: radial-gradient(ellipse at 50% 20%, rgba(100,60,0,0.55) 0%, rgba(8,10,18,.97) 70%); }
+#death { background: radial-gradient(ellipse at 50% 20%, rgba(80,0,0,0.5) 0%, rgba(8,10,18,.97) 70%); }
 #deathReason { white-space:pre-line; max-width:560px; text-align:center; color:#c8b8d8; font-size:13px; line-height:1.6; margin: 10px 0; }
 #deathStats  { color:#bb88ff; font-size:14px; font-weight:600; }
 #deathNextForm {

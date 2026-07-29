@@ -3044,7 +3044,20 @@ function updatePlayer(p, dt){
   if (KEYS['x'] && p.dashCdT<=0 && p.sta>=20 && (mx||my)){
     p.vx = mx*sp*5; p.vy = my*sp*5;
     p.dashCdT = p.dashCd; p.sta -= 20; p.invuln = 0.25;
-    for (let i=0;i<10;i++) G.particles.push({x:p.x,y:p.y,vx:rand(-120,120),vy:rand(-120,120),life:0.3,color:p.color,r:2});
+    // v3.15.0: afterimage ghost trail — 3 fading silhouettes for game feel
+    for (let _ai=0;_ai<3;_ai++){
+      G.particles.push({
+        x: p.x - mx*(sp*0.9)*(_ai*0.06*60),
+        y: p.y - my*(sp*0.9)*(_ai*0.06*60),
+        vx:0, vy:0,
+        life: 0.32 - _ai*0.08,
+        color: p.color,
+        r: p.r*(1.05-_ai*0.12),
+        _ghost:true, _alpha:0.45-_ai*0.13,
+      });
+    }
+    for (let i=0;i<12;i++) G.particles.push({x:p.x,y:p.y,vx:rand(-180,180),vy:rand(-180,180),life:0.28,color:p.color,r:2.5});
+    try{ playSound('block'); }catch(e){}
   }
 
   p.x = clamp(p.x + p.vx*dt, 20, WORLD.w-20);
@@ -3133,6 +3146,19 @@ function doMelee(p){
     if (delta > Math.PI*0.5) continue;
     dealDamage(p, e, p.atk, '#fff', false);
     hitCount++;
+  }
+  // v3.15.0: melee combo counter — shown on screen, resets on whiff
+  if (hitCount > 0 && p.isPlayer){
+    p._comboHits = (p._comboHits||0) + hitCount;
+    p._comboResetT = 1.6;
+    if (p._comboHits >= 3){
+      const bonus = Math.floor(p.atk * 0.25 * Math.min(p._comboHits, 10));
+      addFloat(p.x, p.y-p.r-28, `${p._comboHits}x COMBO +${bonus}`, '#ffee44', 18, 1.0);
+      G.particles.push({x:p.x,y:p.y,vx:0,vy:0,life:0.18,color:'#ffee44',r:p.r*1.6,_ring:true});
+    }
+  } else if (p.isPlayer){
+    p._comboResetT = (p._comboResetT||0) - 1/60;
+    if ((p._comboResetT||0) <= 0) p._comboHits = 0;
   }
   // v3.12.0: energy slash — melee fires a short-range projectile for reach + visual punch
   if (hitCount >= 0 && p.isPlayer){
@@ -5126,6 +5152,29 @@ function _tickPathPassive(p, dt){
   if (!p || !p.isPlayer || !p.pathKey) return;
   p._pp = p._pp || { hits:0, lastShockT:0, lastMinionT:0, scrollDmg:0 };
 
+  // v3.15.0: archetype-specific map passive — makes each randomly generated map feel distinct
+  try {
+    const arch = G._mapArchetype || 'balanced';
+    const biome = _biomeAt && _biomeAt(p.x, p.y);
+    if (arch === 'water_world' && biome === 'water'){
+      // Drowned World: all creatures regen 2x in water, but move 15% slower on land
+      if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 3*dt);
+    } else if (arch === 'volcano' && (biome==='mtn'||biome==='desert')){
+      // Volcanic Wastes: lava ground burns — +2%/s HP loss in volcano biomes
+      if (!(p.invuln > 0)) p.hp = Math.max(1, p.hp - p.maxHp*0.02*dt);
+    } else if (arch === 'frozen_waste' && biome === 'snow'){
+      // Frozen Waste: HP loss in snow, but +30% ATK (survival reward)
+      if (!(p.invuln > 0)) p.hp = Math.max(1, p.hp - p.maxHp*0.012*dt);
+      p._archetypeAtkBonus = 1.30;
+    } else if (arch === 'jungle_maze' && biome === 'forest'){
+      // Jungle: +25% XP from kills while inside forest
+      p._archetypeXpBonus = 1.25;
+    } else {
+      p._archetypeAtkBonus = 1.0;
+      p._archetypeXpBonus = 1.0;
+    }
+  } catch(e){}
+
   if (p.pathKey === 'human'){
     // ATK scaling from gu-refinement (lifeMax → life ratio)
     const burnPct = p.maxLife>0 ? Math.max(0, 1 - (p.life||0)/p.maxLife) : 0;
@@ -7102,6 +7151,22 @@ function drawParticles(){
   for (const p of G.particles){
     if (p.line){ ctx.strokeStyle=p.color; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.line.x,p.line.y); ctx.stroke(); continue; }
     if (p.gaze){ ctx.strokeStyle=p.color; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.gaze.target.x,p.gaze.target.y); ctx.stroke(); continue; }
+    // v3.15.0: ghost afterimage — draw as ring silhouette
+    if (p._ghost){
+      const ga = clamp((p._alpha||0.4)*(p.life/(0.35||p.life||0.01)),0,0.6);
+      ctx.strokeStyle = p.color; ctx.lineWidth = 2.5; ctx.globalAlpha = ga;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r||8,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = ga*0.35;
+      ctx.fillStyle = p.color; ctx.fill();
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    // v3.15.0: ring pulse particle (combo hit)
+    if (p._ring){
+      ctx.strokeStyle = p.color; ctx.lineWidth = 3; ctx.globalAlpha = clamp(p.life*3,0,0.8);
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(1.2-p.life*1.5)||p.r,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1; continue;
+    }
     ctx.fillStyle = p.color; ctx.globalAlpha = clamp(p.life,0,1);
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r||2,0,Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1;
