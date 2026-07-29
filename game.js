@@ -1,4 +1,4 @@
-// Lands End — Prototype v2.9.2 (mobile UI: minimap+leaderboard vertical stack, no overlap, responsive HUD) · v2.9.1 (real boss portrait PNGs · 5 古神 boss rotation each with unique silhouette · 2.4s boss intro splash (AI art slot ready) · cinematic vignette + enraged letterbox + low-HP pulse · AI prompt pack for production art)
+// Evo — v3.16.0 · Browser multiplayer evolution PvP · 14 Outer Gods · 6 Paths × 9 Tiers · Voronoi biome maps
 // v1.2.0 多人聯機：WS 中繼、玩家狀態同步、PvP 近戰/彈道、Chat T 鍵、線上人數 HUD
 // v1.1.0 群星海洋 14000² + 星海環帶 biome + 22序列登神階位（rank 1-9 + 序列 9→0 = 共 19 階位、近 22 序列精神） + Era of God War + True God試煉
 'use strict';
@@ -705,11 +705,15 @@ const AUTHORITIES = [
 // v3.14.0: player boost offers — stronger rewards loop for replay, monetization, and ad value.
 const EVO_BOOSTS_KEY = 'evo_boosts_v1';
 const BOOST_DEFS = [
-  { id:'hp',   name:'Vitality',   icon:'🛡️', price:60,  desc:'+20% max HP and heal', apply:p=>{ const amt=Math.max(20, Math.floor((p.maxHp||p.base.hp)*0.2)); p.maxHp += amt; p.hp = Math.min(p.maxHp, (p.hp||p.maxHp)+amt); } },
-  { id:'atk',  name:'Frenzy',     icon:'⚔️', price:70,  desc:'+15% attack power', apply:p=>{ p.atk = Math.floor(p.atk * 1.15); } },
-  { id:'xp',   name:'Qi Surge',   icon:'✦',  price:80,  desc:'+20% XP gain', apply:p=>{ p._xpMul = (p._xpMul||1) * 1.20; } },
-  { id:'coin', name:'Coin Spark', icon:'🪙', price:90,  desc:'+10% coin rewards', apply:p=>{ p._coinMul = (p._coinMul||1) * 1.10; } },
-  { id:'revive', name:'Phoenix Grace', icon:'♻️', price:120, desc:'One extra revive per run', apply:p=>{ p._extraRevive = (p._extraRevive||0) + 1; } },
+  { id:'hp',      name:'Vitality',      icon:'🛡️', price:60,  desc:'+20% max HP and heal at run start', apply:p=>{ const amt=Math.max(20, Math.floor((p.maxHp||p.base.hp)*0.2)); p.maxHp += amt; p.hp = Math.min(p.maxHp, (p.hp||p.maxHp)+amt); } },
+  { id:'atk',     name:'Frenzy',        icon:'⚔️', price:70,  desc:'+15% attack power',        apply:p=>{ p.atk = Math.floor(p.atk * 1.15); } },
+  { id:'xp',      name:'Qi Surge',      icon:'✦',  price:80,  desc:'+20% XP gain from kills',  apply:p=>{ p._xpMul = (p._xpMul||1) * 1.20; } },
+  { id:'coin',    name:'Coin Spark',    icon:'🪙', price:90,  desc:'+10% coins from kills',    apply:p=>{ p._coinMul = (p._coinMul||1) * 1.10; } },
+  { id:'revive',  name:'Phoenix Grace', icon:'♻️', price:120, desc:'One extra revive per run', apply:p=>{ p._extraRevive = (p._extraRevive||0) + 1; } },
+  // v3.16.0: expanded catalog for stronger retention loop
+  { id:'spd',     name:'Void Step',     icon:'💨', price:75,  desc:'+12% move speed and dash cooldown -0.4s', apply:p=>{ p.spd = (p.spd||4)*1.12; if(p.dashCd) p.dashCd = Math.max(0.5, p.dashCd-0.4); } },
+  { id:'regen',   name:'Life Weave',    icon:'💚', price:85,  desc:'+1.5 HP regen/second passively',   apply:p=>{ p._bonusRegen = (p._bonusRegen||0) + 1.5; } },
+  { id:'bossdmg', name:'God Slayer',    icon:'🌑', price:110, desc:'+30% damage dealt to Outer Gods',  apply:p=>{ p._bossDmgMul = (p._bossDmgMul||1) * 1.30; } },
 ];
 function getBoostState(){
   try { const s = JSON.parse(localStorage.getItem(EVO_BOOSTS_KEY)||'{}'); return s && typeof s==='object' ? s : {}; }
@@ -2999,6 +3003,8 @@ function updatePlayer(p, dt){
   // 被動回血
   if (p.isPlayer && p.hp>0 && p.hp<p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 2*p.zhenyuan*dt);
   if (p._regen>0 && p.hp>0 && p.hp<p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p._regen*dt);
+  // v3.16.0: bonus regen from Life Weave boost
+  if (p._bonusRegen && p._bonusRegen>0 && p.hp>0 && p.hp<p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p._bonusRegen*dt);
   // 光環 tick
   p._auraT = (p._auraT||0) - dt;
   const perk = p.perks;
@@ -3235,7 +3241,9 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
   if (G.event && G.event.type==='aligned' && attacker && !attacker.isPlayer) dmg *= 1.3;
   // v0.9.0: 外神 Boss 走自有結算
   if (target.isBoss){
-    const f = Math.max(1, Math.round(dmg||1));
+    let f = Math.max(1, Math.round(dmg||1));
+    // v3.16.0: God Slayer boost — +30% damage to Outer Gods
+    if (attacker && attacker._bossDmgMul && attacker._bossDmgMul > 1) f = Math.round(f * attacker._bossDmgMul);
     target.hp -= f;
     addFloat(target.x, target.y-target.r-10, ''+f, isCrit?'#ffeb40':color, isCrit?16:13, 0.7);
     if (target.hp<=0){ target.hp = 0; }
@@ -5065,19 +5073,31 @@ function buildEndingSummary(type, extra){
   const rifts = p ? (p.q.riftsUsed||0) : 0;
   const timeMins = Math.max(1, Math.floor((G.time||0)/60));
   const runScore = Math.max(1, Math.floor((kills * 14) + (bossKills * 220) + (rifts * 140) + (timeMins * 3)));
+  // v3.16.0: personal best detection — triggers special crown on new record
+  let isNewBest = false;
+  try {
+    const bestKey = 'evo_best_score';
+    const prevBest = parseInt(localStorage.getItem(bestKey)||'0', 10);
+    if (runScore > prevBest){
+      localStorage.setItem(bestKey, String(runScore));
+      isNewBest = true;
+    }
+  } catch(e){}
   const summary = {
     type: type || 'victory',
+    isNewBest,
     title: type === 'laststand' ? 'Twilight Champion' : 'Ascended to Godhood',
     subtitle: type === 'laststand'
       ? `Your party of ${partySize} stood last in the Veil.`
       : `You completed your divine ascent after ${timeMins}m of survival.`,
     bullets: [
+      isNewBest ? `🏆 NEW PERSONAL BEST!` : null,
       `Kills: ${kills}`,
-      `Outer Gods: ${bossKills}`,
-      `Sanctums: ${rifts}`,
-      `Run score: ${runScore}`,
+      `Outer Gods Slain: ${bossKills}`,
+      `Sanctums Claimed: ${rifts}`,
+      `Run Score: ${runScore}`,
       extra || 'You forged your legend through chaos, hunger, and impossible odds.'
-    ],
+    ].filter(Boolean),
     runScore,
   };
   return summary;
@@ -6544,6 +6564,14 @@ function drawCreature(c){
   if (c.rank>=5){
     const scaleFactor = 1 + (c.rank-4)*0.06;
     c.r = Math.round((c.sp.base.r||18) * scaleFactor);
+  }
+  // v3.16.0: rank 1-2 subtle path-color glow (even early ranks feel alive)
+  if (c.rank < 3){
+    const baseAlpha = 0.13 + 0.07*Math.sin(G.time*2.2 + (c._fp||0));
+    ctx.strokeStyle = c.path.color; ctx.lineWidth = 1.5;
+    ctx.globalAlpha = baseAlpha;
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.r+4, 0, Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = 1;
   }
   if (c.rank>=3){
     const aR = c.r + 6 + c.rank;

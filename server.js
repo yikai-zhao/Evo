@@ -352,3 +352,16 @@ setInterval(() => {
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`[Evo WS v3.8.0] listening on :${PORT} (path /ws) — rooms enabled`);
 });
+
+// ---- v3.16.0: Self-ping keepalive — prevents Render free-tier cold start (14m spin-down) ----
+// Pings /health every 10 minutes so the server stays warm
+if (process.env.RENDER_EXTERNAL_URL){
+  const https = require('https');
+  const SELF_URL = process.env.RENDER_EXTERNAL_URL + '/health';
+  setInterval(() => {
+    try {
+      https.get(SELF_URL, r => r.resume()).on('error', ()=>{});
+    } catch(e){}
+  }, 10 * 60 * 1000); // 10 minutes
+  console.log(`[Evo] keepalive ping registered → ${SELF_URL}`);
+}
