@@ -36,6 +36,8 @@ const requiredFns = [
   'function update(',
   'function render(',
   'function winGame(',
+  'function applyBoostsToPlayer(',
+  'function buildBoostOfferDeck(',
   'function winGameLastStand(',
   'function updateVeil(',
   'function drawVeil(',

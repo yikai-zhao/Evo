@@ -642,9 +642,11 @@ function getMeta(){
 function saveMeta(m){ try { localStorage.setItem(EVO_META_KEY, JSON.stringify(m)); } catch(e){} }
 // Award coins for in-run achievements (Outer God, evolution, PvP kills). Reuses existing coin currency.
 function addSoulShards(n, reason){
-  try { if (typeof addCoins === 'function') addCoins(n); } catch(e){}
-  if (G.player && G.started) addFloat(G.player.x, G.player.y-60, `+${n} 🪙 coins`+(reason?' · '+reason:''), '#ffd66b', 16, 2.2);
-  pushKillFeed(`🪙 +${n} coins`+(reason?' ('+reason+')':''), '#ffd66b');
+  const mult = getCoinGainMultiplier(G.player || null);
+  const amount = Math.max(1, Math.floor((n||0) * mult));
+  try { if (typeof addCoins === 'function') addCoins(amount); } catch(e){}
+  if (G.player && G.started) addFloat(G.player.x, G.player.y-60, `+${amount} 🪙 coins`+(reason?' · '+reason:''), '#ffd66b', 16, 2.2);
+  pushKillFeed(`🪙 +${amount} coins`+(reason?' ('+reason+')':''), '#ffd66b');
 }
 // Update existing daily-quest progress live during the run (kills/rank/survive)
 function updateDailyProgress(){
@@ -699,6 +701,84 @@ const AUTHORITIES = [
   { id:'omni',    name:'Starfall Authority',  color:'#ffdd66', icon:'☄️', cd:40,
     desc:'Reveal map 12s + 800 boss dmg + Qi +50% 90s' },
 ];
+
+// v3.14.0: player boost offers — stronger rewards loop for replay, monetization, and ad value.
+const EVO_BOOSTS_KEY = 'evo_boosts_v1';
+const BOOST_DEFS = [
+  { id:'hp',   name:'Vitality',   icon:'🛡️', price:60,  desc:'+20% max HP and heal', apply:p=>{ const amt=Math.max(20, Math.floor((p.maxHp||p.base.hp)*0.2)); p.maxHp += amt; p.hp = Math.min(p.maxHp, (p.hp||p.maxHp)+amt); } },
+  { id:'atk',  name:'Frenzy',     icon:'⚔️', price:70,  desc:'+15% attack power', apply:p=>{ p.atk = Math.floor(p.atk * 1.15); } },
+  { id:'xp',   name:'Qi Surge',   icon:'✦',  price:80,  desc:'+20% XP gain', apply:p=>{ p._xpMul = (p._xpMul||1) * 1.20; } },
+  { id:'coin', name:'Coin Spark', icon:'🪙', price:90,  desc:'+10% coin rewards', apply:p=>{ p._coinMul = (p._coinMul||1) * 1.10; } },
+  { id:'revive', name:'Phoenix Grace', icon:'♻️', price:120, desc:'One extra revive per run', apply:p=>{ p._extraRevive = (p._extraRevive||0) + 1; } },
+];
+function getBoostState(){
+  try { const s = JSON.parse(localStorage.getItem(EVO_BOOSTS_KEY)||'{}'); return s && typeof s==='object' ? s : {}; }
+  catch(e){ return {}; }
+}
+function saveBoostState(state){
+  try { localStorage.setItem(EVO_BOOSTS_KEY, JSON.stringify(state || {})); } catch(e){}
+}
+function getActiveBoosts(){
+  const s = getBoostState(); const arr = Array.isArray(s.activeBoosts) ? s.activeBoosts : [];
+  return arr.filter(Boolean);
+}
+function setActiveBoosts(ids){
+  const s = getBoostState(); s.activeBoosts = Array.isArray(ids) ? ids.filter(Boolean) : []; saveBoostState(s); return s;
+}
+function buildBoostOfferDeck(){
+  const owned = new Set(getActiveBoosts());
+  const pool = BOOST_DEFS.filter(def => !owned.has(def.id));
+  const offers = [];
+  while (offers.length < 3 && pool.length){
+    const idx = Math.floor(Math.random()*pool.length); offers.push({...pool[idx]}); pool.splice(idx,1);
+  }
+  if (offers.length < 3){
+    for (const def of BOOST_DEFS){
+      if (owned.has(def.id)) continue;
+      if (!offers.some(o=>o.id===def.id)){ offers.push({...def}); }
+      if (offers.length >= 3) break;
+    }
+  }
+  return offers.slice(0,3);
+}
+function applyBoostsToPlayer(player, boostIds){
+  if (!player) return [];
+  const ids = Array.isArray(boostIds) ? boostIds : [boostIds];
+  const applied = [];
+  const seen = new Set((player._activeBoosts || []).filter(Boolean));
+  for (const id of ids){
+    if (seen.has(id)) continue;
+    const def = BOOST_DEFS.find(x=>x.id===id);
+    if (!def) continue;
+    def.apply(player);
+    seen.add(id);
+    applied.push(id);
+  }
+  if (applied.length){
+    player._activeBoosts = Array.from(seen);
+    recalcStats(player);
+    if (player.hp > player.maxHp) player.hp = player.maxHp;
+    if (player.sta > player.maxSta) player.sta = player.maxSta;
+    if (player.life > player.maxLife) player.life = player.maxLife;
+  }
+  return applied;
+}
+function buyBoost(id, opts){
+  const def = BOOST_DEFS.find(x=>x.id===id);
+  if (!def) return false;
+  const state = getBoostState();
+  const cur = Array.isArray(state.activeBoosts) ? state.activeBoosts : [];
+  if (cur.includes(id)) return false;
+  if (!(opts && opts.skipCost) && getCoins() < def.price) return false;
+  if (!(opts && opts.skipCost)) setCoins(getCoins() - def.price);
+  cur.push(id);
+  state.activeBoosts = cur;
+  saveBoostState(state);
+  if (G.player) applyBoostsToPlayer(G.player, [id]);
+  return true;
+}
+function getXpGainMultiplier(p){ return (p && (p._xpMul || 1)) || 1; }
+function getCoinGainMultiplier(p){ return (p && (p._coinMul || 1)) || 1; }
 
 // =====================================================================
 // 地形
@@ -1186,7 +1266,7 @@ function updateBoss(b, dt){
 }
 function onBossDeath(b){
   if (G.player){
-    G.player.qi += 1500;
+    G.player.qi += Math.floor(1500 * getXpGainMultiplier(G.player));
     G.player.q.bossKilled = (G.player.q.bossKilled||0) + 1;
     G.player.sanity = Math.min(G.player.maxSanity, G.player.sanity + 40);
     addFloat(G.player.x, G.player.y-40, 'Slay the Outer God! +1500 XP', '#ffd66b', 22, 2.5);
@@ -1693,7 +1773,7 @@ function updateMiniboss(b, dt){
 }
 function onMinibossDeath(b){
   if (G.player){
-    G.player.qi += 600;
+    G.player.qi += Math.floor(600 * getXpGainMultiplier(G.player));
     G.player.sanity = Math.min(G.player.maxSanity, G.player.sanity + 15);
     addFloat(G.player.x, G.player.y-30, 'Slain Wraith! +600 XP', '#66ccff', 18, 1.8);
     pushKillFeed('★ You defeated the Wraith','#66ccff');
@@ -3087,7 +3167,7 @@ function onKill(attacker, target){
     const _streakMile = {3:'🔥 Killing Spree!', 5:'⚡ Rampage!', 7:'💀 Unstoppable!', 10:'👑 Godlike!', 15:'☄ Beyond Godlike!', 20:'⭐ LEGENDARY!'};
     if (_streakMile[G.killStreak]){
       const _sbq = G.killStreak * 8;
-      attacker.qi += _sbq;
+      attacker.qi += Math.floor(_sbq * getXpGainMultiplier(attacker));
       G.streakBannerText = _streakMile[G.killStreak] + '  +' + _sbq + ' XP';
       G.streakBannerT = 3.5;
       G.streakBannerColor = G.killStreak>=10 ? '#ffd700' : G.killStreak>=7 ? '#ff44ff' : '#ff8800';
@@ -3125,7 +3205,7 @@ function onKill(attacker, target){
       _oppMul = 1.5;
       qiReward = Math.floor(qiReward * _oppMul);
     }
-    attacker.qi += qiReward;
+    attacker.qi += Math.floor(qiReward * getXpGainMultiplier(attacker));
     addFloat(target.x, target.y-20, `+${qiReward} XP${_oppMul>1?' ⚔':''}`, _oppMul>1?'#ff88cc':'#bb88ff', 14, 1.2);
     // v2.5.0: early-game qi boost — guarantees first evolution in 60-90s
     const _earlyMul = earlyQiMultiplier();
@@ -3529,7 +3609,7 @@ function autoPickup(p){
       let q = s.qi || 5;
       if (p.qiBonusT>0) q = (q * (p.qiBonusMul||1))|0;
       if (G.event && G.event.type==='aligned') q = (q * 1.5)|0;
-      p.qi += q;
+      p.qi += Math.floor(q * getXpGainMultiplier(p));
       addFloat(s.x,s.y,`+${q} XP`,'#bb88ff',10,0.6);
       s._gone = true;
     }
@@ -3564,7 +3644,7 @@ function autoPickup(p){
   for (const qs of G.qiSprings){
     if (dist(p, qs) < qs.r){
       // v1.8.3: slower passive Qi (was 12/s — too fast)
-      p.qi += 4 * (1/60);
+      p.qi += 4 * (1/60) * getXpGainMultiplier(p);
       if (!qs._floatT || G.time - qs._floatT > 0.8){ addFloat(p.x,p.y-30,'XP Spring +XP','#bb88ff',12,0.8); qs._floatT = G.time; }
     }
     qs.tcd -= 1/60;
@@ -3597,7 +3677,7 @@ function autoPickup(p){
       // channel: 8s clear = 12.5/s -> use 15/s for snappier feel
       rf.cap = Math.min(100, (rf.cap||0) + 15*(1/60));
       // light passive while channeling
-      p.qi += 0.5;
+      p.qi += 0.5 * getXpGainMultiplier(p);
       if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p.maxHp*0.002);
     }
     if (rf.cap >= 100){
@@ -3626,7 +3706,7 @@ function grantRiftReward(p, rf){
   for (let i=0;i<60;i++) G.particles.push({x:rf.x,y:rf.y,vx:rand(-400,400),vy:rand(-400,400),life:1.2,color:rf.color,r:3});
   G.shockwaves.push({x:rf.x,y:rf.y,r:0,max:400,life:1,color:rf.color});
   if (rf.reward==='qi'){
-    p.qi += 200; addFloat(p.x,p.y-30,'+200 XP','#bb88ff',18,1.5);
+    p.qi += Math.floor(200 * getXpGainMultiplier(p)); addFloat(p.x,p.y-30,'+200 XP','#bb88ff',18,1.5);
   } else if (rf.reward==='heal'){
     p.maxHp = Math.floor(p.maxHp*1.15); p.hp = p.maxHp; p.maxLife += 60; p.life = p.maxLife;
     addFloat(p.x,p.y-30,'HP +15%','#ff7080',18,1.5);
@@ -3634,14 +3714,14 @@ function grantRiftReward(p, rf){
     p.zhenyuan += 0.3; p.daohen += 0.3; recalcStats(p); p.hp = p.maxHp;
     addFloat(p.x,p.y-30,'Essence +30% Dao +30%','#ffd66b',18,1.5);
   } else if (rf.reward==='all'){
-    p.qi += 120; p.zhenyuan += 0.2; p.daohen += 0.2; p.maxHp = Math.floor(p.maxHp*1.1); recalcStats(p); p.hp = p.maxHp;
+    p.qi += Math.floor(120 * getXpGainMultiplier(p)); p.zhenyuan += 0.2; p.daohen += 0.2; p.maxHp = Math.floor(p.maxHp*1.1); recalcStats(p); p.hp = p.maxHp;
     addFloat(p.x,p.y-30,'Outer God Boon · All Stats +','#aa44ff',18,1.8);
   }
 }
 function applyPickup(p, it){
   playSound('pickup');
   if (it._shard){ consumeAuthorityShard(p); logMsg(`Picked up ${it.name}`); return; }
-  if (it.qi){ p.qi += it.qi; addFloat(p.x,p.y-20,`+${it.qi} XP`,'#bb88ff',12,1); }
+  if (it.qi){ const gain = Math.floor(it.qi * getXpGainMultiplier(p)); p.qi += gain; addFloat(p.x,p.y-20,`+${gain} XP`,'#bb88ff',12,1); }
   if (it.heal){ p.hp = Math.min(p.maxHp, p.hp+it.heal); addFloat(p.x,p.y-20,`+${it.heal} HP`,'#ff6677',12,1); }
   if (it.bighp){ p.maxHp += it.bighp; p.hp += it.bighp; addFloat(p.x,p.y-20,`+${it.bighp} max HP`,'#ff2244',14,1); }
   if (it.sta){ p.sta = Math.min(p.maxSta, p.sta+it.sta); }
@@ -3969,8 +4049,10 @@ function _setupShareButton(curForm, nextPreview, coinsEarned){
 function die(reason){
   if (G.dead) return;
   // 進階能力：Immortal Phoenix — 復活一次
-  if (G.player && G.player.perks && G.player.perks.revive>0 && !G.player._revivedOnce){
+  const extraRevives = Math.max(0, (G.player && (G.player._extraRevive || 0)) - (G.player && (G.player._reviveUsed || 0)) || 0);
+  if (G.player && ((G.player.perks && G.player.perks.revive>0) || extraRevives > 0) && !G.player._revivedOnce){
     G.player._revivedOnce = true;
+    if (extraRevives > 0) G.player._reviveUsed = (G.player._reviveUsed || 0) + 1;
     G.player._dead = false; // v3.5.0: clear _dead flag so attacks register again
     G.player.hp = G.player.maxHp;
     G.player.sta = G.player.maxSta;
@@ -4009,6 +4091,48 @@ function die(reason){
   }
   try { stopBGM(); } catch(e){}
 }
+function _renderBoostOfferPanel(root, title){
+  if (!root) return;
+  const existing = document.getElementById('boostOfferPanel');
+  if (existing) existing.remove();
+  const deck = buildBoostOfferDeck();
+  if (!deck.length) return;
+  const panel = document.createElement('div'); panel.id='boostOfferPanel';
+  panel.style.cssText = 'margin:12px auto 10px;max-width:760px;border:1px solid #cc9944;background:rgba(25,16,36,0.92);border-radius:12px;padding:10px 12px;text-align:left;';
+  panel.innerHTML = `<div style="font-weight:700;color:#ffd66b;font-size:14px;margin-bottom:8px">${title}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">
+      ${deck.map(offer=>`<div style="border:1px solid #55427a;border-radius:10px;padding:8px;background:rgba(255,255,255,0.04)">
+        <div style="font-size:16px;font-weight:700;color:#ffd66b">${offer.icon} ${offer.name}</div>
+        <div style="font-size:11px;color:#cfd8ff;margin:4px 0 6px;line-height:1.4">${offer.desc}</div>
+        <div style="font-size:11px;color:#7fd07f;font-weight:700;margin-bottom:6px">💰 ${offer.price} coins</div>
+        <button data-boost="${offer.id}" style="background:linear-gradient(135deg,#6a3ccf,#9d6cff);color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-weight:700;font-size:11px">Buy boost</button>
+      </div>`).join('')}
+    </div>
+    <div style="margin-top:8px;text-align:right">
+      <button id="boostAdBtn" style="background:linear-gradient(135deg,#945f0d,#ffd66b);color:#221107;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-weight:700;font-size:11px">▶ Watch Ad: random boost</button>
+    </div>`;
+  root.appendChild(panel);
+  panel.querySelectorAll('[data-boost]').forEach(btn=>{ btn.onclick = ()=>{
+    if (buyBoost(btn.getAttribute('data-boost'))){
+      btn.textContent = '✓ Applied'; btn.disabled = true; try{ pushKillFeed('★ Boost unlocked', '#ffd66b'); }catch(e){}
+    } else {
+      btn.textContent = 'Need more coins'; btn.disabled = true;
+    }
+  }; });
+  const adBtn = document.getElementById('boostAdBtn');
+  if (adBtn){ adBtn.onclick = async ()=>{
+    adBtn.disabled = true; adBtn.textContent = 'Loading…';
+    let ok = true;
+    if (window.SDK && SDK.ready && typeof SDK.rewardedBreak === 'function'){ try { ok = await SDK.rewardedBreak(); } catch(e){ ok = false; } }
+    if (ok !== false){
+      const offers = buildBoostOfferDeck();
+      const offer = offers[(Math.random()*offers.length)|0] || BOOST_DEFS[0];
+      if (offer && buyBoost(offer.id, { skipCost:true })){ adBtn.textContent = `✓ ${offer.name}`; }
+      else { adBtn.textContent = 'No boost available'; }
+    } else { adBtn.textContent = 'Ad unavailable'; }
+  }; }
+}
+
 function _showDeathOverlay(){
   if (!G.dead) return;
   if (G._deathOverlayShown) return;
@@ -4035,6 +4159,7 @@ function _showDeathOverlay(){
     + (_on?` · ${Net.peers.size+1} online`:'');
   const _curForm = getRankForm(G.player);
   const _nextPreview = getNextEvolutionPreview(G.player);
+  try { _renderBoostOfferPanel(document.getElementById('death'), 'Next-run boosts: spend coins or use an ad for a permanent edge'); } catch(e){}
   const _deathNext = document.getElementById('deathNextForm');
   const _deathHook = document.getElementById('deathHook');
   const _restartBtn = document.getElementById('restartBtn');
@@ -4162,8 +4287,14 @@ function winGame(){
   if (G.won) return;
   G.won = true;
   document.getElementById('win').classList.remove('hidden');
-  // v1.1.0: 序列 0 愚者True God
-  document.getElementById('winStats').textContent = `${G.player.path.name} · Seq 0 [Fool, the True God] enthroned! From mortal creature to ruler of all stars — the path is complete.`;
+  try { _renderBoostOfferPanel(document.getElementById('win'), 'Victory boosts: add a permanent edge for your next run'); } catch(e){}
+  const summary = buildEndingSummary('victory', 'Your legend is sealed in the annals of the arena.');
+  const ws = document.getElementById('winStats');
+  if (ws){
+    ws.textContent = `${G.player.path.name} · Seq 0 [Fool, the True God] enthroned! ${summary.subtitle}`;
+    const detail = document.getElementById('winDetail');
+    if (detail){ detail.innerHTML = summary.bullets.map(b => `<div>${b}</div>`).join(''); }
+  }
   // v3.4.0: stop active gameplay session + show end-of-game commercial (peak satisfaction — high engagement ad slot)
   try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
   // v3.7.0: viral share button — reward coins for sharing (drives organic acquisition)
@@ -4671,6 +4802,39 @@ function updatePathBond(){
   G.player._pathBondActive = bond;
 }
 
+function buildEndingSummary(type, extra){
+  const p = G.player;
+  const partySize = G.party ? G.party.members.size : 1;
+  const kills = p ? (p.q.kills||0) : 0;
+  const bossKills = p ? (p.q.bossKilled||0) : 0;
+  const rifts = p ? (p.q.riftsUsed||0) : 0;
+  const timeMins = Math.max(1, Math.floor((G.time||0)/60));
+  const runScore = Math.max(1, Math.floor((kills * 14) + (bossKills * 220) + (rifts * 140) + (timeMins * 3)));
+  const summary = {
+    type: type || 'victory',
+    title: type === 'laststand' ? 'Twilight Champion' : 'Ascended to Godhood',
+    subtitle: type === 'laststand'
+      ? `Your party of ${partySize} stood last in the Veil.`
+      : `You completed your divine ascent after ${timeMins}m of survival.`,
+    bullets: [
+      `Kills: ${kills}`,
+      `Outer Gods: ${bossKills}`,
+      `Sanctums: ${rifts}`,
+      `Run score: ${runScore}`,
+      extra || 'You forged your legend through chaos, hunger, and impossible odds.'
+    ],
+    runScore,
+  };
+  return summary;
+}
+function getBossSpawnConfig(){
+  const baseStage = Math.max(1, G.stage || 1);
+  const maxBosses = baseStage >= 5 ? 3 : (baseStage >= 4 ? 2 : 1);
+  const intervalBase = baseStage >= 5 ? 95 : (baseStage >= 4 ? 110 : 130);
+  const intervalVar = baseStage >= 5 ? 28 : (baseStage >= 4 ? 38 : 48);
+  return { maxBosses, intervalBase, intervalVar };
+}
+
 // ----- Last-survivor win check -----
 function checkLastSurvivorWin(){
   if (G.won || G.dead || !G.player || G.player.hp<=0) return;
@@ -4702,11 +4866,11 @@ function winGameLastStand(){
   const el = document.getElementById('win');
   if (el) el.classList.remove('hidden');
   const ws = document.getElementById('winStats');
+  const summary = buildEndingSummary('laststand');
   if (ws){
-    const partySize = G.party ? G.party.members.size : 1;
-    ws.textContent = partySize > 1
-      ? `★ Chicken Dinner: your party (${partySize}) stood last in the Veil.`
-      : '★ Chicken Dinner: you are the final survivor.';
+    ws.textContent = `${summary.title}: ${summary.subtitle}`;
+    const detail = document.getElementById('winDetail');
+    if (detail){ detail.innerHTML = summary.bullets.map(b => `<div>${b}</div>`).join(''); }
   }
   try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
   try { addCoins(300); pushKillFeed('🪙 +300 coins — Twilight Champion!', '#ffd66b'); } catch(e){}
@@ -5506,8 +5670,15 @@ function update(dt){
   }
   // v0.9.0: 世界 Boss
   for (let _i=G.bosses.length-1;_i>=0;_i--){ if (G.bosses[_i].hp<=0){ onBossDeath(G.bosses[_i]); G.bosses.splice(_i,1); G.bossSpawnT=160; } }
-  const _maxB = G.stage>=5?3:(G.stage>=4?2:1);
-  if (G.stage>=3 && G.bosses.length<_maxB){ G.bossSpawnT-=dt; if(G.bossSpawnT<=0){ spawnBoss(); G.bossSpawnT=150+G.bosses.length*40; } }
+  const bossCfg = getBossSpawnConfig();
+  if (G.stage>=3 && G.bosses.length<bossCfg.maxBosses){
+    G.bossSpawnT -= dt;
+    if (G.bossSpawnT <= 0){
+      spawnBoss();
+      G.bossSpawnT = bossCfg.intervalBase + Math.random() * bossCfg.intervalVar - (G.bosses.length * 8);
+      G.bossSpawnT = Math.max(70, G.bossSpawnT);
+    }
+  }
   for (const _b of G.bosses) updateBoss(_b, dt);
   // v2.9.0: boss intro splash timer
   if (G._bossIntro && G._bossIntro.t > 0){ G._bossIntro.t -= dt; if (G._bossIntro.t <= 0) G._bossIntro = null; }
@@ -7695,7 +7866,8 @@ function awardRunCoins(){
   try {
     const p = G.player; if (!p) return 0;
     const qi = p.qi|0, rank = p.rank|0, kills = (p.q&&p.q.kills)|0;
-    earned = Math.floor(qi/15 + rank*12 + kills*2);
+    const coinMul = getCoinGainMultiplier(p);
+    earned = Math.floor((qi/15 + rank*12 + kills*2) * coinMul);
     // Daily quest completion bonus
     const dq = getDailyQuest();
     if (dq && !dq.done){
@@ -8174,12 +8346,23 @@ function buildMenu(){
   const _coins = getCoins();
   const _dq = getDailyQuest();
   const _dqTxt = _dq ? (_dq.done ? `<span style="color:#7fd07f">✓ Daily: ${_dq.desc} (+${_dq.reward} coins claimed)</span>` : `<span style="color:#ffd66b">★ Daily Quest: ${_dq.desc} → +${_dq.reward} coins</span>`) : '';
+  const _streak = getStreakState();
+  const _streakDay = _streak.day || 0;
+  const _streakText = _streak.lastClaim === _utcDay()
+    ? `<span style="color:#7fd07f">✓ Streak Day ${_streakDay}/7</span>`
+    : `<span style="color:#9fc7ee">🔥 Streak Day ${_streakDay+1}/7 ready</span>`;
   // v2.5.0: form codex progress (drives replay — "gotta evolve them all")
   const _haveF = formsDiscoveredCount();
   const _totF  = totalFormsCount();
   const _pctF  = Math.floor((_haveF/_totF)*100);
   const _formsTxt = `<span style="color:#9fd09f">📖 Forms: ${_haveF}/${_totF} (${_pctF}%)</span>`;
-  topBar.innerHTML = `<span style="font-weight:700;color:#ffd66b;font-size:16px">🪙 ${_coins} coins</span> ${_formsTxt} ${_dqTxt}`;
+  const _weekly = getWeeklyChallenge();
+  const _weeklyTxt = _weekly ? (`<span style="color:#ff88cc">📜 Week: ${_weekly.desc} · ${_weekly.done ? 'done' : `${_weekly.progress||0}/${_weekly.target}`}</span>`) : '';
+  const _spinState = getSpinState();
+  const _spinFreeAvail = !_spinState.freeUsed;
+  const _spinAdAvail = Math.max(0, 3 - (_spinState.adSpinsUsed||0));
+  const _spinTxt = `<span style="color:#ffd66b">🎰 Spin: ${_spinFreeAvail ? 'free ready' : 'used'} · ad ${_spinAdAvail}/3</span>`;
+  topBar.innerHTML = `<span style="font-weight:700;color:#ffd66b;font-size:16px">🪙 ${_coins} coins</span> ${_formsTxt} ${_dqTxt} ${_streakText} ${_weeklyTxt} ${_spinTxt}`;
   // v3.6.0: revenge list + lifetime Outer God kills shown in menu
   try {
     const _rev = getRevengeList();
@@ -8470,6 +8653,7 @@ async function startGame(){
   recalcStats(G.player);
   G.player.hp = G.player.maxHp; G.player.sta = G.player.maxSta;
   G.player.invuln = 10; // 10s spawn protection
+  try { applyBoostsToPlayer(G.player, getActiveBoosts()); } catch(e){}
   // v1.6.0 retention bonus: consume banked Qi from previous run — v1.8.3: DISABLED auto-apply (was instant level on start). Banked Qi now stays as a small comeback boost capped at 30.
   try {
     const _bonus = Math.min(30, consumeQiBank());
