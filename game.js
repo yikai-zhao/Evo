@@ -886,6 +886,35 @@ function randomName(){ return FAKE_NAMES[(Math.random()*FAKE_NAMES.length)|0]; }
 // 地形
 // =====================================================================
 function generateTerrain(){
+  // v3.15.0: random seed per run so each game has a unique map layout
+  let _seed = (Date.now() ^ Math.random()*0x7fffffff) >>> 0;
+  function _rng(){ _seed = (_seed * 1664525 + 1013904223) >>> 0; return (_seed >>> 0) / 0xffffffff; }
+
+  // Pick one of 5 map archetypes randomly
+  const archetypes = ['balanced','water_world','volcano','frozen_waste','jungle_maze'];
+  const archetype = archetypes[Math.floor(_rng()*archetypes.length)];
+  G._mapArchetype = archetype;  // stored for HUD display
+
+  // Per-archetype biome weight tables
+  const ARCHETYPE_BIOMES = {
+    balanced:     ['plain','forest','desert','swamp','water','mtn','snow'],
+    water_world:  ['water','water','swamp','water','plain','water','swamp'],
+    volcano:      ['mtn','desert','mtn','plain','desert','mtn','desert'],
+    frozen_waste:  ['snow','mtn','snow','plain','snow','water','snow'],
+    jungle_maze:   ['forest','swamp','forest','water','forest','plain','forest'],
+  };
+  const pool = ARCHETYPE_BIOMES[archetype];
+
+  // Generate 8-12 large biome blob centres for voronoi-style layout
+  const blobCount = 8 + Math.floor(_rng()*5);
+  const blobs = [];
+  for (let i=0;i<blobCount;i++){
+    blobs.push({
+      x: _rng()*WORLD.w, y: _rng()*WORLD.h,
+      biome: pool[Math.floor(_rng()*pool.length)],
+    });
+  }
+
   const cols = Math.ceil(WORLD.w / TILE);
   const rows = Math.ceil(WORLD.h / TILE);
   const map = [];
@@ -897,23 +926,26 @@ function generateTerrain(){
       const dc=Math.hypot(dxc,dyc);
       let b;
       if (dc < 600) b='end';
-      else if (dc > 5500 && dc < 6800) b='starsea';  // v1.1.0 星海環帶（環繞外洋）
+      else if (dc > 5500 && dc < 6800) b='starsea';
       else {
-        // 區域偏好
-        const ang = Math.atan2(dyc,dxc);
-        const sec = ((ang+Math.PI)/(Math.PI*2)*7)|0;
-        b = ['plain','forest','desert','swamp','water','mtn','snow'][sec];
-        // 一點隨機
-        if (Math.random()<0.18) b = ['plain','forest','desert','swamp','water','mtn','snow'][(Math.random()*7)|0];
+        // Voronoi: find nearest blob
+        let nearest=blobs[0], nd=Infinity;
+        for (const bl of blobs){
+          const dd=Math.hypot(bl.x-cx, bl.y-cy);
+          if (dd<nd){ nd=dd; nearest=bl; }
+        }
+        b = nearest.biome;
+        // small noise override (18% chance) for blended borders
+        if (_rng()<0.18) b = pool[Math.floor(_rng()*pool.length)];
       }
       row.push(b);
     }
     map.push(row);
   }
   G.terrain = { cols, rows, map };
-  // 預建小地圖快取（避免首幀黑屏 / 畫面遗失）
+  // Pre-build minimap cache
   try {
-    const SCALE = 8; // 放大快取避免伸展時厚重像素化
+    const SCALE = 8;
     const off = document.createElement('canvas');
     off.width = cols * SCALE; off.height = rows * SCALE;
     const octx = off.getContext('2d');
@@ -925,7 +957,7 @@ function generateTerrain(){
     G.terrain.miniCache = off;
   } catch(e){ console.warn('[miniCache build]', e); }
 
-  // 預建每個 BIOME 的 256x256 紋理快取 — 取代每幀 sub-cell 循環，大幅提升 FPS
+  // Pre-build biome tile textures (unchanged — zero per-frame cost)
   try {
     G.terrain.biomeTex = {};
     for (const bk of Object.keys(BIOMES)){
@@ -1174,16 +1206,23 @@ function generateCosmos(){
 // v2.9.0: Each 古神 has unique visual silhouette + signature attack flavor.
 // Rotates each spawn so players see fresh art every 5 minutes (retention + screenshot variety).
 const BOSS_POOL = [
-  // v3.5.0: outer gods buffed ~3x HP / 2x ATK — they should feel like a real raid threat
-  { type:'eye',       name:'Elder Day · Star-Touching Eye',      color:'#aa44ff', hp:26000, atk:160, accent:'#ff44aa' },
-  { type:'maw',       name:'Ravager · Thousand-Mouth Devourer',  color:'#ff4444', hp:30000, atk:185, accent:'#ffaa30' },
-  { type:'crown',     name:'Sovereign · Frozen-Abyss Crown',     color:'#66ccff', hp:28000, atk:150, accent:'#ffffff' },
-  { type:'phoenix',   name:'Ashen Phoenix · Cycle-Breaker',      color:'#ffaa30', hp:27000, atk:175, accent:'#ff3344' },
-  { type:'serpent',   name:'Nine-Headed Verdant Serpent',        color:'#44dd66', hp:29000, atk:165, accent:'#aa44ff' },
-  // v3.12.0: three new outer god types
-  { type:'leviathan', name:'Abyssal Leviathan · Tide-Drinker',   color:'#1a88cc', hp:32000, atk:170, accent:'#00ffcc' },
-  { type:'spider',    name:'Void Weaver · Architect of Silence', color:'#cc44aa', hp:27500, atk:190, accent:'#ffccff' },
-  { type:'titan',     name:'Tempest Sovereign · Cloudborn God',  color:'#88aaff', hp:31000, atk:155, accent:'#ffffaa' },
+  // original 5
+  { type:'eye',       name:'Elder Day · Star-Touching Eye',       color:'#aa44ff', hp:26000, atk:160, accent:'#ff44aa', ai:'spiral'   },
+  { type:'maw',       name:'Ravager · Thousand-Mouth Devourer',   color:'#ff4444', hp:30000, atk:185, accent:'#ffaa30', ai:'charge'   },
+  { type:'crown',     name:'Sovereign · Frozen-Abyss Crown',      color:'#66ccff', hp:28000, atk:150, accent:'#ffffff', ai:'freeze'   },
+  { type:'phoenix',   name:'Ashen Phoenix · Cycle-Breaker',       color:'#ffaa30', hp:27000, atk:175, accent:'#ff3344', ai:'orbit'    },
+  { type:'serpent',   name:'Nine-Headed Verdant Serpent',         color:'#44dd66', hp:29000, atk:165, accent:'#aa44ff', ai:'multihead'},
+  // v3.12.0
+  { type:'leviathan', name:'Abyssal Leviathan · Tide-Drinker',    color:'#1a88cc', hp:32000, atk:170, accent:'#00ffcc', ai:'wave'     },
+  { type:'spider',    name:'Void Weaver · Architect of Silence',  color:'#cc44aa', hp:27500, atk:190, accent:'#ffccff', ai:'web'      },
+  { type:'titan',     name:'Tempest Sovereign · Cloudborn God',   color:'#88aaff', hp:31000, atk:155, accent:'#ffffaa', ai:'storm'    },
+  // v3.15.0: six new outer gods with unique attack behaviours
+  { type:'rift',      name:'Rift Sovereign · Door to Nowhere',    color:'#7700cc', hp:28500, atk:180, accent:'#ee88ff', ai:'rift'     },
+  { type:'plague',    name:'Pestilence God · Endless Rot',        color:'#88cc44', hp:29500, atk:162, accent:'#ccff44', ai:'plague'   },
+  { type:'mirror',    name:'Fractal Mirror · Infinite Regret',    color:'#aaddff', hp:26500, atk:158, accent:'#ffffff', ai:'mirror'   },
+  { type:'worm',      name:'World Worm · Devourer of Epochs',     color:'#cc8844', hp:33000, atk:172, accent:'#ffcc88', ai:'worm'     },
+  { type:'eclipse',   name:'Blood Eclipse · Heaven Blotter',      color:'#cc2244', hp:30500, atk:188, accent:'#ff8888', ai:'eclipse'  },
+  { type:'void',      name:'Primordial Void · First Silence',     color:'#220044', hp:35000, atk:145, accent:'#aa44ff', ai:'void'     },
 ];
 // v3.5.1: returns the closest living outer god to pos (for skills / melee / projectiles)
 function nearestBoss(pos){
@@ -1230,38 +1269,216 @@ function _loadBossArt(type){
 }
 function updateBoss(b, dt){
   b.eyeT += dt;
-  // 二階段：低於 50% 加速
+  b._aiT = (b._aiT||0) + dt;
+  const ai = b.ai || 'spiral';
+  // Phase 2 triggers at 50% HP
   if (b.hp < b.maxHp*0.5 && b.phase===1){
-    b.phase = 2; pushKillFeed('☄ Star-Touching Eye awakens','#ff44aa');
+    b.phase = 2;
+    pushKillFeed('☄ '+b.name+' — Second Phase!','#ff44aa');
     try{ flash('#ff44aa',0.5); shake(20); }catch(e){}
   }
-  // v3.12.0: 追玩家 — 速度提升讓外神能追上
-  if (G.player){
-    const dx = G.player.x - b.x, dy = G.player.y - b.y, d = Math.hypot(dx,dy)||1;
-    const sp = b.phase===2 ? 65 : 42;
-    b.x += (dx/d) * sp * dt;
-    b.y += (dy/d) * sp * dt;
-    // 撞擊近戰
-    if (d < b.r + G.player.r + 10){
-      b.atkCdT -= dt;
-      if (b.atkCdT<=0){
-        b.atkCdT = 0.8;
-        dealDamage(b, G.player, b.atk, '#aa44ff');
-        try{ shake(8); G.cam.hitFlash = Math.max(G.cam.hitFlash, 0.4); }catch(e){}
-        if (!(G.player.invuln>0)) G.player.sanity = Math.max(0, G.player.sanity - 5);
+  const spd = b.phase===2 ? 68 : 44;
+  if (!G.player) return;
+  const dx=G.player.x-b.x, dy=G.player.y-b.y, d=Math.hypot(dx,dy)||1;
+  // ── type-specific movement ──────────────────────────────────────
+  if (ai==='charge'){
+    // Maw: charges in bursts, pauses between
+    if (!b._chargeCd) b._chargeCd = 0;
+    b._chargeCd -= dt;
+    if (b._chargeCd <= 0){
+      b._chargeDir = { x:dx/d, y:dy/d };
+      b._chargeDur = 0.6; b._chargeCd = 2.8;
+    }
+    if (b._chargeDir && (b._chargeDur||0) > 0){
+      b.x += b._chargeDir.x*(spd*3.5)*dt; b.y += b._chargeDir.y*(spd*3.5)*dt;
+      b._chargeDur -= dt;
+    } else { b.x += (dx/d)*spd*0.3*dt; b.y += (dy/d)*spd*0.3*dt; }
+  } else if (ai==='orbit'){
+    // Phoenix: orbits player at 700px then dives
+    const targetD = 700;
+    const orbitAng = Math.atan2(dy,dx) + (b.phase===2?0.04:0.025);
+    const tx = G.player.x - Math.cos(orbitAng)*targetD;
+    const ty = G.player.y - Math.sin(orbitAng)*targetD;
+    b.x += (tx-b.x)*0.06; b.y += (ty-b.y)*0.06;
+    if (b._aiT % 4 < dt*1.5) { b.x += (dx/d)*spd*4*dt; b.y += (dy/d)*spd*4*dt; } // dive
+  } else if (ai==='freeze'){
+    // Crown: slow but fires freeze rings
+    b.x += (dx/d)*(spd*0.5)*dt; b.y += (dy/d)*(spd*0.5)*dt;
+  } else if (ai==='wave'){
+    // Leviathan: serpentine lateral movement
+    const perp = Math.sin(b._aiT*1.8)*320;
+    const perpX = -dy/d, perpY = dx/d;
+    b.x += (dx/d)*spd*dt + perpX*perp*dt;
+    b.y += (dy/d)*spd*dt + perpY*perp*dt;
+  } else if (ai==='worm'){
+    // World Worm: burrowing — teleports behind player periodically
+    b.x += (dx/d)*spd*1.1*dt; b.y += (dy/d)*spd*1.1*dt;
+    if (!b._wormT) b._wormT = 12;
+    b._wormT -= dt;
+    if (b._wormT <= 0){
+      b._wormT = 12 + Math.random()*5;
+      b.x = G.player.x + Math.cos(Math.random()*Math.PI*2)*600;
+      b.y = G.player.y + Math.sin(Math.random()*Math.PI*2)*600;
+      for (let i=0;i<60;i++) G.particles.push({x:b.x,y:b.y,vx:rand(-400,400),vy:rand(-400,400),life:1,color:b.color,r:3});
+      try{shake(25);}catch(e){}
+    }
+  } else if (ai==='void'){
+    // Primordial Void: slow, pulls enemies toward it with gravity
+    b.x += (dx/d)*(spd*0.35)*dt; b.y += (dy/d)*(spd*0.35)*dt;
+    if (G.player){
+      const pd = Math.hypot(G.player.x-b.x, G.player.y-b.y)||1;
+      if (pd < 1800){
+        const pull = Math.max(0, (1800-pd)/1800) * 200 * dt;
+        G.player.x += (b.x-G.player.x)/pd*pull;
+        G.player.y += (b.y-G.player.y)/pd*pull;
       }
     }
-    // 觸手彈幕（每 4s 一次 12 顆）
-    b.projT -= dt;
-    if (b.projT<=0){
-      b.projT = b.phase===2 ? 2.4 : 4;
-      const N = b.phase===2 ? 16 : 12;
+  } else {
+    // default: straight pursuit
+    b.x += (dx/d)*spd*dt; b.y += (dy/d)*spd*dt;
+  }
+  // ── melee contact ──────────────────────────────────────────────
+  if (d < b.r + G.player.r + 10){
+    b.atkCdT -= dt;
+    if (b.atkCdT<=0){
+      b.atkCdT = 0.8;
+      dealDamage(b, G.player, b.atk, b.color, false);
+      try{ shake(8); G.cam.hitFlash = Math.max(G.cam.hitFlash||0, 0.4); }catch(e){}
+    }
+  }
+  // ── projectile patterns (type-specific) ────────────────────────
+  b.projT -= dt;
+  if (b.projT <= 0){
+    const phase2 = b.phase===2;
+    const col = b.color;
+    if (ai==='spiral'){
+      // Eye: expanding golden spiral
+      const N = phase2?20:12; b.projT = phase2?2.2:3.8;
+      const baseAng = b.eyeT*2.1;
       for (let i=0;i<N;i++){
-        const a = i/N*Math.PI*2 + Math.random()*0.1;
-        G.projectiles.push({x:b.x,y:b.y, vx:Math.cos(a)*260, vy:Math.sin(a)*260, life:3, r:8, dmg:35, hostile:true, color:'#aa44ff', owner:b, hit:new Set(), pierce:1});
+        const a = baseAng + (i/N)*Math.PI*2;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a)*240,vy:Math.sin(a)*240,life:3.5,r:7,dmg:30,hostile:true,color:col,owner:b,hit:new Set(),pierce:1});
       }
-      try{ playSound('auth'); }catch(e){}
+    } else if (ai==='charge'){
+      // Maw: 3 dense shotgun blasts toward player
+      b.projT = phase2?1.4:2.6;
+      for (let i=-3;i<=3;i++){
+        const a = Math.atan2(dy,dx) + i*0.15;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a)*340,vy:Math.sin(a)*340,life:2,r:9,dmg:45,hostile:true,color:col,owner:b,hit:new Set(),pierce:1});
+      }
+    } else if (ai==='freeze'){
+      // Crown: expanding freeze ring
+      b.projT = phase2?3:5;
+      const N = phase2?24:18;
+      for (let i=0;i<N;i++){
+        const a = (i/N)*Math.PI*2;
+        const p = {x:b.x,y:b.y,vx:Math.cos(a)*180,vy:Math.sin(a)*180,life:4,r:8,dmg:22,hostile:true,color:'#88eeff',owner:b,hit:new Set(),pierce:1,freeze:2.5};
+        G.projectiles.push(p);
+      }
+    } else if (ai==='orbit'){
+      // Phoenix: twin flame arcs
+      b.projT = phase2?1.8:3;
+      for (let arc=0;arc<2;arc++){
+        for (let i=0;i<7;i++){
+          const a = Math.atan2(dy,dx) + arc*Math.PI + i*0.22 - 0.66;
+          G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a)*300,vy:Math.sin(a)*300,life:2.5,r:8,dmg:38,hostile:true,color:'#ff8833',owner:b,hit:new Set(),pierce:1});
+        }
+      }
+    } else if (ai==='multihead'){
+      // Serpent: 9 homing-ish snakes fired in a fan
+      b.projT = phase2?2:4;
+      for (let i=0;i<9;i++){
+        const a = Math.atan2(dy,dx) + (i-4)*0.22;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a)*220,vy:Math.sin(a)*220,life:4,r:7,dmg:28,hostile:true,color:'#44dd66',owner:b,hit:new Set(),pierce:2});
+      }
+    } else if (ai==='wave'){
+      // Leviathan: tidal wave columns
+      b.projT = phase2?2.5:4;
+      for (let row=0;row<4;row++){
+        const perp = (row-1.5)*90;
+        const perpX=-dy/d, perpY=dx/d;
+        for (let j=0;j<3;j++){
+          const delay = j*0.2;
+          G.projectiles.push({x:b.x+perpX*perp,y:b.y+perpY*perp,vx:dx/d*280,vy:dy/d*280,life:3,r:10,dmg:36,hostile:true,color:'#00ccff',owner:b,hit:new Set(),pierce:1,_spawnDelay:delay});
+        }
+      }
+    } else if (ai==='web'){
+      // Spider: web trap ring then pull shots
+      b.projT = phase2?2.2:3.5;
+      const N = phase2?16:10;
+      for (let i=0;i<N;i++){
+        const a = (i/N)*Math.PI*2;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a)*150,vy:Math.sin(a)*150,life:5,r:6,dmg:20,hostile:true,color:'#ee88ff',owner:b,hit:new Set(),pierce:1,slow:3});
+      }
+    } else if (ai==='storm'){
+      // Titan: random lightning bolts that track from above
+      b.projT = phase2?1.5:2.8;
+      const N = phase2?8:5;
+      for (let i=0;i<N;i++){
+        const tx2 = (G.player.x||0) + rand(-400,400);
+        const ty2 = (G.player.y||0) + rand(-400,400);
+        const a2 = Math.atan2(ty2-b.y, tx2-b.x);
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a2)*500,vy:Math.sin(a2)*500,life:1.2,r:6,dmg:42,hostile:true,color:'#ffffaa',owner:b,hit:new Set(),pierce:3});
+      }
+    } else if (ai==='rift'){
+      // Rift Sovereign: spawns slow rift balls that explode into 8
+      b.projT = phase2?2.5:4.5;
+      const a3 = Math.atan2(dy,dx);
+      for (let i=0;i<(phase2?4:2);i++){
+        const off = (i-(phase2?1.5:0.5))*0.4;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a3+off)*130,vy:Math.sin(a3+off)*130,life:2,r:14,dmg:55,hostile:true,color:'#7700cc',owner:b,hit:new Set(),pierce:0,_riftExplode:true});
+      }
+    } else if (ai==='plague'){
+      // Plague: cloud of slow poison orbs
+      b.projT = phase2?1.8:3.2;
+      const N4 = phase2?20:12;
+      for (let i=0;i<N4;i++){
+        const a4 = Math.random()*Math.PI*2;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a4)*rand(80,200),vy:Math.sin(a4)*rand(80,200),life:5,r:9,dmg:18,hostile:true,color:'#88cc44',owner:b,hit:new Set(),pierce:1,dot:6});
+      }
+    } else if (ai==='mirror'){
+      // Mirror: mimics player facing direction, fires back at them
+      b.projT = phase2?1.6:2.8;
+      const ang2 = Math.atan2(b.y-G.player.y, b.x-G.player.x); // fires TOWARD player
+      const N5 = phase2?12:8;
+      for (let i=0;i<N5;i++){
+        const sp2 = 200 + i*30;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(ang2)*sp2,vy:Math.sin(ang2)*sp2,life:3,r:7,dmg:28,hostile:true,color:'#aaddff',owner:b,hit:new Set(),pierce:1});
+      }
+    } else if (ai==='eclipse'){
+      // Eclipse: two rotating walls of bullets
+      b.projT = phase2?1.2:2.2;
+      const N6 = phase2?8:6;
+      for (let wall=0;wall<2;wall++){
+        const wallBase = b.eyeT*1.5 + wall*Math.PI;
+        for (let i=0;i<N6;i++){
+          const a5 = wallBase + (i/N6)*Math.PI;
+          G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a5)*260,vy:Math.sin(a5)*260,life:2.8,r:8,dmg:36,hostile:true,color:'#cc2244',owner:b,hit:new Set(),pierce:1});
+        }
+      }
+    } else if (ai==='worm'){
+      // Worm: drops homing spore clusters
+      b.projT = phase2?2:3.5;
+      for (let i=0;i<(phase2?5:3);i++){
+        const a6 = Math.random()*Math.PI*2;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a6)*rand(60,180),vy:Math.sin(a6)*rand(60,180),life:6,r:11,dmg:30,hostile:true,color:'#cc8844',owner:b,hit:new Set(),pierce:1});
+      }
+    } else if (ai==='void'){
+      // Primordial Void: slow massive void balls that chain-explode
+      b.projT = phase2?3:5.5;
+      for (let i=0;i<(phase2?6:3);i++){
+        const a7 = Math.random()*Math.PI*2;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a7)*90,vy:Math.sin(a7)*90,life:7,r:18,dmg:65,hostile:true,color:'#220044',owner:b,hit:new Set(),pierce:0});
+      }
+    } else {
+      // fallback spiral
+      const N8 = phase2?16:12; b.projT = phase2?2.4:4;
+      for (let i=0;i<N8;i++){
+        const a8 = (i/N8)*Math.PI*2;
+        G.projectiles.push({x:b.x,y:b.y,vx:Math.cos(a8)*260,vy:Math.sin(a8)*260,life:3,r:8,dmg:35,hostile:true,color:col,owner:b,hit:new Set(),pierce:1});
+      }
     }
+    try{ playSound('auth'); }catch(e){}
   }
 }
 function onBossDeath(b){
@@ -3910,6 +4127,18 @@ function updateProjectiles(dt){
       if (!t || t.hp<=0 || pr.hit.has(t)) continue;
       if (Math.hypot(t.x-pr.x,t.y-pr.y) < t.r+pr.r){
         dealDamage(pr.owner, t, pr.dmg, pr.color);
+        // boss projectile special effects
+        if (pr.freeze && pr.freeze>0) t.freeze = Math.max(t.freeze||0, pr.freeze);
+        if (pr.slow   && pr.slow>0)   t.slow   = Math.max(t.slow||0,   pr.slow);
+        if (pr.dot    && pr.dot>0)    t.bleed   = Math.max(t.bleed||0,  pr.dot);
+        // Rift Sovereign: explode into 8 projectiles on hit
+        if (pr._riftExplode){
+          for (let _re=0;_re<8;_re++){
+            const _a=(_re/8)*Math.PI*2;
+            G.projectiles.push({x:pr.x,y:pr.y,vx:Math.cos(_a)*200,vy:Math.sin(_a)*200,life:1.5,r:6,dmg:Math.floor(pr.dmg*0.4),hostile:true,color:'#7700cc',owner:pr.owner,hit:new Set(),pierce:1});
+          }
+          pr._riftExplode = false;
+        }
         pr.hit.add(t); pr.pierce--;
         if (pr.pierce<=0){ pr._gone=true; break; }
       }
@@ -8671,7 +8900,15 @@ async function startGame(){
   if (typeof resize==='function') resize();
   G.started = true;
   if (window.SDK) SDK.gameplayStart();
-  logMsg(`You chose [${G.player.sp.name}] · ${G.player.path.name}`, 'promote');
+  // v3.15.0: announce the randomly generated map archetype so players see variety each run
+  const _archetypeLabel = {
+    balanced:'Balanced Realm', water_world:'Drowned World', volcano:'Volcanic Wastes',
+    frozen_waste:'Frozen Waste', jungle_maze:'Jungle Labyrinth',
+  }[G._mapArchetype] || 'Unknown Realm';
+  G.stageBannerT = 5;
+  G.stageBannerText = '★ MAP: ' + _archetypeLabel.toUpperCase();
+  G.stageBannerSub  = 'Each run spawns a new world — explore, adapt, survive.';
+  logMsg(`You chose [${G.player.sp.name}] · ${G.player.path.name} · Map: ${_archetypeLabel}`, 'promote');
   logMsg('★ Hunt, evolve, and survive the Veil. Next evolution is unknown.', 'promote');
   logMsg('★ Tip: seize Authorities, then track holders on map (M).', 'promote');
   // v1.2.0 多人聯機
