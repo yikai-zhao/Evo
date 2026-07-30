@@ -3025,6 +3025,11 @@ function updatePlayer(p, dt){
     }
   }
   if (p.rageT>0){ p.rageT-=dt; if (p.rageT<=0){ p.bonusAtkMult/=2; p.bonusDefMult/=2; recalcStats(p);} }
+  // combo timer decays in real-time so standing still resets the combo
+  if (p.isPlayer && (p._comboResetT||0) > 0){
+    p._comboResetT -= dt;
+    if (p._comboResetT <= 0){ p._comboHits = 0; p._comboResetT = 0; }
+  }
   if (p.titanT>0){ p.titanT-=dt; if (p.titanT<=0){ p.bonusAtkMult/=2.5; p.bonusDefMult/=2; p.bonusSizeMult/=2.2; recalcStats(p);} }
   if (p.darkT>0) p.darkT-=dt;
   if (p.shieldT>0){ p.shieldT-=dt; if (p.shieldT<=0){ p.shieldHp=0; } }
@@ -3173,9 +3178,6 @@ function doMelee(p){
       addFloat(p.x, p.y-p.r-28, `${p._comboHits}x COMBO +${bonus}`, '#ffee44', 18, 1.0);
       G.particles.push({x:p.x,y:p.y,vx:0,vy:0,life:0.18,color:'#ffee44',r:p.r*1.6,_ring:true});
     }
-  } else if (p.isPlayer){
-    p._comboResetT = (p._comboResetT||0) - 1/60;
-    if ((p._comboResetT||0) <= 0) p._comboHits = 0;
   }
   // v3.12.0: energy slash — melee fires a short-range projectile for reach + visual punch
   if (hitCount >= 0 && p.isPlayer){
@@ -8519,10 +8521,10 @@ function setupTouch(canvas){
     <div style="padding:8px;background:rgba(200,160,60,0.14);border:1px solid #ddaa44;border-radius:6px;">
       <div style="font-weight:700;color:#ffd66b">🎰 Lucky Spin</div>
       <div style="color:#aaa;font-size:11px;margin-top:2px">Free: ${_freeAvail?'1 available':'used today'} · Ad spins left: ${_adAvail}/3</div>
-      <div id="spinResult" style="color:#ffd66b;font-size:11px;margin-top:2px;min-height:14px"></div>
+      <div id="mpSpinResult" style="color:#ffd66b;font-size:11px;margin-top:2px;min-height:14px"></div>
       <div style="display:flex;gap:4px;margin-top:4px;">
-        <button id="spinFreeBtn" ${_freeAvail?'':'disabled'} style="flex:1;padding:4px;background:${_freeAvail?'#3a6b3a':'#333'};color:${_freeAvail?'#ccffcc':'#666'};border:1px solid ${_freeAvail?'#7fd07f':'#555'};border-radius:4px;cursor:${_freeAvail?'pointer':'not-allowed'};font-weight:700;font-size:11px">Free Spin</button>
-        <button id="spinAdBtn" ${_adAvail>0?'':'disabled'} style="flex:1;padding:4px;background:${_adAvail>0?'#6b3a3a':'#333'};color:${_adAvail>0?'#ffcccc':'#666'};border:1px solid ${_adAvail>0?'#d07f7f':'#555'};border-radius:4px;cursor:${_adAvail>0?'pointer':'not-allowed'};font-weight:700;font-size:11px">▶ Ad Spin</button>
+        <button id="mpSpinFreeBtn" ${_freeAvail?'':'disabled'} style="flex:1;padding:4px;background:${_freeAvail?'#3a6b3a':'#333'};color:${_freeAvail?'#ccffcc':'#666'};border:1px solid ${_freeAvail?'#7fd07f':'#555'};border-radius:4px;cursor:${_freeAvail?'pointer':'not-allowed'};font-weight:700;font-size:11px">Free Spin</button>
+        <button id="mpSpinAdBtn" ${_adAvail>0?'':'disabled'} style="flex:1;padding:4px;background:${_adAvail>0?'#6b3a3a':'#333'};color:${_adAvail>0?'#ffcccc':'#666'};border:1px solid ${_adAvail>0?'#d07f7f':'#555'};border-radius:4px;cursor:${_adAvail>0?'pointer':'not-allowed'};font-weight:700;font-size:11px">▶ Ad Spin</button>
       </div>
     </div>`;
   // Wire buttons
@@ -8534,24 +8536,23 @@ function setupTouch(canvas){
       buildMenu();
     };
   }
-  const _sfb = document.getElementById('spinFreeBtn');
+  const _sfb = document.getElementById('mpSpinFreeBtn');
   if (_sfb){
     _sfb.onclick = ()=>{
       const prize = trySpinFree();
       if (prize){
-        document.getElementById('spinResult').textContent = '🎲 ' + prize.label;
+        document.getElementById('mpSpinResult').textContent = '🎲 ' + prize.label;
         try{ playSound(prize.coins>=200?'promote':'pickup'); }catch(e){}
         setTimeout(buildMenu, 1200);
       }
     };
   }
-  const _sab = document.getElementById('spinAdBtn');
+  const _sab = document.getElementById('mpSpinAdBtn');
   if (_sab){
     _sab.onclick = async ()=>{
       if (!window.SDK || !SDK.ready || typeof SDK.rewardedBreak!=='function'){
-        // Fallback: still allow but no real ad
         const prize = trySpinAd();
-        if (prize){ document.getElementById('spinResult').textContent = '🎲 ' + prize.label; setTimeout(buildMenu, 1200); }
+        if (prize){ document.getElementById('mpSpinResult').textContent = '🎲 ' + prize.label; setTimeout(buildMenu, 1200); }
         return;
       }
       _sab.disabled = true; _sab.textContent = 'Loading…';
@@ -8560,7 +8561,7 @@ function setupTouch(canvas){
       if (ok !== false){
         const prize = trySpinAd();
         if (prize){
-          document.getElementById('spinResult').textContent = '🎲 ' + prize.label;
+          document.getElementById('mpSpinResult').textContent = '🎲 ' + prize.label;
           try{ playSound(prize.coins>=200?'promote':'pickup'); }catch(e){}
           setTimeout(buildMenu, 1200);
         }
@@ -9365,12 +9366,12 @@ window.addEventListener('load', async ()=>{
   const _legalT  = document.getElementById('legalTitle');
   const _legalB  = document.getElementById('legalBody');
   const _legalC  = document.getElementById('legalCloseBtn');
-  const _privacyHTML = '<p>Lands End does not collect any personal data. Your chosen nickname and game progress (current tier, banked Qi, kill count) are stored only in your browser <code>localStorage</code> and never transmitted to our servers.</p>'
+  const _privacyHTML = '<p>Evo does not collect any personal data. Your chosen nickname and game progress (current tier, banked Qi, kill count) are stored only in your browser <code>localStorage</code> and never transmitted to our servers.</p>'
     +'<p>For multiplayer, your nickname, in-game position, HP, and species are broadcast in real time to the multiplayer relay so other players can see you. No IP addresses, accounts, or tracking cookies are stored on the server.</p>'
     +'<p>The game may show advertisements via the Poki SDK or CrazyGames SDK when embedded on those platforms. Those ad networks have their own privacy policies — see <a href="https://poki.com/en/privacy" target="_blank" rel="noopener">poki.com/privacy</a> and <a href="https://www.crazygames.com/privacy" target="_blank" rel="noopener">crazygames.com/privacy</a>.</p>'
     +'<p>This game is intended for general audiences (13+). It contains stylized combat between abstract creature shapes and is not directed at children under 13.</p>'
     +'<p>To clear your local save, open browser DevTools (F12) → Application → Local Storage → delete entries starting with <code>evo_</code>.</p>';
-  const _termsHTML = '<p>By playing Lands End you agree to use the game for personal, non-commercial entertainment. The game is provided "as is" without warranty of any kind.</p>'
+  const _termsHTML = '<p>By playing Evo you agree to use the game for personal, non-commercial entertainment. The game is provided "as is" without warranty of any kind.</p>'
     +'<p>Do not exploit bugs, run modified clients, harass other players via chat, or attempt to disrupt the multiplayer service. We reserve the right to block clients that abuse the relay.</p>'
     +'<p>You retain ownership of any nickname you submit. We are not responsible for content typed by other players in the global chat.</p>'
     +'<p>The game is open-source-spirited and may be updated, modified, or discontinued at any time without notice.</p>';

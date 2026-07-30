@@ -125,8 +125,11 @@
 
   <div id="legal" class="overlay hidden">
     <h1 id="legalTitle">Privacy</h1>
+    <div id="legalBody" class="legalBody"></div>
+    <button id="legalCloseBtn">Close</button>
+  </div>
 
-  <!-- spin modal -->
+  <!-- spin modal (standalone overlay — must NOT be nested inside #legal) -->
   <div id="spinModal" class="overlay hidden">
     <h1>🎰 Lucky Spin</h1>
     <p class="tag" id="spinTagLine">1 free spin per day. Watch an ad for up to 3 more.</p>
@@ -139,7 +142,7 @@
     <button id="spinCloseBtn" style="margin-top:10px;">Close</button>
   </div>
 
-  <!-- shop modal -->
+  <!-- shop modal (standalone overlay — must NOT be nested inside #legal) -->
   <div id="shopModal" class="overlay hidden">
     <h1>🛒 Shop</h1>
     <p class="tag">Spend coins to power up your next run</p>
@@ -149,9 +152,6 @@
     <button id="shopCloseBtn" style="margin-top:14px;">Close</button>
   </div>
 
-    <div id="legalBody" class="legalBody"></div>
-    <button id="legalCloseBtn">Close</button>
-  </div>
 
   <canvas id="game"></canvas>
 
