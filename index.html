@@ -63,6 +63,13 @@
       <button id="mmBtn" class="secondary" style="background:linear-gradient(135deg,#2a5a8a,#5fa8ff);color:#fff;border:none">🌐 Multiplayer</button>
       <button id="lbBtn" class="secondary" style="background:linear-gradient(135deg,#5a3a1a,#ffd66b);color:#fff;border:none">🏆 Leaderboard</button>
     </div>
+    <!-- coin panel: streak, spin, shop — primary daily re-engagement hook -->
+    <div id="coinPanel" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:640px;width:100%;margin:10px auto 4px;">
+      <div id="coinDisplay" style="background:rgba(30,20,10,.85);border:1px solid #7a5a2d;border-radius:10px;padding:7px 14px;color:#ffd66b;font-size:14px;font-weight:700;cursor:pointer;min-width:120px;text-align:center;">🪙 <span id="coinCount">0</span></div>
+      <button id="streakBtn"  style="background:linear-gradient(135deg,#5a2a8a,#cc66ff);color:#fff;border:none;border-radius:10px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔥 Daily Streak</button>
+      <button id="spinBtn"    style="background:linear-gradient(135deg,#1a5a3a,#44ee88);color:#111;border:none;border-radius:10px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;">🎰 Free Spin!</button>
+      <button id="shopBtn"    style="background:linear-gradient(135deg,#6a2a1a,#ff8844);color:#fff;border:none;border-radius:10px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;">🛒 Shop</button>
+    </div>
     <!-- v2.0.0: Steam cross-promo (shown only when window.SDK?.platform !== 'steam') -->
     <p id="steamCta" style="font-size:11px;color:#8899bb;margin:4px 0 8px;display:none">
       ⬛ <a id="steamCtaLink" href="#" style="color:#5fa8ff;text-decoration:none" target="_blank" rel="noopener">Also available on Steam</a> — ad-free, offline play, achievements
@@ -118,6 +125,30 @@
 
   <div id="legal" class="overlay hidden">
     <h1 id="legalTitle">Privacy</h1>
+
+  <!-- spin modal -->
+  <div id="spinModal" class="overlay hidden">
+    <h1>🎰 Lucky Spin</h1>
+    <p class="tag" id="spinTagLine">1 free spin per day. Watch an ad for up to 3 more.</p>
+    <div id="spinWheel" style="width:220px;height:220px;margin:18px auto;position:relative;border-radius:50%;border:4px solid #7a5a2d;overflow:hidden;background:conic-gradient(#7b2d2d 0%,#2d5a7b 14.28%,#2d7b4a 28.57%,#7b6d2d 42.86%,#5a2d7b 57.14%,#7b3a2d 71.43%,#2d3d7b 85.71%,#6b7b2d 100%);box-shadow:0 0 24px rgba(255,200,80,.35);">
+      <div id="spinArrow" style="position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:28px solid #ffd66b;z-index:2;"></div>
+    </div>
+    <p id="spinResult" style="font-size:22px;font-weight:700;color:#ffd66b;min-height:34px;margin:6px 0;"></p>
+    <button id="spinFreeBtn"  style="background:linear-gradient(135deg,#1a5a3a,#44ee88);color:#111;">🎰 Spin Free (1/day)</button>
+    <button id="spinAdBtn"    style="background:linear-gradient(135deg,#4a2a6b,#cc88ff);color:#fff;margin-top:6px;">📺 Watch Ad → Spin (3 left)</button>
+    <button id="spinCloseBtn" style="margin-top:10px;">Close</button>
+  </div>
+
+  <!-- shop modal -->
+  <div id="shopModal" class="overlay hidden">
+    <h1>🛒 Shop</h1>
+    <p class="tag">Spend coins to power up your next run</p>
+    <div id="boostList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;max-width:640px;width:100%;margin:10px auto;"></div>
+    <h2 style="margin-top:16px;color:#cc88ff;font-size:15px;">🎨 Cosmetics <span style="font-size:11px;color:#888;">(visual only)</span></h2>
+    <div id="cosmeticList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;max-width:640px;width:100%;margin:8px auto;"></div>
+    <button id="shopCloseBtn" style="margin-top:14px;">Close</button>
+  </div>
+
     <div id="legalBody" class="legalBody"></div>
     <button id="legalCloseBtn">Close</button>
   </div>

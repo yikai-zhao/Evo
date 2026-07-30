@@ -3069,6 +3069,17 @@ function updatePlayer(p, dt){
   p.x = clamp(p.x + p.vx*dt, 20, WORLD.w-20);
   p.y = clamp(p.y + p.vy*dt, 20, WORLD.h-20);
 
+  // v3.16.0: cosmetic movement trail
+  if (p.isPlayer && (p.vx*p.vx+p.vy*p.vy) > 200 && typeof window._getActiveCosmetics === 'function'){
+    p._trailT = (p._trailT||0) - dt;
+    if (p._trailT <= 0){
+      p._trailT = 0.06;
+      const _cos = window._getActiveCosmetics();
+      const _tc = _cos.includes('trail_gold') ? '#ffd84a' : _cos.includes('trail_purple') ? '#cc44ff' : _cos.includes('trail_red') ? '#ff4422' : null;
+      if (_tc) G.particles.push({x:p.x,y:p.y,vx:rand(-20,20),vy:rand(-20,20),life:0.28,color:_tc,r:p.r*0.45});
+    }
+  }
+
   // 朝向
   if (typeof TOUCH !== 'undefined' && TOUCH && TOUCH.joy){
     p.facing = TOUCH.joy.ang;
@@ -5867,6 +5878,17 @@ function loop(t){
 function update(dt){
   G.time += dt;
   G._mDt = dt;
+  // timed midroll ads: fire at 3min and 7min of survival (peak engagement = highest CPM)
+  if (!G.dead && !G.won && G.player && G.player.hp>0){
+    const _midTimes = [180, 420];
+    for (const _mt of _midTimes){
+      if (!G._midrollFired) G._midrollFired = {};
+      if (G.time >= _mt && !G._midrollFired[_mt]){
+        G._midrollFired[_mt] = true;
+        try { if (window.SDK && SDK.ready && SDK.commercialBreak) SDK.commercialBreak(); } catch(e){}
+      }
+    }
+  }
   // v3.7.0: Twilight of the Gods ticks
   try { updateVeil(dt); updateAscended(dt); updatePartyInvites(dt); updatePathBond(); checkLastSurvivorWin(); if (G.finalT>0) G.finalT -= dt; } catch(e){}
   try { updateBounty(dt); } catch(e){}
@@ -6602,6 +6624,29 @@ function drawCreature(c){
         const x2 = c.x + Math.cos(a)*(goldR+6), y2 = c.y + Math.sin(a)*(goldR+6);
         ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
       }
+      ctx.globalAlpha = 1;
+    }
+  }
+  // v3.16.0: cosmetic aura (purchased from shop, renders for player only)
+  if (c.isPlayer && typeof window._getActiveCosmetics === 'function'){
+    const _cos = window._getActiveCosmetics();
+    if (_cos.includes('aura_cyan')){
+      ctx.strokeStyle = '#44ccff'; ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.38 + 0.18*Math.sin(G.time*3);
+      ctx.beginPath(); ctx.arc(c.x,c.y,c.r+14,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    } else if (_cos.includes('aura_gold') && c.rank < 8){
+      ctx.strokeStyle = '#ffd84a'; ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.4 + 0.2*Math.sin(G.time*2.5);
+      ctx.beginPath(); ctx.arc(c.x,c.y,c.r+16,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    } else if (_cos.includes('aura_dark')){
+      ctx.strokeStyle = '#8833cc'; ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.45 + 0.2*Math.sin(G.time*4);
+      ctx.beginPath(); ctx.arc(c.x,c.y,c.r+12,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 0.12;
+      ctx.fillStyle = '#220044';
+      ctx.beginPath(); ctx.arc(c.x,c.y,c.r+12,0,Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1;
     }
   }
@@ -9157,7 +9202,162 @@ window.addEventListener('load', async ()=>{
   // v3.9.0: leaderboard button on title
   const _lbBtn = document.getElementById('lbBtn');
   if (_lbBtn){ _lbBtn.onclick = ()=>{ try{ openLeaderboardModal(); }catch(e){} }; }
-  // v3.13.1: keep menu concise — no forced tutorial popup
+
+  // v3.16.0: coin panel — streak / spin / shop visible on menu
+  function _refreshCoinDisplay(){
+    const el = document.getElementById('coinCount');
+    if (el) el.textContent = getCoins();
+  }
+  _refreshCoinDisplay();
+  const _coinDisp = document.getElementById('coinDisplay');
+  if (_coinDisp) _coinDisp.onclick = ()=>{ _openShopModal(); };
+
+  // streak button
+  const _streakBtn = document.getElementById('streakBtn');
+  if (_streakBtn){
+    _streakBtn.onclick = ()=>{
+      const res = checkLoginStreak();
+      if (res.alreadyClaimed){
+        _streakBtn.textContent = `🔥 Streak Day ${res.day} ✓`;
+      } else {
+        _streakBtn.textContent = `🔥 +${res.reward} coins! (Day ${res.day})`;
+        setTimeout(()=>{ _streakBtn.textContent = `🔥 Daily Streak`; },3000);
+        _refreshCoinDisplay();
+        addFloat && G.player && addFloat(G.player.x||0, 0, `+${res.reward} daily coins`, '#ffd66b', 16, 2);
+      }
+    };
+  }
+
+  // spin modal
+  const _spinBtn = document.getElementById('spinBtn');
+  const _spinModal = document.getElementById('spinModal');
+  const _spinFreeBtn = document.getElementById('spinFreeBtn');
+  const _spinAdBtn = document.getElementById('spinAdBtn');
+  const _spinClose = document.getElementById('spinCloseBtn');
+  const _spinResult = document.getElementById('spinResult');
+  function _doSpinAnimation(prize){
+    if (!_spinResult) return;
+    _spinResult.textContent = '...';
+    setTimeout(()=>{
+      _spinResult.textContent = prize.coins > 0 ? `🎉 ${prize.label}` : `😅 ${prize.label}`;
+      _refreshCoinDisplay();
+    }, 800);
+  }
+  function _refreshSpinButtons(){
+    const s = getSpinState();
+    if (_spinFreeBtn) _spinFreeBtn.disabled = !!s.freeUsed;
+    const adLeft = 3 - (s.adSpinsUsed||0);
+    if (_spinAdBtn) _spinAdBtn.textContent = `📺 Watch Ad → Spin (${adLeft} left)`;
+    if (_spinAdBtn) _spinAdBtn.disabled = adLeft <= 0;
+  }
+  if (_spinBtn && _spinModal){
+    _spinBtn.onclick = ()=>{
+      _spinModal.classList.remove('hidden');
+      _spinResult.textContent = '';
+      _refreshSpinButtons();
+    };
+  }
+  if (_spinFreeBtn){
+    _spinFreeBtn.onclick = ()=>{
+      const prize = trySpinFree();
+      if (!prize){ _spinResult.textContent = 'Come back tomorrow!'; return; }
+      _doSpinAnimation(prize); _refreshSpinButtons();
+    };
+  }
+  if (_spinAdBtn){
+    _spinAdBtn.onclick = async ()=>{
+      const state = getSpinState(); if ((state.adSpinsUsed||0) >= 3) return;
+      _spinAdBtn.disabled = true;
+      let ok = false;
+      try { if (window.SDK && SDK.ready && typeof SDK.rewardedBreak==='function') ok = await SDK.rewardedBreak(); } catch(e){}
+      if (ok){
+        const prize = trySpinAd();
+        if (prize) _doSpinAnimation(prize);
+      } else {
+        _spinResult.textContent = 'Ad skipped — no spin earned.';
+      }
+      _refreshSpinButtons();
+    };
+  }
+  if (_spinClose) _spinClose.onclick = ()=>{ _spinModal.classList.add('hidden'); };
+
+  // shop modal
+  const _shopBtn = document.getElementById('shopBtn');
+  const _shopModal = document.getElementById('shopModal');
+  const _shopClose = document.getElementById('shopCloseBtn');
+  function _openShopModal(){
+    if (!_shopModal) return;
+    _shopModal.classList.remove('hidden');
+    _renderBoostList();
+    _renderCosmeticList();
+    _refreshCoinDisplay();
+  }
+  if (_shopBtn) _shopBtn.onclick = _openShopModal;
+  if (_shopClose) _shopClose.onclick = ()=>{ _shopModal.classList.add('hidden'); };
+
+  function _renderBoostList(){
+    const el = document.getElementById('boostList'); if (!el) return;
+    const owned = new Set(getActiveBoosts());
+    el.innerHTML = BOOST_DEFS.map(def=>{
+      const have = owned.has(def.id);
+      const canAfford = getCoins() >= def.price;
+      return `<div style="background:rgba(20,16,32,.85);border:1.5px solid ${have?'#44ee88':'#443355'};border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:22px;">${def.icon}</div>
+        <div style="font-weight:700;color:#ffd66b;font-size:13px;">${def.name}</div>
+        <div style="font-size:11px;color:#aaa;margin:3px 0;">${def.desc}</div>
+        <button data-boost="${def.id}" style="margin-top:5px;padding:4px 12px;font-size:12px;font-weight:700;cursor:${have||!canAfford?'not-allowed':'pointer'};background:${have?'#226644':canAfford?'#664422':'#333'};color:${have?'#44ee88':'#ffd66b'};border:none;border-radius:6px;">${have?'✓ Owned':`🪙 ${def.price}`}</button>
+      </div>`;
+    }).join('');
+    el.querySelectorAll('[data-boost]').forEach(btn=>{
+      btn.onclick = ()=>{
+        if (buyBoost(btn.dataset.boost)){ _renderBoostList(); _refreshCoinDisplay(); }
+      };
+    });
+  }
+
+  const COSMETIC_DEFS = [
+    { id:'trail_gold',   name:'Gold Trail',   price:80,  desc:'Golden particle trail while moving', preview:'🌟' },
+    { id:'trail_purple', name:'Void Trail',    price:80,  desc:'Purple void trail while moving',     preview:'💜' },
+    { id:'trail_red',    name:'Inferno Trail', price:80,  desc:'Red flame trail while moving',       preview:'🔥' },
+    { id:'aura_cyan',    name:'Ice Aura',      price:120, desc:'Icy blue glow ring around you',      preview:'❄️' },
+    { id:'aura_gold',    name:'Divine Aura',   price:150, desc:'Golden halo (always visible)',       preview:'✨' },
+    { id:'aura_dark',    name:'Void Aura',     price:150, desc:'Dark void aura (Outer God vibes)',   preview:'🌑' },
+  ];
+  const EVO_COSMETICS_KEY = 'evo_cosmetics';
+  function getOwnedCosmetics(){ try{ return JSON.parse(localStorage.getItem(EVO_COSMETICS_KEY)||'[]'); }catch(e){ return []; } }
+  function buyCosmetic(id){
+    const def = COSMETIC_DEFS.find(x=>x.id===id); if (!def) return false;
+    const owned = getOwnedCosmetics();
+    if (owned.includes(id)) return false;
+    if (getCoins() < def.price) return false;
+    setCoins(getCoins() - def.price);
+    owned.push(id);
+    try{ localStorage.setItem(EVO_COSMETICS_KEY, JSON.stringify(owned)); }catch(e){}
+    return true;
+  }
+  function getActiveCosmetics(){ return getOwnedCosmetics(); }
+  window._getActiveCosmetics = getActiveCosmetics;
+
+  function _renderCosmeticList(){
+    const el = document.getElementById('cosmeticList'); if (!el) return;
+    const owned = getOwnedCosmetics();
+    el.innerHTML = COSMETIC_DEFS.map(def=>{
+      const have = owned.includes(def.id);
+      const canAfford = getCoins() >= def.price;
+      return `<div style="background:rgba(20,16,32,.85);border:1.5px solid ${have?'#cc88ff':'#443355'};border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:22px;">${def.preview}</div>
+        <div style="font-weight:700;color:#cc88ff;font-size:13px;">${def.name}</div>
+        <div style="font-size:11px;color:#aaa;margin:3px 0;">${def.desc}</div>
+        <button data-cos="${def.id}" style="margin-top:5px;padding:4px 12px;font-size:12px;font-weight:700;cursor:${have||!canAfford?'not-allowed':'pointer'};background:${have?'#442266':canAfford?'#442266':'#333'};color:${have?'#cc88ff':'#cc88ff'};border:none;border-radius:6px;">${have?'✓ Owned':`🪙 ${def.price}`}</button>
+      </div>`;
+    }).join('');
+    el.querySelectorAll('[data-cos]').forEach(btn=>{
+      btn.onclick = ()=>{
+        if (buyCosmetic(btn.dataset.cos)){ _renderCosmeticList(); _refreshCoinDisplay(); }
+      };
+    });
+  }
+
 
   // v1.6.0: Privacy / Terms inline overlays (required for Poki/CrazyGames)
   const _legalEl = document.getElementById('legal');
