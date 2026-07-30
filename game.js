@@ -509,7 +509,7 @@ const RANK_FORMS = {
     {rank:7,icon:'🌊',color:'#2255ff',name:'Deep Terror'},
     {rank:9,icon:'🌀',color:'#aaddff',name:'True Sea God'},
   ],
-  eel: [
+  electroEel: [
     {rank:1,icon:'🐍',color:'#aaff88',name:'River Eel'},
     {rank:3,icon:'⚡',color:'#88ff44',name:'Thunder Eel'},
     {rank:5,icon:'🌩️',color:'#66ee00',name:'Storm Eel'},
@@ -3570,7 +3570,7 @@ function castSkill(p, s, slot){
     case 'cleave': aoeSlash(p, 200, Math.PI, p.atk*3*dh, '#ffe080'); break;
     case 'sword_rain': swordRain(p, 24, p.atk*1.5*dh); break;
     case 'spin': aoeSlash(p, 180, Math.PI*2, p.atk*2*dh, p.color); knockbackAround(p, 180, 300); break;
-    case 'tail': aoeSlash(p, 220, Math.PI*1.5, p.atk*3*dh, p.color); knoc
+    case 'tail': aoeSlash(p, 220, Math.PI*1.5, p.atk*3*dh, p.color); knockbackAround(p, 220, 400); break;
     // v3.4.3: differentiated signature skills
     case 'summon_bat': for (let i=0;i<5;i++){ const m = makeCreature('bat', p.x+rand(-50,50), p.y+rand(-50,50), false); m.isMinion=true; m.ownerPlayer=p; m.life=15; m.maxLife=15; G.minions.push(m);} flash('#9a76d0',0.3); shake(8); break;
     case 'thunder_storm': chainLightning(p, 16, p.atk*0.8*dh, 360); skyLightning(p, 8, p.atk*1.2*dh, 900); flash('#fff080',0.5); shake(14); break;
@@ -3585,7 +3585,7 @@ function castSkill(p, s, slot){
       } else {
         for (let i=-1;i<=1;i++) fireProjectile(p, p.facing+i*0.25, p.rngDmg*0.9*dh, p.rngSpd, '#cba6ff');
       }
-    } break;kbackAround(p, 220, 400); break;
+    } break;
     case 'rage': p.rageT = 10; p.bonusAtkMult*=2; p.bonusDefMult*=2; recalcStats(p); flash(p.color,0.3); break;
     case 'roll': dashAttack(p, 280, p.atk*2*dh, true); break;
     case 'grab': grabNearest(p, p.atk*dh); break;
@@ -5186,7 +5186,7 @@ function _tickPathPassive(p, dt){
   // v3.15.0: archetype-specific map passive — makes each randomly generated map feel distinct
   try {
     const arch = G._mapArchetype || 'balanced';
-    const biome = _biomeAt && _biomeAt(p.x, p.y);
+    const biome = terrainAt(p.x, p.y);
     if (arch === 'water_world' && biome === 'water'){
       // Drowned World: all creatures regen 2x in water, but move 15% slower on land
       if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 3*dt);
@@ -5212,10 +5212,10 @@ function _tickPathPassive(p, dt){
     p._gusMul = 1 + Math.min(0.5, burnPct * 0.5);
   } else if (p.pathKey === 'beast'){
     p._dashMul = 1.5;
-    const tile = G.terrain && _biomeAt(p.x, p.y);
+    const tile = G.terrain && terrainAt(p.x, p.y);
     p._terrainBonus = (tile === 'forest' || tile === 'snow') ? 1.10 : 1.0;
   } else if (p.pathKey === 'fish'){
-    const tile = G.terrain && _biomeAt(p.x, p.y);
+    const tile = G.terrain && terrainAt(p.x, p.y);
     p._aquaHp = (tile === 'water') ? 1.20 : 1.0;
     // bonus regen when stationary
     const speed = Math.hypot(p.vx||0, p.vy||0);
@@ -8994,6 +8994,7 @@ async function startGame(){
   try { const _pb = document.getElementById('pauseBtn'); if (_pb) _pb.classList.add('show'); } catch(e){}
   G.enemies=[]; G.minions=[]; G.projectiles=[]; G.pickups=[]; G.spirits=[]; G.authorities=[]; G.particles=[]; G.floats=[]; G.shockwaves=[]; G.hazards=[];
   G.dead=false; G.won=false; G.time=0;
+  G._midrollFired = {};
   G._matchTargetPlayers = MATCH_TARGET_PLAYERS;
   G._matchHumansAtStart = _matchHumanCount();
   G._matchBotTarget = Math.max(0, G._matchTargetPlayers - G._matchHumansAtStart);
