@@ -7757,55 +7757,6 @@ function _fireTouchBtn(btn){
   }
 }
 
-function setupTouch(canvas){
-  if (!('ontouchstart' in window)) return;
-  function onStart(e){
-    e.preventDefault();
-    const W=window.innerWidth, H=window.innerHeight;
-    for (let i=0;i<e.changedTouches.length;i++){
-      const t=e.changedTouches[i];
-      const tx=t.clientX, ty=t.clientY;
-      if (G.evoReveal) G.evoReveal.t = Math.min(G.evoReveal.t, 0.8);
-      let hit=false;
-      const btns=_getTouchBtns();
-      for (let j=0;j<btns.length;j++){
-        const btn=btns[j];
-        if (Math.hypot(tx-btn.x, ty-btn.y) < btn.r+8){ _fireTouchBtn(btn); hit=true; break; }
-      }
-      if (!hit && tx < W * 0.48){
-        if (!TOUCH.joy) TOUCH.joy={id:t.identifier,bx:tx,by:ty,dx:0,dy:0};
-      } else if (!hit){
-        const r=canvas.getBoundingClientRect();
-        MOUSE.x=tx-r.left; MOUSE.y=ty-r.top;
-        if (G.player){ MOUSE.wx=G.player.x+(tx-W/2); MOUSE.wy=G.player.y+(ty-H/2); }
-        MOUSE.ldown=true; setTimeout(function(){ MOUSE.ldown=false; },160);
-      }
-    }
-  }
-  function onMove(e){
-    e.preventDefault();
-    for (let i=0;i<e.changedTouches.length;i++){
-      const t=e.changedTouches[i];
-      if (!TOUCH.joy || t.identifier!==TOUCH.joy.id) continue;
-      let dx=t.clientX-TOUCH.joy.bx, dy=t.clientY-TOUCH.joy.by;
-      const len=Math.hypot(dx,dy);
-      if (len>JOY_R){ dx=dx/len*JOY_R; dy=dy/len*JOY_R; }
-      TOUCH.joy.dx=dx; TOUCH.joy.dy=dy;
-    }
-  }
-  function onEnd(e){
-    e.preventDefault();
-    for (let i=0;i<e.changedTouches.length;i++){
-      const t=e.changedTouches[i];
-      if (TOUCH.joy && t.identifier===TOUCH.joy.id) TOUCH.joy=null;
-    }
-  }
-  canvas.addEventListener('touchstart', onStart, {passive:false});
-  canvas.addEventListener('touchmove',  onMove,  {passive:false});
-  canvas.addEventListener('touchend',   onEnd,   {passive:false});
-  canvas.addEventListener('touchcancel',onEnd,   {passive:false});
-}
-
 function applyJoystick(){
   if (!TOUCH.joy){
     if (isMobile()){ KEYS['w']=false; KEYS['a']=false; KEYS['s']=false; KEYS['d']=false; }
@@ -8487,87 +8438,6 @@ function setupTouch(canvas){
     for (const t of e.changedTouches){ if (t.identifier===jTid) jClear(); }
   }, {passive:false});
   document.addEventListener('touchcancel', e=>{
-
-  // v1.8.0: rich meta panel — login streak, weekly challenge, lucky spin
-  let metaPanel = document.getElementById('metaPanel');
-  if (!metaPanel){
-    metaPanel = document.createElement('div'); metaPanel.id='metaPanel';
-    metaPanel.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 0 12px;font-size:12px;';
-    list.parentNode.insertBefore(metaPanel, list);
-  }
-  // 1) Login streak
-  const _streak = getStreakState();
-  const _streakClaimedToday = (_streak.lastClaim === _utcDay());
-  const _streakDay = _streak.day || 0;
-  const _streakNext = _streakClaimedToday ? null : STREAK_REWARDS[Math.min(7, (_streakDay)+(_streak.lastClaim===new Date(Date.now()-86400000).toISOString().slice(0,10)?1:1))-1];
-  // 2) Weekly challenge
-  const _wk = getWeeklyChallenge();
-  const _wkPct = Math.min(100, Math.floor(((_wk.progress||0)/_wk.target)*100));
-  // 3) Lucky spin
-  const _spin = getSpinState();
-  const _freeAvail = !_spin.freeUsed;
-  const _adAvail = (3-(_spin.adSpinsUsed||0));
-  metaPanel.innerHTML = `
-    <div style="padding:8px;background:rgba(80,140,200,0.12);border:1px solid #6699cc;border-radius:6px;">
-      <div style="font-weight:700;color:#9fc7ee">📅 Login Streak: Day ${_streakDay||0}/7</div>
-      <div style="color:#aaa;font-size:11px;margin-top:2px">${_streakClaimedToday?`<span style="color:#7fd07f">✓ +${STREAK_REWARDS[_streakDay-1]||0} coins claimed today</span>`:`<button id="claimStreakBtn" style="margin-top:4px;padding:4px 10px;background:#3a6b3a;color:#ccffcc;border:1px solid #7fd07f;border-radius:4px;cursor:pointer;font-weight:700">▶ Claim +${_streakNext||50} 🪙</button>`}</div>
-    </div>
-    <div style="padding:8px;background:rgba(180,80,160,0.12);border:1px solid #cc66aa;border-radius:6px;">
-      <div style="font-weight:700;color:#ee9fcc">📜 Weekly Challenge</div>
-      <div style="color:#ddd;font-size:11px;margin-top:2px">${_wk.desc}</div>
-      <div style="margin-top:4px;background:#222;border-radius:3px;height:6px;overflow:hidden"><div style="background:linear-gradient(90deg,#cc66aa,#ff88cc);height:100%;width:${_wkPct}%"></div></div>
-      <div style="color:#aaa;font-size:10px;margin-top:2px">${_wk.done?`<span style="color:#7fd07f">✓ +${_wk.reward} coins claimed</span>`:`${_wk.progress||0}/${_wk.target} → +${_wk.reward} 🪙`}</div>
-    </div>
-    <div style="padding:8px;background:rgba(200,160,60,0.14);border:1px solid #ddaa44;border-radius:6px;">
-      <div style="font-weight:700;color:#ffd66b">🎰 Lucky Spin</div>
-      <div style="color:#aaa;font-size:11px;margin-top:2px">Free: ${_freeAvail?'1 available':'used today'} · Ad spins left: ${_adAvail}/3</div>
-      <div id="mpSpinResult" style="color:#ffd66b;font-size:11px;margin-top:2px;min-height:14px"></div>
-      <div style="display:flex;gap:4px;margin-top:4px;">
-        <button id="mpSpinFreeBtn" ${_freeAvail?'':'disabled'} style="flex:1;padding:4px;background:${_freeAvail?'#3a6b3a':'#333'};color:${_freeAvail?'#ccffcc':'#666'};border:1px solid ${_freeAvail?'#7fd07f':'#555'};border-radius:4px;cursor:${_freeAvail?'pointer':'not-allowed'};font-weight:700;font-size:11px">Free Spin</button>
-        <button id="mpSpinAdBtn" ${_adAvail>0?'':'disabled'} style="flex:1;padding:4px;background:${_adAvail>0?'#6b3a3a':'#333'};color:${_adAvail>0?'#ffcccc':'#666'};border:1px solid ${_adAvail>0?'#d07f7f':'#555'};border-radius:4px;cursor:${_adAvail>0?'pointer':'not-allowed'};font-weight:700;font-size:11px">▶ Ad Spin</button>
-      </div>
-    </div>`;
-  // Wire buttons
-  const _csb = document.getElementById('claimStreakBtn');
-  if (_csb){
-    _csb.onclick = ()=>{
-      const r = checkLoginStreak();
-      try{ playSound('promote'); }catch(e){}
-      buildMenu();
-    };
-  }
-  const _sfb = document.getElementById('mpSpinFreeBtn');
-  if (_sfb){
-    _sfb.onclick = ()=>{
-      const prize = trySpinFree();
-      if (prize){
-        document.getElementById('mpSpinResult').textContent = '🎲 ' + prize.label;
-        try{ playSound(prize.coins>=200?'promote':'pickup'); }catch(e){}
-        setTimeout(buildMenu, 1200);
-      }
-    };
-  }
-  const _sab = document.getElementById('mpSpinAdBtn');
-  if (_sab){
-    _sab.onclick = async ()=>{
-      if (!window.SDK || !SDK.ready || typeof SDK.rewardedBreak!=='function'){
-        const prize = trySpinAd();
-        if (prize){ document.getElementById('mpSpinResult').textContent = '🎲 ' + prize.label; setTimeout(buildMenu, 1200); }
-        return;
-      }
-      _sab.disabled = true; _sab.textContent = 'Loading…';
-      let ok = false;
-      try { ok = await SDK.rewardedBreak(); } catch(e){}
-      if (ok !== false){
-        const prize = trySpinAd();
-        if (prize){
-          document.getElementById('mpSpinResult').textContent = '🎲 ' + prize.label;
-          try{ playSound(prize.coins>=200?'promote':'pickup'); }catch(e){}
-          setTimeout(buildMenu, 1200);
-        }
-      } else { _sab.disabled = false; _sab.textContent = '▶ Ad Spin'; }
-    };
-  }
     for (const t of e.changedTouches){ if (t.identifier===jTid) jClear(); }
   }, {passive:false});
 
@@ -9386,7 +9256,6 @@ window.addEventListener('load', async ()=>{
   if (_pl) _pl.onclick = (ev)=>{ ev.preventDefault(); _openLegal('privacy'); };
   if (_tl) _tl.onclick = (ev)=>{ ev.preventDefault(); _openLegal('terms');   };
   if (_legalC) _legalC.onclick = ()=>{ _legalEl.classList.add('hidden'); };
-  setupTouch(document.getElementById('game'));
   const _unlock = ()=>{ try{ ac(); }catch(e){} };
   document.addEventListener('touchstart', _unlock, {once:true});
   document.addEventListener('click',      _unlock, {once:true});
