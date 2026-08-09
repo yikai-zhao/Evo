@@ -7,4 +7,10 @@ services:
     envVars:
       - key: PORT
         value: 10000
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: evo-data
+      mountPath: /var/data
+      sizeGB: 1
     autoDeploy: true

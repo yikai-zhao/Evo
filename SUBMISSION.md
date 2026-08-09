@@ -1,6 +1,6 @@
-# Lands End — Portal Submission Guide
+# Evo — Portal Submission Guide
 
-This file collects every field, asset, and link you'll need to publish **Lands End** on **CrazyGames**, **Poki**, and **itch.io**. Copy/paste the blocks straight into the developer dashboard.
+This file collects every field, asset, and link you'll need to publish **Evo** on **CrazyGames**, **Poki**, and **itch.io**. Copy/paste the blocks straight into the developer dashboard.
 
 > Build artifact: run `npm run build` → produces `dist/Evo-platform.zip` (≤ ~30 MB after the v3.6.0 WebP compression pass). Upload that ZIP to each portal.
 
@@ -10,12 +10,12 @@ This file collects every field, asset, and link you'll need to publish **Lands E
 
 | Field | Value |
 |---|---|
-| **Title** | Lands End |
-| **Sub-title / tagline** | Evolve. Devour. Ascend. A 9-rank survival-evolution .io game. |
+| **Title** | Evo |
+| **Sub-title / tagline** | Evolve. Seize 9 fruits. Slay Outer Gods. Ascend with your squad. |
 | **Genre / tags** | io, multiplayer, survival, evolution, action, pvp, single-player, casual |
-| **Controls** | WASD / Arrows = move · Mouse = aim · LMB / Space = attack · 1-4 = abilities · E = use rift · Esc = menu |
+| **Controls** | WASD / Arrows = move · Hold LMB / Space = attack · X = dash · Q/E/R = skills · 1/2/3 = Authority · Esc = menu |
 | **Orientation** | Landscape only |
-| **Player count** | 1–24 per server (peer-to-peer mesh) |
+| **Player count** | 1–28 per room (relay multiplayer) |
 | **Languages** | English |
 | **Engine** | Vanilla JS / HTML5 Canvas (no framework, instant load) |
 
@@ -25,12 +25,13 @@ This file collects every field, asset, and link you'll need to publish **Lands E
 
 ### Long description (use on all portals)
 
-> **Lands End** is a fast-paced survival-evolution .io game where every kill brings you closer to godhood.
+> **Evo** is a fast-paced survival-evolution .io game where every kill, fruit pick-up, and Outer God fight pushes you closer to godhood.
 >
 > - **9 evolution ranks** — start as a humble cultivator or beast, end as a true god with map-shattering ultimates.
 > - **13 playable species** — humans, dinosaurs, sea creatures, sky predators, and more, each with their own evolution chain.
-> - **Outer Gods** — colossal bosses spawn periodically. Defeat them solo or team up to claim their power.
-> - **Sanctums & Authorities** — capture rift zones, hold elemental authorities, and rewrite the laws of the realm.
+> - **Outer Gods from the opening minutes** — colossal bosses pressure the map early so every run starts with a clear threat and hotspot.
+> - **All 9 Authorities live on the field** — chase, steal, and snowball through fruit control instead of waiting for scripted drops.
+> - **Sanctums, vassals, and squad pressure** — capture ground, grow a warband, and win through tempo and positioning, not idle clicking.
 > - **Daily quests, weekly challenges, login streaks, lucky spin** — meta-progression that rewards every session.
 > - **Cross-platform multiplayer** — peer-to-peer matchmaking, no account, no install, instant play.
 >
@@ -44,7 +45,7 @@ Dashboard → **Games → New game → HTML5 upload**.
 
 | Field | Value |
 |---|---|
-| Game name | Lands End |
+| Game name | Evo |
 | Genre | IO / Survival |
 | Tags | io, survival, evolution, multiplayer, action |
 | Thumbnail (512×384) | `assets/cover.png` (resize) |
@@ -71,7 +72,7 @@ Dashboard → **Games → New build**.
 
 | Field | Value |
 |---|---|
-| Title | Lands End |
+| Title | Evo |
 | Category | IO / Action / Adventure |
 | Tags | io, evolution, survival, multiplayer, pvp |
 | Min age | 7+ (mild fantasy combat, no blood) |
@@ -102,7 +103,7 @@ Upload type: **HTML game**, embed in page.
 ```markdown
 # Lands End — Evolve, Devour, Ascend
 
-A 9-rank survival-evolution .io game. Hunt creatures, slay Outer Gods, evolve from beast to deity. Play solo or with 24 players.
+A 9-rank survival-evolution .io game. Hunt creatures, slay Outer Gods, evolve from beast to deity. Play solo or with 28 players.
 
 **Play in browser** — no install, no account.
 
@@ -118,9 +119,10 @@ A 9-rank survival-evolution .io game. Hunt creatures, slay Outer Gods, evolve fr
 ## Controls
 - WASD / Arrows — move
 - Mouse — aim
-- LMB / Space — attack
-- 1–4 — abilities
-- E — enter rift / use sanctum
+- Hold LMB / Space — attack
+- X — dash
+- Q / E / R — skills
+- 1 / 2 / 3 — Authority powers
 
 ## Tech
 Pure vanilla JS + HTML5 Canvas. ~80 kB game logic, instant load.

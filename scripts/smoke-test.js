@@ -41,6 +41,10 @@ const requiredFns = [
   'function winGameLastStand(',
   'function updateVeil(',
   'function drawVeil(',
+  'function updateGodWarEvent(',
+  'function drawGodWarArena(',
+  'function triggerAuthorityCollision(',
+  'function updatePartyCoopBuff(',
   'function togglePartyPanel(',
   'function partyInvite(',
   'function partyAccept(',
@@ -49,6 +53,9 @@ const requiredFns = [
   'function _setupWinShareButton(',
   'function recalcStats(',
   'function dealDamage(',
+  'function renderSpeciesPortrait(',
+  'function getCombatPacingMultiplier(',
+  'function getObjectiveSummary(',
 ];
 for (const sig of requiredFns) {
   check(`game.js contains ${sig.replace('function ', '').replace('(', '')}`, gameSrc.includes(sig));
@@ -69,19 +76,39 @@ check('net.js has Net.findMatch',       netSrc.includes('Net.findMatch'));
 check('net.js has Net.createRoom',      netSrc.includes('Net.createRoom'));
 check('net.js has Net.joinRoom',        netSrc.includes('Net.joinRoom'));
 check('net.js handles room message',    netSrc.includes("case 'room'"));
+check('net.js has anonymous analytics sender', netSrc.includes('Net.sendAnalytics'));
 // 4c. server.js implements room routing
 const serverSrc = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 check('server.js parses', (()=>{ try { new vm.Script(serverSrc, {filename:'server.js'}); return true; } catch(e){ console.log('  →', e.message); return false; } })());
 check('server.js handles mm_find',      serverSrc.includes("'mm_find'"));
 check('server.js handles mm_create',    serverSrc.includes("'mm_create'"));
 check('server.js handles mm_join',      serverSrc.includes("'mm_join'"));
+check('server.js default room capacity is 28', serverSrc.includes('const DEFAULT_CAP = 28'));
+check('server.js rate-limits chat and hit', serverSrc.includes("consumeRate(c, 'chat'") && serverSrc.includes("consumeRate(c, 'hit'"));
+check('server.js aggregates analytics', serverSrc.includes("case 'analytics'") && serverSrc.includes('recordAnalytics'));
+check('rewarded ads use one success-checking gateway', (gameSrc.match(/SDK\.rewardedBreak\(\)/g)||[]).length === 1);
+check('chat sends once per submit', (gameSrc.match(/Net\.sendChat\(v\)/g)||[]).length === 1);
+check('team retreat does not consume dash key', gameSrc.includes("if (k==='j'") && !gameSrc.includes("if (k==='x' && G.started && G.player && !G.dead && !G.won)"));
 
 // 5. Veil constants sane
 check('VEIL_START_T defined',     gameSrc.includes('VEIL_START_T'));
 check('VEIL_END_T defined',       gameSrc.includes('VEIL_END_T'));
 check('Veil end > start',         /VEIL_START_T\s*=\s*(\d+)/.test(gameSrc) && /VEIL_END_T\s*=\s*(\d+)/.test(gameSrc));
 
-// 6. Asset integrity — every species PNG referenced exists on disk
+// 6. Identity-based skill hooks
+check('game.js has swordsman blade rush skill', gameSrc.includes("case 'blade_rush':"));
+check('game.js has owl moon burst skill', gameSrc.includes("case 'moon_burst':"));
+check('game.js has dragon roar skill', gameSrc.includes("case 'roar':"));
+check('game.js has poison cloud skill', gameSrc.includes("case 'poison_cloud':"));
+check('game.js has blood_drain skill', gameSrc.includes("case 'blood_drain':"));
+check('game.js has blood_ancestor_form skill', gameSrc.includes("case 'blood_ancestor_form':"));
+check('game.js has brood_spit skill', gameSrc.includes("case 'brood_spit':"));
+check('game.js has synapse_pulse skill', gameSrc.includes("case 'synapse_pulse':"));
+check('game.js has biogenesis skill', gameSrc.includes("case 'biogenesis':"));
+check('game.js has blood path', gameSrc.includes("name:'Path of Blood'"));
+check('game.js has saurian path', gameSrc.includes("name:'Path of Saurians'"));
+check('game.js has venom projectile support', gameSrc.includes('pr.venom'));
+// 7. Asset integrity — every species PNG referenced exists on disk
 const speciesDir = path.join(ROOT, 'assets', 'species');
 if (fs.existsSync(speciesDir)) {
   const files = fs.readdirSync(speciesDir);
@@ -89,7 +116,7 @@ if (fs.existsSync(speciesDir)) {
 }
 
 // 7. HTML required elements (game would crash without them)
-for (const id of ['game', 'win', 'winRestartBtn', 'winShareBtn', 'restartBtn', 'shareBtn', 'death']) {
+for (const id of ['game', 'win', 'winRestartBtn', 'winShareBtn', 'restartBtn', 'shareBtn', 'death', 'heroPanel', 'shopCtaBtn']) {
   check(`index.html has #${id}`, htmlSrc.includes(`id="${id}"`));
 }
 

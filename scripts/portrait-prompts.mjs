@@ -5,15 +5,16 @@
 // The sprite always faces upward on screen regardless of movement direction.
 // Therefore isometric ~45-60° angle is CORRECT for humanoids; overhead is CORRECT for animals.
 export const STYLE = [
-  // Art style — single most important rule
-  'FLAT ICON STYLE: bold black outlines 3-4px, maximum 4 solid fill colors, NO gradients, NO textures, NO fine photo-realistic detail',
-  '2D game sprite icon — think Archero, Vampire Survivors, or Clash Royale card art',
-  'high-contrast silhouette instantly readable at 32px, simple graphic shapes',
+  // Visual quality bar — Clash Royale / Archero level
+  'PROFESSIONAL GAME CARD ART style: bold black outlines 4-6px, vibrant saturated colors, strong cel-shaded fills, clean vector-style graphic shapes with NO photorealistic textures',
+  '2D top-down game sprite — polished like Archero, Vampire Survivors, Clash Royale, or Dead Cells card portraits',
+  'HIGH CONTRAST silhouette instantly readable at 48px — strong color contrast between subject and any aura effects',
+  'DETAILED but CLEAN: every rank should look noticeably more powerful than the last — bigger, more glowing, more imposing',
   // Consistency across ranks of same species
-  'CRITICAL: identical camera angle, identical body proportions, IDENTICAL POSE TEMPLATE for ALL ranks — ONLY armor detail, weapon, size, and glow/aura level change',
-  // Transparency — multi-phrase enforcement since API sometimes ignores the parameter
-  'TRANSPARENT BACKGROUND: pure alpha channel, zero background fill, NO white, NO grey, NO black, NO ground plane, NO environment, NO shadow, NO backdrop of any kind — subject floats on nothing',
-  'no text, no watermark, no border, no frame',
+  'CRITICAL: identical camera angle, identical body proportions, IDENTICAL POSE TEMPLATE for ALL ranks of the same species — ONLY armor detail, weapon glow, size, and aura level change between ranks',
+  // Transparency
+  'TRANSPARENT BACKGROUND: pure alpha channel, ZERO background fill, NO white, NO grey, NO black fill, NO ground plane, NO environment, NO shadow on ground, NO backdrop of any kind — subject floats on pure transparency',
+  'no text, no watermark, no border frame, no vignette',
 ].join(', ');
 
 // Per-species lore + per-rank evolution description.
@@ -142,25 +143,27 @@ export const SPECIES = {
     ],
   },
   electroEel: {
-    name: 'Eel', palette: 'electric green cyan white',
-    pose: 'camera pointing straight down overhead; long slender eel body in S-curve filling the frame top to bottom; head at 12-o-clock top, tail tip at 6-o-clock bottom; body winds through center of frame',
+    name: 'Electric Eel', palette: 'electric yellow-green cyan white',
+    antiConfusion: 'DO NOT draw a snake or reptile. This is an ELECTRIC EEL — a fish (Electrophorus). It has a blunt round fish head, smooth cylindrical body, small pectoral fins, and VISIBLE YELLOW LIGHTNING BOLT markings. It is NOT scaled, NOT a reptile, NOT a cobra or python.',
+    pose: 'camera pointing straight down overhead; long cylindrical ELECTRIC EEL body in smooth S-curve filling frame top-to-bottom; blunt fish-style HEAD with round eyes at 12-o-clock top; body curves through center; flat tail tip at 6-o-clock bottom; MUST have VISIBLE YELLOW LIGHTNING BOLT patterns along body sides — this is NOT a snake, it is a fish with electric organs',
     forms: [
-      { rank:1, key:'River Eel',                desc:'slender green river eel, smooth skin, simple S-curve, gentle expression, faint electric sparks near tail' },
-      { rank:3, key:'Thunder Eel',              desc:'crackling thunder eel, bright yellow-white lightning arcs along entire body length, glowing electric eyes' },
-      { rank:5, key:'Storm Eel',                desc:'huge storm eel, electric plasma corona wrapping around body, crackling lightning halo ring, vivid cyan glow' },
-      { rank:7, key:'Void Serpent',             desc:'cosmic void-serpent eel, dark scales with star-constellation glow pattern, crackling lightning aura ring' },
-      { rank:9, key:'True Storm God',           desc:'divine storm-god eel, world-spanning lightning crown halo ring, hurricane swirl aura, blazing white-gold electric body' },
+      { rank:1, key:'Spark Eel',    desc:'small electric eel fish, bright yellow-green smooth skin, round fish eyes, faint electric sparks along sides, pectoral fins visible near head' },
+      { rank:3, key:'Thunder Eel',  desc:'crackling thunder eel, bright yellow lightning bolt markings along entire body length, glowing electric yellow eyes, visible bio-electric glow' },
+      { rank:5, key:'Storm Eel',    desc:'large storm eel, vivid cyan-white electric plasma corona wrapping body, multiple crackling lightning bolts along sides, intense glowing eyes' },
+      { rank:7, key:'Void Eel',     desc:'massive cosmic eel, dark body with constellation lightning patterns, crackling purple-white lightning aura ring, overwhelming electric presence' },
+      { rank:9, key:'Thunder God',  desc:'divine storm-god eel, body blazing white-gold with electric light, world-spanning lightning crown halo ring, hurricane aura, divine radiance' },
     ],
   },
   scorpion: {
-    name: 'Scorpion', palette: 'desert ochre poison-green',
-    pose: 'camera pointing straight down overhead; scorpion body flat from above; two large pincers/claws at 10-o-clock and 2-o-clock upper corners; segmented body in center; curved stinger tail arching OVER the back (visible as curved arc from tip at top curving down) — stinger tip near center-top; 8 legs spread radially left and right',
+    name: 'Scorpion', palette: 'desert ochre amber poison-green',
+    antiConfusion: 'DO NOT draw a snake, worm, or centipede. This is a SCORPION — an arachnid with 8 legs, 2 large FRONT CLAWS (pedipalps), and a curved STINGER TAIL. The body is WIDE (wider than tall) because the two large claws spread to the sides. Think desert scorpion silhouette, NOT any elongated creature.',
+    pose: 'camera pointing STRAIGHT DOWN overhead; SCORPION arachnid body viewed from directly above — MUST SHOW: two large crab-like CLAWS/PEDIPALPS extending to upper-left (10-o-clock) and upper-right (2-o-clock); wide flat cephalothorax/carapace in center; segmented oval abdomen below; curved STINGER TAIL arching over the back visible as a C-shape from above with stinger tip pointing toward head; EIGHT LEGS splayed radially left and right from body sides; this is a WIDE creature (wider than tall due to outspread claws)',
     forms: [
-      { rank:1, key:'Young Scorpion',           desc:'small desert scorpion, plain amber carapace, simple segmented tail, small claws, clean simple silhouette' },
-      { rank:3, key:'Sand Stalker',             desc:'large desert scorpion, jagged spiky chitin armor, green venom drop at stinger tip, enlarged menacing claws' },
-      { rank:5, key:'Plague Scorpion',          desc:'huge plague scorpion, skull-marked carapace, sickly green miasma wisps, green-glowing venom stinger, wide stance' },
-      { rank:7, key:'Death Scorpion',           desc:'bone-armored death scorpion, skeletal bone plates, necrotic green flame stinger, skull-face marking on thorax' },
-      { rank:9, key:'True Plague God',          desc:'divine plague-god scorpion, ash-grey divine carapace, world-wasting green venom aura ring, death-crown halo' },
+      { rank:1, key:'Young Scorpion', desc:'small scorpion, amber carapace, 8 legs spread wide, two small claws at front, simple curved tail with small stinger, clean simple iconic silhouette' },
+      { rank:3, key:'Sand Stalker',   desc:'large aggressive scorpion, jagged spiky chitin armor on carapace, green venom drop at stinger tip, enlarged powerful claws, battle-scarred' },
+      { rank:5, key:'Plague Scorpion',desc:'huge plague scorpion, skull emblem on carapace, sickly green venom miasma wisps, bright green-glowing venom stinger, wide menacing stance' },
+      { rank:7, key:'Death Scorpion', desc:'massive bone-armored death scorpion, skeletal white bone plate armor, necrotic green flame stinger, skull-face marking on thorax, overwhelming silhouette' },
+      { rank:9, key:'True Plague God',desc:'divine plague-god scorpion, ash-white divine carapace blazing with green energy, world-wasting poison aura ring halo, death-crown on head, fills entire canvas' },
     ],
   },
 };
@@ -178,16 +181,31 @@ const RANK_TIER = {
 export function buildPrompt(speciesKey, form){
   const sp = SPECIES[speciesKey];
   const tier = RANK_TIER[form.rank];
-  // Pose anchor locks camera angle + body template — same for ALL ranks of this species
   const poseAnchor = sp.pose
-    ? `POSE/ANGLE TEMPLATE (must be identical for every rank of ${sp.name}): ${sp.pose}. `
+    ? `POSE/ANGLE TEMPLATE (MUST be followed exactly for every rank of ${sp.name}): ${sp.pose}. `
     : '';
-  const base = `${sp.name} — "${form.key}" (rank ${form.rank}/9 evolution, ${tier}). ${poseAnchor}Rank-specific visual: ${form.desc}.`;
-  const palette = `Color palette: ${sp.palette}.`;
-  return `${base} ${palette} ${STYLE}`;
+  const base = `${sp.name} — "${form.key}" (rank ${form.rank}/9 evolution stage, ${tier}). ${poseAnchor}Rank-specific visual detail: ${form.desc}.`;
+  const palette = `Dominant color palette: ${sp.palette}.`;
+  // Extra anti-confusion guard for species that confused the AI
+  const antiConfusion = sp.antiConfusion ? `IMPORTANT: ${sp.antiConfusion} ` : '';
+  return `${antiConfusion}${base} ${palette} ${STYLE}`;
 }
 
 // All (species, form) pairs to render
+// Attack pose: same species/rank but in a striking/lunging action pose
+export function buildAtkPrompt(speciesKey, form){
+  const sp = SPECIES[speciesKey];
+  const tier = RANK_TIER[form.rank];
+  const poseAnchor = sp.pose
+    ? `BASE BODY TEMPLATE (must match idle pose exactly — same proportions, same camera angle): ${sp.pose}. `
+    : '';
+  const atkPose = `ATTACK POSE: same creature but LUNGING FORWARD — body compressed forward along its primary attack axis, limbs/claws/weapons FULLY EXTENDED in strike position, mouth open if applicable, maximum kinetic energy and tension frozen mid-strike. This is the ATTACK FRAME of a 2-frame animation.`;
+  const base = `${sp.name} — "${form.key}" ATTACK POSE (rank ${form.rank}/9, ${tier}). ${poseAnchor}${atkPose} Rank-specific visual: ${form.desc}.`;
+  const palette = `Dominant color palette: ${sp.palette}.`;
+  const antiConfusion = sp.antiConfusion ? `IMPORTANT: ${sp.antiConfusion} ` : '';
+  return `${antiConfusion}${base} ${palette} ${STYLE}`;
+}
+
 export function allTargets(){
   const out = [];
   for (const [key, sp] of Object.entries(SPECIES)){
@@ -199,4 +217,15 @@ export function allTargets(){
   return out;
 }
 
+// Attack-pose targets (key-atk.png, key-atk-r3.png, etc.)
+export function allAtkTargets(){
+  const out = [];
+  for (const [key, sp] of Object.entries(SPECIES)){
+    for (const f of sp.forms){
+      const suffix = f.rank===1 ? '-atk' : ('-atk-r'+f.rank);
+      out.push({ key, rank: f.rank, suffix, file: `${key}${suffix}.png`, prompt: buildAtkPrompt(key, f) });
+    }
+  }
+  return out;
+}
 

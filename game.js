@@ -37,9 +37,10 @@ const MOUSE = { x:0, y:0, wx:0, wy:0, ldown:false, rdown:false };
 const PATHS = {
   human: {
     name:'Path of Humanity', color:'#ffd66b', icon:'⚔️',
+    role:'Precision duelist and counter-window hunter', synergy:'Wins by clean engages, parries, and punishing overcommitment',
     tiers:[
-      { name:'Qi Apprentice', pname:'Vital Flow', pdesc:'AS +15%',                 p:{spd:1.15} },
-      { name:'Forged Fist', pname:'Inner Burst', pdesc:'ATK +10%, Crit +10%',       p:{atk:1.10, crit:0.10} },
+      { name:'Qi Apprentice', pname:'Vital Flow', pdesc:'AS +15%, DEF +5%',                 p:{spd:1.15, def:1.05} },
+      { name:'Forged Fist', pname:'Inner Burst', pdesc:'ATK +12%, Crit +8%',       p:{atk:1.12, crit:0.08} },
       { name:'Meridian Swordsman', pname:'Open Meridians', pdesc:'ATK +15%, Range +10%',   p:{atk:1.15, range:1.10} },
       { name:'Subtle Master', pname:'Refined Strikes', pdesc:'Crit +15%, Lifesteal 5%',         p:{crit:0.15, lifesteal:0.05} },
       { name:'Mystic Saint', pname:'Profound Truth', pdesc:'ATK +25%, DEF +15%',       p:{atk:1.25, def:1.15} },
@@ -51,8 +52,9 @@ const PATHS = {
   },
   dragon: {
     name:'Path of Dragons', color:'#88e0ff', icon:'🐉',
+    role:'Frontline control and lane domination', synergy:'Holds space, crushes crowds, and forces enemies to fight on its terms',
     tiers:[
-      { name:'Hatchling Jiao',   pname:'First Scales', pdesc:'DEF +20%',                  p:{def:1.20} },
+      { name:'Hatchling Jiao',   pname:'First Scales', pdesc:'DEF +20%, KB Res +10%',                  p:{def:1.20, knockRes:0.10} },
       { name:'Twin-Horned Hui',   pname:'Towering Horns', pdesc:'KB Res +50%, HP +10%',     p:{knockRes:0.5, hp:1.10} },
       { name:'Essence-Devouring Chi',   pname:'Essence Feast', pdesc:'Lifesteal +8%, ATK +10%',         p:{lifesteal:0.08, atk:1.10} },
       { name:'Coiled Dragon King',   pname:'Dragon Aura', pdesc:'HP +30%, DEF +15%',        p:{hp:1.30, def:1.15} },
@@ -65,6 +67,7 @@ const PATHS = {
   },
   beast: {
     name:'Path of Beasts', color:'#e0a060', icon:'🐺',
+    role:'Ambush burst and relentless chase pressure', synergy:'Punishes isolated targets and snowballs after the first takedown',
     tiers:[
       { name:'Bloodthirsty Cub', pname:'Bloody Fangs', pdesc:'ATK +10%, Lifesteal 3%',          p:{atk:1.10, lifesteal:0.03} },
       { name:'Wild Predator', pname:'Feral Fury', pdesc:'ATK +15%, SPD +5%',          p:{atk:1.15, spd:1.05} },
@@ -79,6 +82,7 @@ const PATHS = {
   },
   bird: {
     name:'Path of Feathers', color:'#cce0ff', icon:'🦅',
+    role:'Skirmish mobility and lane-cut control', synergy:'Creates openings by splitting formations and resetting tempo from range',
     tiers:[
       { name:'Fledgling', pname:'Light Feathers', pdesc:'SPD +20%',                    p:{spd:1.20} },
       { name:'Wind Rider', pname:'Riding Cry', pdesc:'STA +30%, SPD +10%',          p:{sta:1.30, spd:1.10} },
@@ -93,6 +97,7 @@ const PATHS = {
   },
   fish: {
     name:'Path of Scales', color:'#88c0ff', icon:'🐟',
+    role:'Area denial and positional trap setter', synergy:'Locks terrain, slows pushes, and turns narrow space into a kill zone',
     tiers:[
       { name:'Drifting Fry', pname:'Slick Glide', pdesc:'SPD +15%',                    p:{spd:1.15} },
       { name:'River Carp', pname:'Carp Qi', pdesc:'Regen +1.5/s',                p:{regen:1.5} },
@@ -107,6 +112,7 @@ const PATHS = {
   },
   insect: {
     name:'Path of Insects', color:'#c0ff60', icon:'🦂',
+    role:'Attrition commander and swarm siege', synergy:'Wears down groups, spawns extra pressure, and wins long fights',
     tiers:[
       { name:'Devouring Larva', pname:'Devour Heal', pdesc:'Lifesteal 5%',                       p:{lifesteal:0.05} },
       { name:'Molting Mantid', pname:'Shed Carapace', pdesc:'DEF +20%, HP +10%',           p:{def:1.20, hp:1.10} },
@@ -116,7 +122,39 @@ const PATHS = {
       { name:'Devouring Insect Emperor', pname:'Imperial Venom', pdesc:'+6/s poison on hit',               p:{dot:6} },
       { name:'Swarm Emperor', pname:'Emperor Pressure', pdesc:'ATK +30%, Range +20%',        p:{atk:1.30, range:1.20} },
       { name:'Dreaming Insect Patriarch', pname:'Soul Feast', pdesc:'ATK +20%, Poison Aura',              p:{atk:1.20, dotAura:1} },
-      { name:'Primal Insect God', pname:'Insect God Crown', pdesc:'ATK+40%, Slow+Poison Auras',     p:{atk:1.40, slowAura:1, dotAura:1} },
+      { name:'Hive Tyrant Ascendant', pname:'Biogenic Overmind', pdesc:'ATK+40%, Slow+Poison Auras', p:{atk:1.40, slowAura:1, dotAura:1} },
+    ],
+  },
+  blood: {
+    name:'Path of Blood', color:'#cc1133', icon:'🩸',
+    role:'Vampire apex — sustains on enemy vitality', synergy:'Snowballs through kills; nearly unkillable once ahead',
+    mergesInto:'Ancient Blood Patriarch (+ Beast)',
+    tiers:[
+      { name:'Blood Drinker',   pname:'Crimson Hunger',    pdesc:'Lifesteal 6%, SPD +5%',                p:{lifesteal:0.06, spd:1.05} },
+      { name:'Crimson Fang',    pname:'Vein Pierce',       pdesc:'Lifesteal 10%, ATK +10%',              p:{lifesteal:0.10, atk:1.10} },
+      { name:'Void Wing',       pname:'Shadow Flight',     pdesc:'Lifesteal 15%, Crit +8%',              p:{lifesteal:0.15, crit:0.08} },
+      { name:'Vampire',         pname:'Undead Vigil',      pdesc:'Kill Heal 20%, ATK +15%',              p:{killheal:0.20, atk:1.15} },
+      { name:'Vampire Lord',    pname:'Blood Domain',      pdesc:'Lifesteal 20%, HP +30%',               p:{lifesteal:0.20, hp:1.30} },
+      { name:'Blood Duke',      pname:'Duke\'s Terror',    pdesc:'Kill Heal 35%, DEF +20%',              p:{killheal:0.35, def:1.20} },
+      { name:'Blood Prince',    pname:'Royal Blood',       pdesc:'Lifesteal 25%, ATK +30%',              p:{lifesteal:0.25, atk:1.30} },
+      { name:'Blood Ancestor',  pname:'Ancestor\'s Dread', pdesc:'Auto-revive once, ATK +40%',           p:{revive:1, atk:1.40} },
+      { name:'Primordial Blood God', pname:'Sanguine Apotheosis', pdesc:'Lifesteal 30%, Slow Aura, Kill Heal 50%', p:{lifesteal:0.30, slowAura:1, killheal:0.50} },
+    ],
+  },
+  saurian: {
+    name:'Path of Saurians', color:'#8a7a2a', icon:'🦖',
+    role:'Apex theropod — raw dominance and unstoppable momentum', synergy:'Overwhelms with size; walls off space and punishes any stand',
+    mergesInto:'Primordial Dragon Ancient (+ Serpent)',
+    tiers:[
+      { name:'Hatchling',     pname:'Predator\'s Mark',  pdesc:'ATK +10%, HP +5%',                   p:{atk:1.10, hp:1.05} },
+      { name:'Stalker',       pname:'Pack Instinct',     pdesc:'ATK +15%, SPD +5%',                   p:{atk:1.15, spd:1.05} },
+      { name:'Ridge-Back',    pname:'Armored Hide',      pdesc:'DEF +20%, HP +10%',                   p:{def:1.20, hp:1.10} },
+      { name:'Iron Jaw',      pname:'Crushing Bite',     pdesc:'ATK +20%, Crit +8%',                  p:{atk:1.20, crit:0.08} },
+      { name:'Ancient Rex',   pname:'Tyrant Presence',   pdesc:'HP +30%, Size +10%',                  p:{hp:1.30, size:1.10} },
+      { name:'Saurian Lord',  pname:'Lord\'s Roar',      pdesc:'ATK +25%, KB Force +50%',             p:{atk:1.25, knockMul:1.50} },
+      { name:'Apex Predator', pname:'Apex Dominion',     pdesc:'ATK +30%, DEF +20%, Size +10%',       p:{atk:1.30, def:1.20, size:1.10} },
+      { name:'World-Shaker',  pname:'Earth Tremor',      pdesc:'Basic adds AoE, HP +40%',             p:{aoeOnHit:1, hp:1.40} },
+      { name:'Tyrant God',    pname:'Tyrant Ascension',  pdesc:'ATK+50%, HP+50%, Slow Aura',          p:{atk:1.50, hp:1.50, slowAura:1} },
     ],
   },
 };
@@ -154,6 +192,45 @@ function aggregatePerks(p){
   }
   return out;
 }
+function getCombatPacingMultiplier(entity, target){
+  const rank = Math.max(1, (entity && (entity.rank||1)) || 1);
+  const hpPct = entity && entity.maxHp ? ((entity.hp||0) / entity.maxHp) : 1;
+  const targetHpPct = target && target.maxHp ? ((target.hp||0) / target.maxHp) : 1;
+  let mult = 0.88;
+  if (rank >= 7) mult = 1.06;
+  else if (rank >= 5) mult = 0.98;
+  else if (rank >= 3) mult = 0.92;
+  if (target && target.isPlayer) mult += 0.05;
+  if (hpPct < 0.35) mult *= 0.92;
+  if (targetHpPct < 0.25) mult *= 1.03;
+  return clamp(mult, 0.78, 1.18);
+}
+function getObjectiveSummary(p){
+  if (!p) return 'Survive and evolve';
+  const goals = [];
+  if (p.rank >= 9){
+    goals.push('True God: survive the final duel');
+    return goals.join(' · ');
+  }
+  if (p.rank >= 8){
+    const needBoss = (p.q.bossKilled||0) < 2;
+    const needRifts = (p.q.riftsUsed||0) < 4;
+    const needThrone = !!(G.thrones && G.thrones[p.pathKey] && G.thrones[p.pathKey] !== p && !(p.q.killThrone >= 1));
+    if (needBoss) goals.push(`Outer God ${p.q.bossKilled||0}/2`);
+    if (needRifts) goals.push(`Sanctum ${p.q.riftsUsed||0}/4`);
+    if (needThrone) goals.push('usurp throne');
+    if (!goals.length) goals.push('ready to ascend');
+    return `Apotheosis: ${goals.join(' · ')}`;
+  }
+  if ((p.authoritySlots||[]).length < 2 && p.rank >= 2) goals.push('collect an Authority');
+  const need = QI_THR[p.rank] || QI_THR[8];
+  const prev = QI_THR[p.rank-1] || 0;
+  const qi = Math.max(0, (p.qi||0) - prev);
+  const total = Math.max(1, need - prev);
+  const pct = Math.floor((qi / total) * 100);
+  goals.push(`Tier ${p.rank}/9 · ${pct}% to next`);
+  return goals.join(' · ');
+}
 
 // v2.0: 9-level system. RANK_BONUS index N = bonus when promoting rank (N+1)→(N+2). 8 entries cover 1→2 ... 8→9.
 const RANK_BONUS = [
@@ -168,7 +245,7 @@ const RANK_BONUS = [
   { hp:3800, atk:520,  def:130, spd:25, sta:58,  life:1250, zy:2.70, dh:2.70 },
 ];
 // v2.0: 9-level qi thresholds. Index N = qi required to promote to rank (N+1). [0]=unused, [8]=throne.
-const QI_THR = [0, 80, 280, 720, 1800, 4200, 9500, 20000, 42000];
+const QI_THR = [0, 80, 280, 720, 1800, 4200, 9500, 20000, 26000];
 
 // v3.4.3: per-species rank icons (9 stages, index 0–8 = rank 1–9) — visual progression that matches each title
 const SPECIES_RANK_ICONS = {
@@ -181,9 +258,9 @@ const SPECIES_RANK_ICONS = {
   wolf:       ['🐺','🐺','🌙','🌙','🩸','👑','🐉','🌌','⚡'],
   eagle:      ['🦅','🦅','⛈️','⛈️','⚡','👑','🔥','🌅','🐦‍🔥'],
   owl:        ['🦉','🦉','🌙','🌑','💀','👑','🌌','💫','✨'],
-  bat:        ['🦇','🦇','🩸','🌑','🌙','👑','💀','🌌','⚡'],
+    bat:        ['🦇','🦇','🩸','🩸','🩸','👑','💀','🌑','☄️'],
   shark:      ['🦈','🦈','🌊','🩸','👑','🌊','🐲','🌌','✨'],
-  electroEel: ['🐍','⚡','⚡','🌩️','⛈️','👑','🐲','🌌','✨'],
+  electroEel: ['⚡','⚡','⚡','🌩️','⛈️','👑','🐲','🌌','✨'],
   scorpion:   ['🦂','🦂','☠️','🩸','👑','🌋','🐉','🌌','✨'],
 };
 function tierIcon(p){
@@ -197,18 +274,29 @@ function tierIcon(p){
 }
 
 // v3.4.4: AI-art portraits per species (PNGs in assets/species/<key>.png)
-const SPECIES_PORTRAITS = {}; // key -> {base:HTMLImageElement, r3?, r5?, r7?, r9?, ready}
+const SPECIES_PORTRAITS = {}; // key -> {base, r3, r5, r7, r9, atk, atk_r3..., ready}
 const _PORTRAIT_KEYS = ['swordsman','cultivator','dino','longSnake','lizard','croc','wolf','eagle','owl','bat','shark','electroEel','scorpion'];
 function _loadPortrait(key){
   const rec = SPECIES_PORTRAITS[key] = SPECIES_PORTRAITS[key] || { ready:false };
-  const tryLoad = (suffix, slot)=>{
+  const tryLoad = (suffix, slot, candidates)=>{
+    const next = candidates.slice(1);
     const img = new Image();
     img.onload = ()=>{ rec[slot] = img; rec.ready = true; };
-    img.onerror = ()=>{};
-    img.src = 'assets/species/' + key + (suffix||'') + '.png';
+    img.onerror = ()=>{ if (next.length) tryLoad(suffix, slot, next); };
+    img.src = candidates[0];
   };
-  tryLoad('', 'base');
-  tryLoad('-r3','r3'); tryLoad('-r5','r5'); tryLoad('-r7','r7'); tryLoad('-r9','r9');
+  const loadChain = (suffix, slot)=>{
+    const cands = [
+      'assets/species/' + key + (suffix||'') + '.png',
+      'assets/species/' + key + (suffix||'') + '.webp',
+    ];
+    tryLoad(suffix, slot, cands);
+  };
+  loadChain('', 'base');
+  loadChain('-r3','r3'); loadChain('-r5','r5'); loadChain('-r7','r7'); loadChain('-r9','r9');
+  // attack-pose frames (optional — gracefully absent until generated)
+  loadChain('-atk','atk');
+  loadChain('-atk-r3','atk_r3'); loadChain('-atk-r5','atk_r5'); loadChain('-atk-r7','atk_r7'); loadChain('-atk-r9','atk_r9');
 }
 function preloadSpeciesPortraits(){
   for (const k of _PORTRAIT_KEYS) _loadPortrait(k);
@@ -220,6 +308,97 @@ function getPortrait(key, rank){
   if (rank>=5 && rec.r5) return rec.r5;
   if (rank>=3 && rec.r3) return rec.r3;
   return rec.base || null;
+}
+// Attack-pose variant — falls back to idle portrait if not generated yet
+function getAtkPortrait(key, rank){
+  const rec = SPECIES_PORTRAITS[key]; if (!rec) return null;
+  if (rank>=9 && rec.atk_r9) return rec.atk_r9;
+  if (rank>=7 && rec.atk_r7) return rec.atk_r7;
+  if (rank>=5 && rec.atk_r5) return rec.atk_r5;
+  if (rank>=3 && rec.atk_r3) return rec.atk_r3;
+  return rec.atk || null;  // null = caller falls back to idle
+}
+function _roundedRectPath(ctx, x, y, w, h, r){
+  const rr = Math.max(2, Math.min(r, w/2, h/2));
+  ctx.beginPath();
+  ctx.moveTo(x+rr, y);
+  ctx.arcTo(x+w, y, x+w, y+h, rr);
+  ctx.arcTo(x+w, y+h, x, y+h, rr);
+  ctx.arcTo(x, y+h, x, y, rr);
+  ctx.arcTo(x, y, x+w, y, rr);
+  ctx.closePath();
+}
+function renderSpeciesPortrait(ctx, key, w, h, opts = {}){
+  if (!ctx || !key) return false;
+  const sp = SPECIES[key];
+  const color = (sp && sp.color) || '#888888';
+  const portrait = getPortrait(key, opts.rank || 1);
+  const bob = opts.bob || 0;
+  ctx.save();
+  ctx.clearRect(0, 0, w, h);
+
+  // Rich colored background gradient using species color
+  const bg = ctx.createLinearGradient(0, 0, w * 0.6, h);
+  bg.addColorStop(0, color + '40');   // more vivid tint at top-left
+  bg.addColorStop(0.5, color + '18');
+  bg.addColorStop(1, '#00000060');
+  _roundedRectPath(ctx, 1, 1, w - 2, h - 2, 12);
+  ctx.fillStyle = bg;
+  ctx.fill();
+
+  // Colored border with glow
+  const frameW = Math.max(3, Math.round(Math.min(w, h) * 0.025));
+  ctx.strokeStyle = color + 'aa';
+  ctx.lineWidth = frameW;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  _roundedRectPath(ctx, 1, 1, w - 2, h - 2, 12);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Bottom vignette glow (species color pool at base)
+  const baseGlow = ctx.createLinearGradient(0, h * 0.55, 0, h);
+  baseGlow.addColorStop(0, 'rgba(0,0,0,0)');
+  baseGlow.addColorStop(1, color + '55');
+  ctx.fillStyle = baseGlow;
+  _roundedRectPath(ctx, 3, 3, w - 6, h - 6, 10);
+  ctx.fill();
+
+  if (portrait){
+    const iw = portrait.naturalWidth || portrait.width || 1;
+    const ih = portrait.naturalHeight || portrait.height || 1;
+    // fill more of the canvas (8px padding vs old 16px)
+    const scale = Math.min((w - 8) / iw, (h - 8) / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    const dx = (w - dw) / 2;
+    const dy = (h - dh) / 2 + bob;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+    ctx.drawImage(portrait, dx, dy, dw, dh);
+    ctx.restore();
+  } else {
+    const r = Math.min(w, h) * 0.28;
+    ctx.save();
+    ctx.translate(w / 2, h / 2 + bob * 0.5);
+    ctx.fillStyle = color + '66';
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `${Math.max(16, Math.round(r * 1.1))}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText((sp && sp.icon) || '✦', 0, 1);
+    ctx.restore();
+  }
+
+  // Subtle inner highlight edge
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  _roundedRectPath(ctx, 3, 3, w - 6, h - 6, 10);
+  ctx.stroke();
+  ctx.restore();
+  return true;
 }
 try { preloadSpeciesPortraits(); } catch(e){}
 
@@ -238,12 +417,12 @@ const SPECIES_TITLES = {
   // Path of Feathers
   eagle:      ['Fledgling Eagle','Sky Glider','Wind Rider','Cloud-Piercing Eagle','Storm Eagle','Wind God Eagle','Roc','Thunder Emperor Eagle','True God · Immortal Phoenix'],
   owl:        ['Owlet','Night Hunter','Shadow Owl','Silent Reaper','Moonwatcher','Night God Owl','Death Owl','Eternal Night Owl','True God · Underworld Phoenix'],
-  bat:        ['Bat Pup','Echo-Caller','Blood Drinker','Vampire Bat','Shadow Wing','Moonbat','Phantom Bat','Primordial Camazotz','True God · Bat God'],
+  bat:        ['Bat Pup','Blood Bat','Crimson Blade Bat','Vampire','Vampire Lord','Blood Duke','Blood Prince','Blood Ancestor','True God · Primordial Blood Patriarch'],
   // Path of Scales
-  shark:      ['Sharklet','Bloodscent Shark','Megalodon Cub','Reef Tyrant','Abyssal Shark','Ocean Hunter','Titan Shark','Primordial Megalodon','True God · Shark God'],
-  electroEel: ['Spark Eel','Lightning Eel','Stormcoil','Thunder Eel','Sky-Thunder Eel','Lord of Bolts','Storm God Eel','Primordial Thunder Serpent','True God · Eel God'],
+  shark:      ['Sharklet','Bloodscent Shark','Megalodon Cub','Reef Tyrant','Abyss Apex','Ocean Predator','Titan Leviathan','The Great Devourer','True God · World-Eater'],
+  electroEel: ['Spark Eel','Lightning Eel','Stormcoil','Thunder Eel','Sky-Thunder Eel','Storm Sovereign','Thunder Incarnate','Thunder Ancestor','True God · Thunder God Raijin'],
   // Path of Insects
-  scorpion:   ['Larva Scorpion','Stinger','Venom Caller','Queen Scorpion','Toxic Empress','Plague Bringer','Saint Scorpion','Primordial Selket','True God · Scorpion God'],
+  scorpion:   ['Devouring Larva','Hive Drone','Brood Warrior','Spine Ravener','Hive Prime','Hive Tyrant','Brood Lord','Brood Mother','True God · Norn-Queen'],
 };
 
 // =====================================================================
@@ -274,10 +453,10 @@ const SPECIES_QUESTS = {
 const SPECIES = {
   // Path of Humanity
   swordsman: { path:'human', name:'Swordsman', icon:'🗡️', color:'#ffd66b', shape:'humanoid',
-    base:{hp:130,atk:15,def:5,spd:185,sta:90,life:240, r:18, atkR:55, atkCd:0.4, rngR:480, rngCd:0.8, rngDmg:12, rngSpd:540},
-    skillQ:{name:'Triple Arrow', cd:3.5, type:'arrow3', desc:'Fan 3 arrows, x0.7 dmg each', unlockRank:1},
-    skillE:{name:'Sword Will Slash', cd:6,  type:'cleave',  desc:'Forward 180 deg fan slash, x3 dmg', unlockRank:4},
-    skillR:{name:'Myriad Swords', cd:18, type:'sword_rain', desc:'24 swords orbit and fire at nearest', unlockRank:6},
+    base:{hp:130,atk:15,def:5,spd:185,sta:90,life:240, r:18, atkR:55, atkCd:0.4},
+    skillQ:{name:'Blade Rush', cd:3, type:'blade_rush', desc:'A disciplined lunge that carves a tight arc, x2.2 dmg + stun', unlockRank:1},
+    skillE:{name:'Guarded Cut', cd:6,  type:'guarded_cut',  desc:'Pivot and split a precise line through the enemy front', unlockRank:4},
+    skillR:{name:'Myriad Swords', cd:18, type:'sword_rain', desc:'A storm of overhead blades falls on the nearest threats', unlockRank:6},
   },
   // v2.0: Cultivator — caster + protective: bolts, Dao Aegis shield, sky lightning
   cultivator: { path:'human', name:'Cultivator', icon:'🧘', color:'#cba6ff', shape:'humanoid',
@@ -286,20 +465,20 @@ const SPECIES = {
     skillE:{name:'Dao Aegis', cd:10, type:'shield', desc:'8s arcane shield absorbs heavy damage', unlockRank:4},
     skillR:{name:'Heavenly Tribulation', cd:22, type:'sky_lightning', desc:'15 random bolts smite enemies', unlockRank:6},
   },
-  lizard: { path:'beast', name:'Lizard', icon:'🦎', color:'#7fd07f', shape:'reptile',
+  lizard: { path:'saurian', name:'Lizard', icon:'🦎', color:'#7fd07f', shape:'reptile',
     base:{hp:150,atk:16,def:6,spd:170,sta:80,life:200, r:20, atkR:58, atkCd:0.42},
     skillQ:{name:'Whirlwind Slash', cd:3, type:'spin', desc:'360 deg spin slash, x2 + KB', unlockRank:1},
     skillE:{name:'Tail Sweep', cd:5,  type:'tail',  desc:'280 deg tail sweep knockup', unlockRank:4},
     skillR:{name:'Berserk Form', cd:18, type:'rage', desc:'10s AS x2 DEF x2', unlockRank:6},
   },
-  croc: { path:'beast', name:'Crocodile', icon:'🐊', color:'#6aa86a', shape:'reptile',
+  croc: { path:'saurian', name:'Crocodile', icon:'🐊', color:'#6aa86a', shape:'reptile',
     base:{hp:170,atk:18,def:8,spd:155,sta:80,life:240, r:22, atkR:55, atkCd:0.5},
     skillQ:{name:'Death Roll', cd:3.5, type:'roll', desc:'Charge bite, x2 dmg + bleed', unlockRank:1},
     skillE:{name:'Lockjaw', cd:6, type:'grab', desc:'Grab nearest 2s, bite every 0.3s', unlockRank:4},
     skillR:{name:'Blood River', cd:22, type:'bloodpool', desc:'Blood pool, enemies bleed', unlockRank:6},
   },
-  // v2.2.0: Dinosaur — tyrant tank: stomp, dmg-transfer bond, push-roar
-  dino: { path:'dragon', name:'Dinosaur', icon:'🦖', color:'#7a8a3a', shape:'beast',
+  // Saurian Path — theropod apex: stomp, bond, roar
+  dino: { path:'saurian', name:'Dinosaur', icon:'🦖', color:'#7a8a3a', shape:'beast',
     base:{hp:180,atk:20,def:10,spd:150,sta:80,life:260, r:26, atkR:65, atkCd:0.5},
     skillQ:{name:'Stomp', cd:3, type:'stomp', desc:'250r AoE wave + stun 1s', unlockRank:1},
     skillE:{name:'Tyrant Bond', cd:10, type:'dmg_transfer', desc:'8s: redirect 70% incoming dmg to highest-HP nearby foe', unlockRank:4},
@@ -307,36 +486,36 @@ const SPECIES = {
   },
   wolf: { path:'beast', name:'Wolf', icon:'🐺', color:'#a0a0a0', shape:'beast',
     base:{hp:130,atk:15,def:5,spd:195,sta:100,life:200, r:18, atkR:55, atkCd:0.388},
-    skillQ:{name:'Pounce', cd:2.5, type:'pounce', desc:'Lunge + bite x2 dmg', unlockRank:1},
-    skillE:{name:'Wolf Pack', cd:8, type:'summon_wolf', desc:'Summon 3 phantom wolves 15s', unlockRank:4},
-    skillR:{name:'Bloodlust', cd:20, type:'frenzy', desc:'12s AS x2 + full heal on kill', unlockRank:6},
+    skillQ:{name:'Rend', cd:2.5, type:'rend', desc:'Bite through a target and leave a bleeding trail in its wake', unlockRank:1},
+    skillE:{name:'Pack Rush', cd:8, type:'pack_rush', desc:'Burst forward and slam the nearest foes into a bruising impact', unlockRank:4},
+    skillR:{name:'Bloodlust', cd:20, type:'frenzy', desc:'Enter a berserk state: faster attacks, heavier cleaves, and healing on kills', unlockRank:6},
   },
   // 龍
   longSnake: { path:'dragon', name:'Jiao Serpent', icon:'🐉', color:'#88e0ff', shape:'dragon',
-    base:{hp:160,atk:17,def:7,spd:170,sta:90,life:260, r:22, atkR:60, atkCd:0.45, rngR:460, rngCd:1.1, rngDmg:18, rngSpd:520},
-    skillQ:{name:'Dragon Breath', cd:3, type:'breath', desc:'400px flame cone x0.6/tick', unlockRank:1},
-    skillE:{name:'Coil', cd:6, type:'whirl', desc:'Energy ribbon 3s', unlockRank:4},
+    base:{hp:160,atk:17,def:7,spd:170,sta:90,life:260, r:22, atkR:60, atkCd:0.45},
+    skillQ:{name:'Jiao Breath', cd:3, type:'jiao_breath', desc:'Surge a wide cone of chilling water breath — hits slow and chill', unlockRank:1},
+    skillE:{name:'Coil Crush', cd:6, type:'whirl', desc:'Spiral pressure ribbon constricts all nearby enemies for 3s', unlockRank:4},
     skillR:{name:'True Dragon Descend', cd:25, type:'dragon_form', desc:'15s Size x1.5 ATK +100%', unlockRank:6},
   },
   // 羽
   eagle: { path:'bird', name:'Eagle', icon:'🦅', color:'#cce0ff', shape:'bird',
     base:{hp:110,atk:13,def:4,spd:200,sta:120,life:200, r:16, atkR:50, atkCd:0.38, rngR:540, rngCd:0.6, rngDmg:10, rngSpd:640},
-    skillQ:{name:'Dive', cd:3, type:'dive', desc:'Dash to cursor, x3 dmg', unlockRank:1},
-    skillE:{name:'Storm Feather Tempest', cd:6, type:'feather_storm', desc:'Fire 12 quills x0.5', unlockRank:4},
-    skillR:{name:'Thunder Pierce', cd:20, type:'thunder_dive', desc:'Sky lightning pierces all', unlockRank:6},
+    skillQ:{name:'Swoop', cd:3, type:'swoop', desc:'Dash through a target line and split it with a high-speed cut', unlockRank:1},
+    skillE:{name:'Wind Shear', cd:6, type:'wind_shear', desc:'Fan a trio of cutting gusts across a lane of enemies', unlockRank:4},
+    skillR:{name:'Thunderfall', cd:20, type:'thunderfall', desc:'Call a storm of descending bolts across the battlefield', unlockRank:6},
   },
   owl: { path:'bird', name:'Night Owl', icon:'🦉', color:'#aabbcc', shape:'bird',
     base:{hp:115,atk:14,def:4,spd:190,sta:100,life:220, r:16, atkR:52, atkCd:0.4, rngR:520, rngCd:0.7, rngDmg:14, rngSpd:580},
-    skillQ:{name:'Shadow Arrow', cd:3, type:'shadow_arrow', desc:'Piercing arrow x2 dmg', unlockRank:1},
+    skillQ:{name:'Moon Burst', cd:3.5, type:'moon_burst', desc:'Shadow burst in a wide circle, x1.6 dmg + stun', unlockRank:1},
     skillE:{name:'Veil of Night', cd:8, type:'darkness', desc:'8s stealth + 50% crit', unlockRank:4},
     skillR:{name:'Death Gaze', cd:20, type:'death_gaze', desc:'Lock 1.5s, then 999 true dmg', unlockRank:6},
   },
-  // v2.2.0: Bat — echo/blood: sonar stun, vampire aura, phantom swarm
-  bat: { path:'bird', name:'Bat', icon:'🦇', color:'#9a76d0', shape:'bird',
-    base:{hp:100,atk:11,def:3,spd:210,sta:110,life:200, r:14, atkR:45, atkCd:0.32, rngR:380, rngCd:0.45, rngDmg:7, rngSpd:680},
-    skillQ:{name:'Sonar Pulse', cd:3, type:'shock', desc:'250r echo shock + stun 0.5s', unlockRank:1},
-    skillE:{name:'Vampire Embrace', cd:9, type:'lifesteal_aura', desc:'8s aura: heal 40% of dmg dealt', unlockRank:4},
-    skillR:{name:'Echo Swarm', cd:20, type:'summon_bat', desc:'Summon 5 phantom bats 15s', unlockRank:6},
+  // Blood Path — bat vampire lineage: drain life, crimson shroud, Blood Ancestor transformation
+  bat: { path:'blood', name:'Bat', icon:'🦇', color:'#cc1133', shape:'bird',
+    base:{hp:105,atk:13,def:3,spd:215,sta:115,life:200, r:14, atkR:46, atkCd:0.30},
+    skillQ:{name:'Blood Drain', cd:3, type:'blood_drain', desc:'Dash to nearest foe: deal x2.2 dmg + steal 50% back as HP', unlockRank:1},
+    skillE:{name:'Crimson Shroud', cd:9, type:'lifesteal_aura', desc:'8s aura: heal 50% of all dmg dealt', unlockRank:4},
+    skillR:{name:'Blood Ancestor Form', cd:22, type:'blood_ancestor_form', desc:'15s: ATK ×1.8, Lifesteal 60%, summon 3 Blood Thralls', unlockRank:6},
   },
   // 鱗
   shark: { path:'fish', name:'Shark', icon:'🦈', color:'#88c0ff', shape:'fish',
@@ -345,18 +524,19 @@ const SPECIES = {
     skillE:{name:'Blood Frenzy', cd:6, type:'bloodrage', desc:'Sense low-HP 6s + AS x1.5', unlockRank:4},
     skillR:{name:'Abyss Call', cd:22, type:'abyss', desc:'Summon 5 phantom sharks', unlockRank:6},
   },
-  electroEel: { path:'fish', name:'Eel', icon:'🐍', color:'#aaffe0', shape:'fish',
+  electroEel: { path:'fish', name:'Eel', icon:'⚡', color:'#aaffe0', shape:'fish',
     base:{hp:120,atk:13,def:4,spd:170,sta:120,life:200, r:18, atkR:50, atkCd:0.4, rngR:480, rngCd:0.5, rngDmg:9, rngSpd:660},
     skillQ:{name:'Discharge', cd:3, type:'shock', desc:'250r shock + stun 0.5s', unlockRank:1},
     skillE:{name:'Lightning Chain', cd:6, type:'chain', desc:'8-jump chain x0.6 each', unlockRank:4},
     skillR:{name:'Storm Cataclysm', cd:20, type:'thunder_storm', desc:'16-jump chain + 8 sky bolts', unlockRank:6},
   },
   // 蟲
-  scorpion: { path:'insect', name:'Scorpion', icon:'🦂', color:'#c0ff60', shape:'insect',
-    base:{hp:140,atk:15,def:7,spd:160,sta:90,life:220, r:18, atkR:55, atkCd:0.42, rngR:430, rngCd:0.9, rngDmg:12, rngSpd:500},
-    skillQ:{name:'Venom Tail', cd:3, type:'poison_sting', desc:'Spear lunge, 6s DOT 5/s', unlockRank:1},
-    skillE:{name:'Venom Mist', cd:7, type:'poison_cloud', desc:'200r venom cloud 6s DOT', unlockRank:4},
-    skillR:{name:'Imperial Venom', cd:22, type:'plague', desc:'All poisoned 10s, 30/s', unlockRank:6},
+  // Insect Path — Tyranid swarm lineage: bio-spine spit, synapse drone spawn, biogenesis hive tyrant form
+  scorpion: { path:'insect', name:'Scorpion', icon:'🦂', color:'#aaff33', shape:'insect',
+    base:{hp:145,atk:16,def:7,spd:158,sta:90,life:220, r:18, atkR:55, atkCd:0.42, rngR:430, rngCd:0.9, rngDmg:13, rngSpd:500},
+    skillQ:{name:'Brood Spit', cd:3, type:'brood_spit', desc:'3 bio-spines spread — each hit poisons 8s', unlockRank:1},
+    skillE:{name:'Synapse Pulse', cd:7, type:'synapse_pulse', desc:'200r psychic burst: stun 0.8s + spawn 2 Brood Drones', unlockRank:4},
+    skillR:{name:'Biogenesis', cd:22, type:'biogenesis', desc:'Hive Tyrant: 12s ATK×2, venom aura + spore cloud', unlockRank:6},
   },
 };
 
@@ -426,6 +606,26 @@ const PATH_QUESTS = {
     { desc:'Insect Patriarch Dreams: Enter Lands End',                    req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'Reached':'Not yet' },
     { desc:'Insect God Crown: Kill 2 tier-5+ enemies',          req:p=>p.q.killEpic>=2, show:p=>`Epic ${p.q.killEpic}/2` },
   ],
+  blood: [
+    { desc:'First Blood: Kill 3 creatures',                    req:qK(3),   show:qKShow(3) },
+    { desc:'Blood Feast: 8 total kills',                       req:qK(8),   show:qKShow(8) },
+    { desc:'Crimson Hunt: Kill 1 tier-3+ enemy',               req:p=>p.q.killHighTier>=1, show:p=>`High-tier ${p.q.killHighTier}/1` },
+    { desc:'Vampire\'s Domain: 20 total kills',                req:qK(20),  show:qKShow(20) },
+    { desc:'Duke\'s Hunt: Pick up 1 Authority',               req:p=>p.q.authorities>=1, show:p=>`Authorities ${p.q.authorities}/1` },
+    { desc:'Blood Prince: Use Authority 4 times',              req:p=>p.q.casts>=4, show:p=>`Casts ${Math.min(p.q.casts,4)}/4` },
+    { desc:'Ancestor Rises: Enter Lands End',                  req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'Reached':'Not yet' },
+    { desc:'Blood God Crowned: Collect 3 Authorities',         req:p=>p.q.authorities>=3, show:p=>`Authorities ${p.q.authorities}/3` },
+  ],
+  saurian: [
+    { desc:'First Stomp: Kill 4 creatures',                    req:qK(4),   show:qKShow(4) },
+    { desc:'Territorial: Explore 3 biomes',                    req:p=>p.q.terrains.size>=3, show:p=>`Biomes ${p.q.terrains.size}/3` },
+    { desc:'Apex Strike: Kill 1 tier-3+ enemy',                req:p=>p.q.killHighTier>=1, show:p=>`High-tier ${p.q.killHighTier}/1` },
+    { desc:'World-Shaker: 15 total kills',                     req:qK(15),  show:qKShow(15) },
+    { desc:'Ancient Power: Pick up 1 Authority',               req:p=>p.q.authorities>=1, show:p=>`Authorities ${p.q.authorities}/1` },
+    { desc:'Tyrant Lord: Use Authority 4 times',               req:p=>p.q.casts>=4, show:p=>`Casts ${Math.min(p.q.casts,4)}/4` },
+    { desc:'Tyrant God Trial: Enter Lands End',                req:p=>p.q.enteredEnd, show:p=>p.q.enteredEnd?'Reached':'Not yet' },
+    { desc:'Primal Ruler: Collect 3 Authorities',              req:p=>p.q.authorities>=3, show:p=>`Authorities ${p.q.authorities}/3` },
+  ],
 };
 
 // =====================================================================
@@ -448,7 +648,7 @@ const RANK_FORMS = {
   ],
   lizard: [
     {rank:1,icon:'🦎',color:'#7fd07f',name:'River Lizard'},
-    {rank:3,icon:'🐍',color:'#55aa55',name:'Swift Raptor'},
+    {rank:3,icon:'🦎',color:'#55aa55',name:'Spined Raptor'},
     {rank:5,icon:'🔥',color:'#88aa22',name:'War Iguana'},
     {rank:7,icon:'💀',color:'#aa6600',name:'Primal Hunter'},
     {rank:9,icon:'🌋',color:'#ff6600',name:'True Primal God'},
@@ -496,32 +696,32 @@ const RANK_FORMS = {
     {rank:9,icon:'☠️',color:'#aaaacc',name:'True Night God'},
   ],
   bat: [
-    {rank:1,icon:'🦇',color:'#9a76d0',name:'Little Bat'},
-    {rank:3,icon:'🦇',color:'#7a5ab0',name:'Blood Bat'},
-    {rank:5,icon:'🧛',color:'#5a3e90',name:'Vampire Lord'},
-    {rank:7,icon:'👹',color:'#3a2270',name:'Demon Bat'},
-    {rank:9,icon:'☠️',color:'#cc88ff',name:'Undead God'},
+    {rank:1,icon:'�',color:'#cc1133',name:'Bat Pup'},
+    {rank:3,icon:'🩸',color:'#aa0022',name:'Crimson Blade Bat'},
+    {rank:5,icon:'🧁',color:'#880011',name:'Vampire Lord'},
+    {rank:7,icon:'👑',color:'#550008',name:'Blood Prince'},
+    {rank:9,icon:'☄️',color:'#ff0033',name:'Primordial Blood Patriarch'},
   ],
   shark: [
-    {rank:1,icon:'🦈',color:'#88c0ff',name:'Young Shark'},
+    {rank:1,icon:'🦈',color:'#88c0ff',name:'Sharklet'},
     {rank:3,icon:'🦈',color:'#6699ff',name:'Blood Shark'},
-    {rank:5,icon:'⚔️',color:'#4477ff',name:'Apex Shark'},
-    {rank:7,icon:'🌊',color:'#2255ff',name:'Deep Terror'},
-    {rank:9,icon:'🌀',color:'#aaddff',name:'True Sea God'},
+    {rank:5,icon:'🌊',color:'#4477ff',name:'Abyss Apex'},
+    {rank:7,icon:'🌪️',color:'#2244dd',name:'Titan Leviathan'},
+    {rank:9,icon:'🐡',color:'#001188',name:'World-Eater'},
   ],
   electroEel: [
-    {rank:1,icon:'🐍',color:'#aaff88',name:'River Eel'},
-    {rank:3,icon:'⚡',color:'#88ff44',name:'Thunder Eel'},
-    {rank:5,icon:'🌩️',color:'#66ee00',name:'Storm Eel'},
-    {rank:7,icon:'🔮',color:'#44cc00',name:'Void Serpent'},
-    {rank:9,icon:'🌪️',color:'#00ff88',name:'True Storm God'},
+    {rank:1,icon:'⚡',color:'#aaffe0',name:'Spark Eel'},
+    {rank:3,icon:'⚡',color:'#88ffcc',name:'Thunder Eel'},
+    {rank:5,icon:'🌩️',color:'#44ffaa',name:'Storm Sovereign'},
+    {rank:7,icon:'🌪️',color:'#00dd88',name:'Thunder Incarnate'},
+    {rank:9,icon:'☄️',color:'#ffff00',name:'Thunder God Raijin'},
   ],
   scorpion: [
-    {rank:1,icon:'🦂',color:'#cc8844',name:'Young Scorpion'},
-    {rank:3,icon:'🦂',color:'#aa6622',name:'Sand Stalker'},
-    {rank:5,icon:'☠️',color:'#884400',name:'Plague Scorpion'},
-    {rank:7,icon:'💀',color:'#662200',name:'Death Scorpion'},
-    {rank:9,icon:'🌑',color:'#ff4400',name:'True Plague God'},
+    {rank:1,icon:'🦂',color:'#aaff33',name:'Devouring Larva'},
+    {rank:3,icon:'🦂',color:'#88ee00',name:'Brood Warrior'},
+    {rank:5,icon:'👾',color:'#66bb00',name:'Hive Prime'},
+    {rank:7,icon:'🧠',color:'#448800',name:'Hive Tyrant'},
+    {rank:9,icon:'🐝',color:'#336600',name:'Norn-Queen'},
   ],
 };
 function getRankForm(c){
@@ -640,11 +840,87 @@ function getMeta(){
   return { totalKills:0, totalBossKills:0, totalEvos:0, totalRuns:0 };
 }
 function saveMeta(m){ try { localStorage.setItem(EVO_META_KEY, JSON.stringify(m)); } catch(e){} }
+
+// =====================================================================
+// v3.18.0: Achievement system — 10 milestones, one-time coin rewards
+// =====================================================================
+const EVO_ACHIEV_KEY = 'evo_achievements_v1';
+const ACHIEVEMENT_DEFS = [
+  { id:'first_run',    name:'First Steps',        icon:'👣', reward:30,  desc:'Complete your first run' },
+  { id:'survivor_30',  name:'Tenacious',           icon:'⏳', reward:40,  desc:'Survive 30 seconds in one run' },
+  { id:'first_blood',  name:'First Blood',         icon:'🩸', reward:30,  desc:'Get your first kill' },
+  { id:'survivor_5',   name:'Survivor',            icon:'⏱️', reward:50,  desc:'Survive 5 minutes in one run' },
+  { id:'tier5',        name:'Ascendant',           icon:'🌟', reward:80,  desc:'Reach Tier 5 in any run' },
+  { id:'boss_slayer',  name:'God Slayer',          icon:'☄️', reward:150, desc:'Defeat your first Outer God' },
+  { id:'kills_50',     name:'Reaper',              icon:'⚔️', reward:100, desc:'50 kills in a single run' },
+  { id:'tier9',        name:'Apotheosis',          icon:'👑', reward:300, desc:'Reach Tier 9 (true divinity)' },
+  { id:'runs_10',      name:'Veteran',             icon:'🛡️', reward:120, desc:'Complete 10 runs' },
+  { id:'boss_kills_5', name:'Outer God Nemesis',   icon:'🌌', reward:250, desc:'Slay 5 Outer Gods total' },
+  { id:'streak_7',     name:'Devoted',             icon:'🔥', reward:350, desc:'Log in 7 days in a row' },
+  { id:'species_5',    name:'Naturalist',          icon:'📖', reward:200, desc:'Play as 5 different species' },
+];
+function getAchievements(){ try { return JSON.parse(localStorage.getItem(EVO_ACHIEV_KEY)||'{}') || {}; } catch(e){ return {}; } }
+function saveAchievements(a){ try { localStorage.setItem(EVO_ACHIEV_KEY, JSON.stringify(a)); } catch(e){} }
+function checkAchievements(){
+  const a = getAchievements();
+  const meta = getMeta();
+  const life = (()=>{ try { return JSON.parse(localStorage.getItem('evo_lifetime_stats')||'{}') || {}; } catch(e){ return {}; } })();
+  const streak = (()=>{ try { return JSON.parse(localStorage.getItem('evo_login_streak')||'{}') || {}; } catch(e){ return {}; } })();
+  let sp = []; try { sp = JSON.parse(localStorage.getItem('evo_species_played')||'[]'); } catch(e){}
+  if (G.selectedSpecies && !sp.includes(G.selectedSpecies)){
+    sp.push(G.selectedSpecies); try { localStorage.setItem('evo_species_played', JSON.stringify(sp)); } catch(e){}
+  }
+  const snap = {
+    kills:          (G.player && G.player.q && G.player.q.kills) || 0,
+    timeS:          Math.floor(G.time || 0),
+    maxRank:        (G.player && G.player.rank) || 0,
+    bossKills:      (G.player && G.player.q && G.player.q.bossKilled) || 0,
+    totalRuns:      (life.runs || 0),
+    totalBossKills: (meta.totalBossKills || 0),
+    streakDay:      (streak.day || 0),
+    speciesCount:   sp.length,
+  };
+  const conds = {
+    first_run:     s => s.totalRuns >= 1,
+    survivor_30:   s => s.timeS >= 30,
+    first_blood:   s => s.kills >= 1,
+    survivor_5:    s => s.timeS >= 300,
+    tier5:         s => s.maxRank >= 5,
+    boss_slayer:   s => s.bossKills >= 1,
+    kills_50:      s => s.kills >= 50,
+    tier9:         s => s.maxRank >= 9,
+    runs_10:       s => s.totalRuns >= 10,
+    boss_kills_5:  s => s.totalBossKills >= 5,
+    streak_7:      s => s.streakDay >= 7,
+    species_5:     s => s.speciesCount >= 5,
+  };
+  const newly = [];
+  for (const def of ACHIEVEMENT_DEFS){
+    if (a[def.id]) continue;
+    if (conds[def.id] && conds[def.id](snap)){
+      a[def.id] = { t: Date.now() };
+      try { addCoins(def.reward); accrueVault(def.reward); } catch(e){}
+      newly.push(def);
+    }
+  }
+  saveAchievements(a);
+  return newly;
+}
+function _renderAchievementUnlocks(newly, root){
+  if (!newly || !newly.length || !root) return;
+  const box = document.createElement('div');
+  box.style.cssText = 'margin:10px auto;max-width:640px;border:1.5px solid #ffd66b;background:rgba(30,20,5,.9);border-radius:10px;padding:10px;text-align:center;animation:pulse 0.8s 3';
+  box.innerHTML = `<div style="font-weight:700;color:#ffd66b;font-size:14px;margin-bottom:6px">🏆 Achievement${newly.length>1?'s':''} Unlocked!</div>` +
+    newly.map(d => `<div style="display:inline-block;margin:4px 8px;color:#fff;font-size:13px">${d.icon} <b>${d.name}</b> <span style="color:#7fd07f">+${d.reward}🪙</span></div>`).join('');
+  root.insertBefore(box, root.querySelector('#restartBtn') || root.firstChild);
+}
+
 // Award coins for in-run achievements (Outer God, evolution, PvP kills). Reuses existing coin currency.
 function addSoulShards(n, reason){
   const mult = getCoinGainMultiplier(G.player || null);
   const amount = Math.max(1, Math.floor((n||0) * mult));
   try { if (typeof addCoins === 'function') addCoins(amount); } catch(e){}
+  try { accrueVault(amount); } catch(e){}
   if (G.player && G.started) addFloat(G.player.x, G.player.y-60, `+${amount} 🪙 coins`+(reason?' · '+reason:''), '#ffd66b', 16, 2.2);
   pushKillFeed(`🪙 +${amount} coins`+(reason?' ('+reason+')':''), '#ffd66b');
 }
@@ -701,6 +977,13 @@ const AUTHORITIES = [
   { id:'omni',    name:'Starfall Authority',  color:'#ffdd66', icon:'☄️', cd:40,
     desc:'Reveal map 12s + 800 boss dmg + Qi +50% 90s' },
 ];
+function getAuthorityPacingLimit(){
+  const stage = Math.max(1, G.stage || 1);
+  return [2, 2, 3, 3, 4][stage - 1] || 2;
+}
+function getAuthorityActiveLimit(){
+  return getAuthorityPacingLimit();
+}
 
 // v3.14.0: player boost offers — stronger rewards loop for replay, monetization, and ad value.
 const EVO_BOOSTS_KEY = 'evo_boosts_v1';
@@ -785,6 +1068,153 @@ function getXpGainMultiplier(p){ return (p && (p._xpMul || 1)) || 1; }
 function getCoinGainMultiplier(p){ return (p && (p._coinMul || 1)) || 1; }
 
 // =====================================================================
+// v3.17.0: Monetization core — ad pacing governor, Divine Vault (piggy
+// bank), Daily Deal, comeback bonus, in-run rewarded supply drop.
+// Design rules: interstitials only at natural breaks (start/restart/win),
+// never mid-gameplay; rewarded ads are always opt-in and value-forward.
+// =====================================================================
+const MONETIZE = {
+  INTERSTITIAL_MIN_GAP: 180000,   // >=3 min between interstitials (stricter than SDK's 120s)
+  INTERSTITIAL_SESSION_CAP: 6,    // max interstitials per browser session
+  NEWCOMER_GRACE_RUNS: 2,         // zero interstitials for a player's first 2 lifetime runs
+  VAULT_RATE: 0.5,                // 50% of coins earned also accrue into the vault
+  VAULT_CAP: 600,
+  VAULT_FREE_PCT: 0.2,            // free claim pays 20%, forfeits the rest (ad claims 100%)
+  COMEBACK_HOURS: 20,
+  COMEBACK_COINS: 120,
+  FIRST_RUN_DAILY_MULT: 2,        // first run of each UTC day pays double coins
+  SUPPLY_DROP_INTERVAL: 300,      // seconds alive between in-run rewarded offers
+};
+let _adSessionCount = 0;
+let _lastInterstitialAt = 0;
+function _lifetimeRunCount(){
+  try { return ((JSON.parse(localStorage.getItem(EVO_LIFETIME_KEY)||'{}')||{}).runs|0); } catch(e){ return 0; }
+}
+function canShowInterstitial(){
+  if (!(window.SDK && SDK.ready && !SDK.noAds && typeof SDK.commercialBreak === 'function')) return false;
+  if (_lifetimeRunCount() < MONETIZE.NEWCOMER_GRACE_RUNS) return false;        // protect FTUE
+  if (_adSessionCount >= MONETIZE.INTERSTITIAL_SESSION_CAP) return false;      // session fatigue cap
+  if (Date.now() - _lastInterstitialAt < MONETIZE.INTERSTITIAL_MIN_GAP) return false;
+  return true;
+}
+async function tryMidroll(reason){
+  if (!canShowInterstitial()) return false;
+  _lastInterstitialAt = Date.now();
+  _adSessionCount++;
+  try { bumpMetric('adImpressions', 1); } catch(e){}
+  try { return await SDK.commercialBreak(); } catch(e){ return false; }
+}
+function rewardedAvailable(){
+  return !!(window.SDK && SDK.ready && !SDK.noAds && typeof SDK.rewardedBreak === 'function');
+}
+async function showRewarded(placement){
+  if (!rewardedAvailable()) return false;
+  let ok = false;
+  try { ok = await SDK.rewardedBreak(); } catch(e){}
+  if (ok) try { bumpMetric('rewardedCompleted', 1); } catch(e){}
+  return ok;
+}
+
+// ---- Divine Vault (piggy bank): coins accrue during runs, crack it open
+// with a rewarded ad for 100%, or take a small cut for free -----------------
+const EVO_VAULT_KEY = 'evo_vault_v1';
+function getVault(){ try { return Math.max(0, parseInt(localStorage.getItem(EVO_VAULT_KEY)||'0',10)||0); } catch(e){ return 0; } }
+function setVault(n){ try { localStorage.setItem(EVO_VAULT_KEY, String(Math.max(0, Math.min(MONETIZE.VAULT_CAP, n|0)))); } catch(e){} }
+function accrueVault(n){ if (n>0) setVault(getVault() + Math.ceil(n * MONETIZE.VAULT_RATE)); }
+function _renderVaultPanel(root){
+  if (!root) return;
+  const old = document.getElementById('vaultPanel'); if (old) old.remove();
+  const v = getVault();
+  if (v < 20) return;  // show earlier so new players see the mechanic quickly
+  const full = v >= MONETIZE.VAULT_CAP;
+  const adOk = rewardedAvailable();
+  const freeAmt = adOk ? Math.max(1, Math.floor(v * MONETIZE.VAULT_FREE_PCT)) : v;  // no-ads platforms get it all free
+  const pct = Math.min(100, Math.round(v / MONETIZE.VAULT_CAP * 100));
+  const panel = document.createElement('div'); panel.id = 'vaultPanel';
+  panel.style.cssText = 'margin:10px auto;max-width:760px;border:1px solid #8a6ad0;background:rgba(30,20,50,0.92);border-radius:12px;padding:10px 12px;text-align:center;';
+  panel.innerHTML = `
+    <div style="font-weight:700;color:#cfa9ff;font-size:14px;">🏦 Divine Vault${full?' — FULL!':''}</div>
+    <div style="margin:6px auto;max-width:320px;height:10px;background:#221a33;border-radius:5px;overflow:hidden;">
+      <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#8a5fd0,#ffd66b);"></div>
+    </div>
+    <div style="font-size:12px;color:#cfd8ff;margin-bottom:8px;">🪙 ${v} / ${MONETIZE.VAULT_CAP} coins saved up from your runs</div>
+    ${adOk?`<button id="vaultAdBtn" style="background:linear-gradient(135deg,#945f0d,#ffd66b);color:#221107;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-weight:700;font-size:12px;">▶ Watch Ad: claim all ${v} 🪙</button>`:''}
+    <button id="vaultFreeBtn" style="background:#333;color:#aaa;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-weight:700;font-size:12px;margin-left:6px;">Take ${freeAmt} 🪙${adOk?' (forfeit rest)':''}</button>`;
+  root.appendChild(panel);
+  const _refreshCoins = ()=>{ try { const cd = document.getElementById('coinCount'); if (cd) cd.textContent = getCoins(); } catch(e){} };
+  const adBtn = document.getElementById('vaultAdBtn');
+  const freeBtn = document.getElementById('vaultFreeBtn');
+  if (adBtn) adBtn.onclick = async ()=>{
+    adBtn.disabled = true; adBtn.textContent = 'Loading…';
+    const ok = await showRewarded('vault');
+    if (ok){
+      addCoins(v); setVault(0);
+      adBtn.textContent = `✓ +${v} 🪙 claimed!`;
+      if (freeBtn) freeBtn.style.display = 'none';
+      _refreshCoins();
+    } else { adBtn.textContent = 'Ad unavailable'; adBtn.disabled = false; }
+  };
+  if (freeBtn) freeBtn.onclick = ()=>{
+    addCoins(freeAmt); setVault(0);
+    panel.innerHTML = `<div style="color:#7fd07f;font-weight:700;">✓ +${freeAmt} 🪙 claimed</div>`;
+    _refreshCoins();
+  };
+}
+
+// ---- Deal of the Day: one boost at 50% off, deterministic per UTC day -----
+const EVO_DEAL_KEY = 'evo_daily_deal_v1';
+function getDailyDeal(){
+  const today = _utcDay();
+  let st = null;
+  try { st = JSON.parse(localStorage.getItem(EVO_DEAL_KEY)||'null'); } catch(e){}
+  if (!st || st.date !== today){
+    let h = 0; for (const ch of today) h = (h*31 + ch.charCodeAt(0)) >>> 0;
+    const def = BOOST_DEFS[h % BOOST_DEFS.length];
+    st = { date: today, id: def.id, price: Math.max(10, Math.floor(def.price * 0.5)), bought: false };
+    try { localStorage.setItem(EVO_DEAL_KEY, JSON.stringify(st)); } catch(e){}
+  }
+  return st;
+}
+function buyDailyDeal(){
+  const st = getDailyDeal(); if (!st || st.bought) return false;
+  if (getActiveBoosts().includes(st.id)) return false;
+  if (getCoins() < st.price) return false;
+  setCoins(getCoins() - st.price);
+  if (!buyBoost(st.id, { skipCost:true })){ setCoins(getCoins() + st.price); return false; }
+  st.bought = true;
+  try { localStorage.setItem(EVO_DEAL_KEY, JSON.stringify(st)); } catch(e){}
+  return true;
+}
+
+// ---- In-run rewarded Supply Drop: opt-in button every ~5 min alive --------
+function _showSupplyDropOffer(){
+  const btn = document.getElementById('supplyDropBtn'); if (!btn) return;
+  if (!rewardedAvailable()) return;
+  btn.classList.remove('hidden');
+  btn.disabled = false;
+  btn.textContent = '📦 Supply Drop — Watch Ad';
+  clearTimeout(G._supplyHideT);
+  G._supplyHideT = setTimeout(()=>{ try { btn.classList.add('hidden'); } catch(e){} }, 25000);  // auto-expire = urgency
+  btn.onclick = async ()=>{
+    btn.disabled = true; btn.textContent = 'Loading…';
+    const ok = await showRewarded('supply_drop');
+    btn.classList.add('hidden');
+    if (ok && G.player && G.started && !G.dead && !G.won){
+      const p = G.player;
+      p.hp = p.maxHp; if (typeof p.maxSta === 'number') p.sta = p.maxSta;
+      p.qi += 120;
+      p.invuln = Math.max(p.invuln||0, 2);
+      addCoins(60); accrueVault(60);
+      pushKillFeed('📦 Supply Drop: full heal · +120 XP · +60 🪙', '#ffd66b');
+      try { flash('#ffd66b', 0.5); shake(10); playSound('promote'); } catch(e){}
+    }
+  };
+}
+function _hideSupplyDropOffer(){
+  try { clearTimeout(G._supplyHideT); const b = document.getElementById('supplyDropBtn'); if (b) b.classList.add('hidden'); } catch(e){}
+}
+
+// =====================================================================
 // 地形
 // =====================================================================
 const BIOMES = {
@@ -805,9 +1235,9 @@ const BIOMES = {
 const PICKUPS = [
   { id:'spirit',   name:'Qi',     color:'#bb88ff', icon:'✦', rare:false, weight:60, qi:3 },
   { id:'bigspirit',name:'Qi Orb',   color:'#dd99ff', icon:'✧', rare:true,  weight:8,  qi:18 },
-  { id:'heal',     name:'Healing Fruit',   color:'#ff5566', icon:'❤', rare:false, weight:25, heal:60 },
+  { id:'heal',     name:'Healing Fruit',   color:'#ff5566', icon:'❤', rare:true,  weight:4,  heal:60 },
   { id:'bighp',    name:'Blood Pill',   color:'#ff2244', icon:'♥', rare:true,  weight:5,  bighp:80 },
-  { id:'sta',      name:'Stamina Fruit',   color:'#7fd07f', icon:'⚡', rare:false, weight:20, sta:50 },
+  { id:'sta',      name:'Stamina Fruit',   color:'#7fd07f', icon:'⚡', rare:true,  weight:3,  sta:50 },
   { id:'zhenyuan', name:'True Essence Pill',   color:'#ffd66b', icon:'◆', rare:true,  weight:5,  zy:0.15 },
   { id:'daohen',   name:'Dao Trace Shard', color:'#ddccff', icon:'◇', rare:true,  weight:5,  dh:0.15 },
   { id:'cdreset',  name:'Purity Pearl',   color:'#aaffff', icon:'○', rare:true,  weight:6,  cdreset:true },
@@ -842,6 +1272,7 @@ const G = {
   qiSprings:[], rifts:[], stars:[], nebula:[], tendrils:[],
   terrain:null, cam:{x:0,y:0,tx:0,ty:0,shake:0,flash:0,flashColor:'#fff',hitFlash:0},
   time:0, started:false, dead:false, won:false,
+  authorityRespawns:{},
   selectedSpecies:null, msg:'', killFeed:[], leaderboard:[], errorCount:0, lastError:'',
   soundOn:true, lastHitTime:0, deathBy:'',
   killStreak:0, streakBannerT:0, streakBannerText:'', streakBannerColor:'#ff8800',
@@ -851,6 +1282,7 @@ const G = {
   bosses:[], bossSpawnT:240, bossDefeated:0,
   miniboss:null, minibossSpawnT:180, miniDefeated:0,
   event:null, eventCdT:120,  // Stars Align
+  godWar:null, godWarCd:95,  // v3.19.0: divine arena event
   stage:1, stageBannerT:0, stageBannerText:'', stageBannerSub:'',
   revealT:0, pingX:0, pingY:0, pingT:0,
   timeline:[],  // 死亡時間軸
@@ -866,6 +1298,7 @@ const G = {
   veil: null,        // { active, t, r, targetR, startR, damageT } — shrinking world boundary
   party: null,       // { id, leader, members:Set<peerId>, invitedBy } — in-game social party
   partyInvites: [], // [{from, fromName, partyId, t}] pending invites
+  domains: [],      // [{id, ownerRef, x, y, r, vassals, ...}] high-sequence territory circles
   ascended: null,   // { until, mult } — Apotheosis Inheritance buff after slaying a True God
   finalT: 0,        // "Final Tribulation" banner timer
   finalTriggered: false,
@@ -1228,6 +1661,29 @@ const BOSS_POOL = [
   { type:'eclipse',   name:'Blood Eclipse · Heaven Blotter',      color:'#cc2244', hp:30500, atk:188, accent:'#ff8888', ai:'eclipse'  },
   { type:'void',      name:'Primordial Void · First Silence',     color:'#220044', hp:35000, atk:145, accent:'#aa44ff', ai:'void'     },
 ];
+const BOSS_AUTHORITY_LOADOUTS = {
+  eye:     ['time', 'void', 'omni'],
+  maw:     ['fire', 'life', 'titan'],
+  crown:   ['frost', 'time', 'gale'],
+  phoenix: ['fire', 'thunder', 'life'],
+  serpent: ['void', 'frost', 'life'],
+  leviathan:['gale', 'frost', 'void'],
+  spider:  ['void', 'time', 'thunder'],
+  titan:   ['thunder', 'titan', 'gale'],
+  rift:    ['void', 'time', 'fire'],
+  plague:  ['life', 'void', 'gale'],
+  mirror:  ['time', 'frost', 'thunder'],
+  worm:    ['void', 'titan', 'fire'],
+  eclipse: ['fire', 'time', 'thunder'],
+};
+function getBossAuthorityLoadout(type){
+  const ids = (BOSS_AUTHORITY_LOADOUTS[type] || ['void', 'time']).slice(0, 2);
+  return ids.map((id, idx) => {
+    const base = AUTHORITIES.find(a => a.id === id);
+    if (!base) return null;
+    return { ...base, _tier: idx >= 1 ? 2 : 1 };
+  }).filter(Boolean);
+}
 // v3.5.1: returns the closest living outer god to pos (for skills / melee / projectiles)
 function nearestBoss(pos){
   let best=null, bd=Infinity;
@@ -1235,24 +1691,28 @@ function nearestBoss(pos){
   return best;
 }
 function spawnBoss(){
-  const cx=WORLD.w/2, cy=WORLD.h/2;
+  const px = (G.player && isFinite(G.player.x)) ? G.player.x : WORLD.w/2;
+  const py = (G.player && isFinite(G.player.y)) ? G.player.y : WORLD.h/2;
   // v2.9.0: cycle through pool (avoid repeating last one)
   let pick;
   do { pick = BOSS_POOL[(Math.random()*BOSS_POOL.length)|0]; } while (G._lastBossType && pick.type===G._lastBossType && BOSS_POOL.length>1);
   G._lastBossType = pick.type;
-  // v3.12.0: spawn outer god at random offset so action spreads across map
+  // v3.12.0: spawn outer god near the player so it is visible and contestable sooner
   const spawnAng = Math.random() * Math.PI * 2;
-  const spawnD   = rand(3500, 6000);
+  const spawnD   = rand(1400, 2400);
   const nb = {
     isBoss:true, type:pick.type, name:pick.name,
-    x: cx + Math.cos(spawnAng)*spawnD,
-    y: cy + Math.sin(spawnAng)*spawnD,
+    x: clamp(px + Math.cos(spawnAng)*spawnD, 120, WORLD.w-120),
+    y: clamp(py + Math.sin(spawnAng)*spawnD, 120, WORLD.h-120),
     vx:0, vy:0, r:80,
     hp:pick.hp, maxHp:pick.hp, atk:pick.atk,
     atkCdT:0, projT:4, eyeT:0, phase:1,
     color:pick.color, accent:pick.accent,
   };
+  nb.authoritySlots = getBossAuthorityLoadout(pick.type);
+  nb.authCdT = nb.authoritySlots.map((_, i) => rand(2.5 + i, 6.5 + i));
   G.bosses.push(nb);
+  G._bossReveal = { t: 10, x: nb.x, y: nb.y, name: pick.name, color: pick.color };
   pushKillFeed('☄ '+pick.name+' descends ☄', pick.color);
   logMsg('★★★ '+pick.name+' arrives at map center — approach with caution ★★★','promote');
   try{ playSound('auth'); flash(pick.color,0.6); shake(30); }catch(e){}
@@ -1274,6 +1734,11 @@ function _loadBossArt(type){
 function updateBoss(b, dt){
   b.eyeT += dt;
   b._aiT = (b._aiT||0) + dt;
+  if (b.authCdT && b.authCdT.length){
+    for (let i = 0; i < b.authCdT.length; i++){
+      if (b.authCdT[i] > 0) b.authCdT[i] = Math.max(0, b.authCdT[i] - dt);
+    }
+  }
   const ai = b.ai || 'spiral';
   // Phase 2 triggers at 50% HP
   if (b.hp < b.maxHp*0.5 && b.phase===1){
@@ -1284,6 +1749,13 @@ function updateBoss(b, dt){
   const spd = b.phase===2 ? 68 : 44;
   if (!G.player) return;
   const dx=G.player.x-b.x, dy=G.player.y-b.y, d=Math.hypot(dx,dy)||1;
+  if (b.authoritySlots && b.authoritySlots.length){
+    b._authPulse = (b._authPulse || rand(2.5, 5.5)) - dt;
+    if (b._authPulse <= 0){
+      try { castAuthorityAI(b); } catch(e){}
+      b._authPulse = (b.phase===2 ? rand(3.2, 5.8) : rand(4.8, 7.8));
+    }
+  }
   // ── type-specific movement ──────────────────────────────────────
   if (ai==='charge'){
     // Maw: charges in bursts, pauses between
@@ -1500,9 +1972,8 @@ function onBossDeath(b){
     // v3.9.0: guaranteed Authority Shard from Outer God
     try { spawnAuthorityShard(b.x + rand(-30,30), b.y + rand(-30,30), 'boss'); } catch(e){}
     // v3.2.0: max happyTime signal — boss kill is peak engagement
+    // v3.17.0: interstitial removed — never interrupt gameplay at emotional peaks
     try { if (window.SDK && SDK.happyTime) SDK.happyTime(1.0); } catch(e){}
-    // v3.4.0: midroll ad on boss-kill euphoria (SDK throttles to >=120s gap, so safe-spam)
-    try { if (window.SDK && SDK.ready && SDK.commercialBreak) SDK.commercialBreak(); } catch(e){}
     G.timeline.push({t:G.time, text:'Slay Star-Touching Eye'});
     // 掉一個隨機權柄
     // v2.1.0: only restore a globally-missing authority (world-unique)
@@ -1514,8 +1985,8 @@ function onBossDeath(b){
       const missing = AUTHORITIES.filter(a=>!heldIds.has(a.id));
       if (missing.length){
         const a = missing[(Math.random()*missing.length)|0];
-        G.authorities.push({...a, x:b.x, y:b.y, pulse:0, droppedT:G.time});
-        pushKillFeed('★ Outer God restored Authority: '+a.name, a.color);
+        const spawned = spawnAuthorityWorldItem(a, { x:b.x, y:b.y });
+        if (spawned) pushKillFeed('★ Outer God restored Authority: '+a.name, a.color);
       }
     } catch(e){}
   }
@@ -2112,6 +2583,174 @@ function drawWorldEventFX(){
   ctx.fillText('☄ Stars Align ' + G.event.t.toFixed(1) + 's', W/2, 32);
 }
 
+function updateGodWarEvent(dt){
+  if (!G.player) return;
+  if (!G.godWar) G.godWar = { active:false, t:0, cd:(G.godWarCd||95), centerX:G.player.x, centerY:G.player.y, pulse:0 };
+  if (!G.godWar.active){
+    G.godWar.cd = (G.godWar.cd||95) - dt;
+    if (G.godWar.cd <= 0){
+      G.godWar.active = true;
+      G.godWar.t = 28;
+      G.godWar.centerX = G.player.x + rand(-1800,1800);
+      G.godWar.centerY = G.player.y + rand(-1800,1800);
+      G.godWar.pulse = 0;
+      pushKillFeed('⚡ GOD WAR — divine arenas ignite · fight for Authority', '#ffdd66');
+      logMsg('★ God War: enter the marked arena for +25% ATK · clash authorities to strip power', 'promote');
+      try { flash('#ffdd66', 0.45); shake(12); } catch(e){}
+    }
+    if (G.player._inGodWar) _exitGodWarArena(G.player);
+    return;
+  }
+  G.godWar.t -= dt;
+  G.godWar.pulse += dt;
+  const _inArena = Math.hypot(G.player.x - G.godWar.centerX, G.player.y - G.godWar.centerY) < 820;
+  if (_inArena && !G.player._inGodWar) _enterGodWarArena(G.player);
+  else if (!_inArena && G.player._inGodWar) _exitGodWarArena(G.player);
+  if (G.godWar.pulse >= 1.6){
+    G.godWar.pulse = 0;
+    const combatants = [G.player, ...G.enemies, ...G.minions].filter(c => c && c.hp > 0 && c.authoritySlots && c.authoritySlots.length);
+    const inZone = combatants.filter(c => Math.hypot((c.x||0)-G.godWar.centerX, (c.y||0)-G.godWar.centerY) < 820);
+    if (inZone.length >= 2){
+      const a = inZone[Math.floor(Math.random()*inZone.length)];
+      const b = inZone.filter(c => c !== a).sort((x,y)=>Math.hypot((x.x||0)-a.x,(x.y||0)-a.y) - Math.hypot((y.x||0)-a.x,(y.y||0)-a.y))[0];
+      if (b) triggerAuthorityCollision(a, b);
+    }
+  }
+  if (G.godWar.t <= 0){
+    if (G.player._inGodWar) _exitGodWarArena(G.player);
+    G.godWar.active = false;
+    G.godWar.cd = 80 + Math.random()*50;
+    pushKillFeed('⚡ God War fades — the battlefield calms', '#aaccff');
+  }
+}
+function _enterGodWarArena(p){
+  if (!p || p._inGodWar) return;
+  p._inGodWar = true;
+  p.bonusAtkMult = (p.bonusAtkMult||1) * 1.25;
+  try { recalcStats(p); } catch(e){}
+  addFloat(p.x, p.y - 38, '⚡ God War +25% ATK', '#ffdd66', 16, 2.4);
+  pushKillFeed('You enter the God War arena: +25% ATK', '#ffdd66');
+}
+function _exitGodWarArena(p){
+  if (!p || !p._inGodWar) return;
+  p._inGodWar = false;
+  p.bonusAtkMult = Math.max(1, (p.bonusAtkMult||1) / 1.25);
+  try { recalcStats(p); } catch(e){}
+  addFloat(p.x, p.y - 38, 'Left God War arena', '#aaccff', 14, 1.6);
+}
+
+function triggerAuthorityCollision(source, target){
+  if (!source || !target || source.hp <= 0 || target.hp <= 0) return;
+  const cx = (source.x + target.x) / 2;
+  const cy = (source.y + target.y) / 2;
+  const strength = 1 + ((source.authoritySlots?.length||0) + (target.authoritySlots?.length||0)) * 0.2;
+  const area = [G.player, ...G.enemies, ...G.minions].filter(c => c && c.hp > 0 && Math.hypot((c.x||0)-cx, (c.y||0)-cy) < 360);
+  const baseDmg = Math.max(90, 140 * strength);
+  for (const c of area){
+    if (c === source || c === target) continue;
+    dealDamage(source, c, baseDmg * 0.7, '#ffdd66');
+  }
+  if (source.hp > 0) {
+    const heal = Math.max(35, 55 * strength);
+    source.hp = Math.min(source.maxHp || source.hp, source.hp + heal);
+    addFloat(source.x, source.y - 25, `+${heal}Ω`, '#ffdd66', 16, 1.3);
+  }
+  if (target.hp > 0) {
+    const heal = Math.max(35, 55 * strength);
+    target.hp = Math.min(target.maxHp || target.hp, target.hp + heal);
+    addFloat(target.x, target.y - 25, `+${heal}Ω`, '#ffdd66', 16, 1.3);
+  }
+  // weaker collider loses a random authority
+  const loser = source.hp < target.hp ? source : target;
+  if (loser.authoritySlots && loser.authoritySlots.length > 0){
+    const idx = Math.floor(Math.random() * loser.authoritySlots.length);
+    const dropped = loser.authoritySlots.splice(idx, 1)[0];
+    if (loser.authCdT && loser.authCdT.length > idx) loser.authCdT.splice(idx, 1);
+    if (dropped){
+      try { spawnAuthorityWorldItem(dropped, { x: cx + rand(-80,80), y: cy + rand(-80,80) }); } catch(e){}
+      addFloat(loser.x, loser.y - 30, `✦ ${dropped.name} torn away!`, '#ff8800', 15, 2.2);
+      pushKillFeed(`⚡ Collision: [${dropped.name}] ripped loose`, '#ffdd66');
+    }
+  }
+  G.shockwaves.push({ x:cx, y:cy, r:0, max:420, life:0.9, color:'#ffdd66' });
+  G.particles.push(...Array.from({length:24}, ()=>({ x:cx, y:cy, vx:rand(-260,260), vy:rand(-260,260), life:1.3, color:'#ffdd66', r:rand(2,4)})));
+  try { shake(10); flash('#ffdd66', 0.3); } catch(e){}
+  pushKillFeed('⚡ Authority Collision — the gods answer', '#ffdd66');
+}
+
+function updatePartyCoopBuff(dt){
+  if (!G.player) return;
+  const p = G.player;
+  p._partyCoopActive = false;
+  if (!G.party || G.party.members.size < 2) return;
+  let nearbyPeer = null;
+  for (const id of G.party.members){
+    if (id === (window.Net ? Net.myId : 0)) continue;
+    const peer = window.Net && Net.peers ? Net.peers.get(id) : null;
+    if (!peer || !peer.alive) continue;
+    if (Math.hypot((peer.x||0)-p.x, (peer.y||0)-p.y) < PARTY_RANGE_BOND){ nearbyPeer = peer; break; }
+  }
+  if (!nearbyPeer) return;
+  p._partyCoopActive = true;
+  p._partyCoopPulse = (p._partyCoopPulse||0) + dt;
+  if (p._partyCoopPulse >= 1){
+    p._partyCoopPulse = 0;
+    // shared regen: each tick heal 8hp + 2% of missing HP
+    const missingHeal = Math.ceil((p.maxHp - p.hp) * 0.02);
+    const healAmt = 8 + missingHeal;
+    p.hp = Math.min(p.maxHp, p.hp + healAmt);
+    addFloat(p.x, p.y - 20, `+${healAmt} (co-op)`, '#7fd07f', 13, 1.0);
+  }
+}
+
+function drawGodWarArena(){
+  if (!G.godWar || !G.godWar.active) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  const cx = G.godWar.centerX - G.cam.x + W/2;
+  const cy = G.godWar.centerY - G.cam.y + H/2;
+  const r = 820;
+  // subtle ground tint
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0, 'rgba(255,221,102,0.08)');
+  g.addColorStop(0.6, 'rgba(200,60,120,0.05)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+  // animated dashed ring
+  ctx.strokeStyle = '#ffdd66'; ctx.lineWidth = 3; ctx.setLineDash([12,10]);
+  ctx.lineDashOffset = -G.time * 20;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+  // prize authority icons orbit the center
+  const prizes = G.godWar.prizes || [];
+  for (let i = 0; i < prizes.length; i++){
+    const def = AUTHORITIES.find(a => a.id === prizes[i]); if (!def) continue;
+    const claimed = hasAuthorityInInventory(G.player, prizes[i]);
+    const worldItem = (G.authorities||[]).find(a => a.id === prizes[i] && !a._gone && !a._picked);
+    const ang = G.time * 0.9 + i * (Math.PI*2/prizes.length);
+    const px = cx + Math.cos(ang)*160, py = cy + Math.sin(ang)*160;
+    ctx.globalAlpha = claimed ? 0.28 : worldItem ? (0.8 + 0.2*Math.sin(G.time*4+i)) : 0.45;
+    ctx.font = 'bold 30px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(def.icon, px, py);
+    ctx.font = '11px sans-serif'; ctx.fillStyle = claimed ? '#888' : def.color;
+    ctx.fillText(claimed ? 'Seized' : def.name, px, py + 22);
+    ctx.globalAlpha = 1;
+  }
+  // label + timer
+  ctx.fillStyle = '#ffdd66'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('GOD WAR — SEIZE THE AUTHORITIES', cx, cy - r - 22);
+  ctx.font = '12px sans-serif'; ctx.fillStyle='#ffccaa';
+  ctx.fillText(`Fight for the prize · ${Math.max(0, G.godWar.t||0).toFixed(1)}s`, cx, cy - r - 6);
+  // off-screen arrow pointer
+  if (cx < -r || cx > W+r || cy < -r || cy > H+r){
+    const _ang = Math.atan2(cy - H/2, cx - W/2);
+    const _ax = W/2 + Math.cos(_ang)*Math.min(W,H)*0.42;
+    const _ay = H/2 + Math.sin(_ang)*Math.min(W,H)*0.42;
+    ctx.save(); ctx.translate(_ax,_ay); ctx.rotate(_ang);
+    ctx.fillStyle = '#ffdd66'; ctx.globalAlpha = 0.7+0.3*Math.sin(G.time*4);
+    ctx.beginPath(); ctx.moveTo(16,0); ctx.lineTo(-9,-9); ctx.lineTo(-4,0); ctx.lineTo(-9,9); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+}
 
 function drawFirstHuntGuide(){
   if (!G.started || G.dead || !G.player || !G.firstHunt || !G.firstHunt.active) return;
@@ -2437,6 +3076,16 @@ function recalcStats(p){
     p.atk = Math.floor(p.atk * 1.15);
     p.def = Math.floor(p.def * 1.15);
   }
+  if (p.isPlayer && p._domainPower && p._domainPower > 1){
+    p.atk = Math.floor(p.atk * p._domainPower);
+    p.def = Math.floor(p.def * p._domainPower);
+    p.spd = Math.min(620, Math.floor(p.spd * (1 + (p._domainPower - 1) * 0.5)));
+  }
+  if (p.isMinion && p._domainBuff && p._domainBuff > 1){
+    p.atk = Math.floor(p.atk * p._domainBuff);
+    p.def = Math.floor(p.def * p._domainBuff);
+    p.spd = Math.min(480, Math.floor(p.spd * (1 + (p._domainBuff - 1) * 0.6)));
+  }
   // v3.8.0: Path passive multipliers (gu refinement / sector buff / fish aqua hp / bird range)
   if (p.isPlayer){
     if (p._gusMul && p._gusMul > 1) p.atk = Math.floor(p.atk * p._gusMul);
@@ -2496,7 +3145,7 @@ function tryPromote(p){
     // Requires Outer God slain + rifts opened + (if throne occupied) killing the holder.
     if (p.rank===8){
       const throneHolder = G.thrones && G.thrones[p.pathKey];
-      const needBoss = p.q.bossKilled<2;
+      const needBoss = p.q.bossKilled<1;
       const needRifts = p.q.riftsUsed<4;
       const needUsurp = throneHolder && throneHolder!==p && p.q.killThrone<1;
       if (needBoss || needRifts || needUsurp){
@@ -2548,12 +3197,9 @@ function tryPromote(p){
         const evoForm = getRankForm(p);
         if (evoForm) G.evoReveal = { rank: p.rank, form: evoForm, t: 5.0 };
         // v2.5.0: log first-evolution metric + mark form as discovered
+        // v3.17.0: evolution interstitial removed — reward moments stay ad-free
         if (!G._metricsLogged.firstEvo){
           G._metricsLogged.firstEvo = true;
-        // v3.4.0: midroll ad on big evolution moments (rank 5/7/9 = divine ascension; SDK throttles to >=120s)
-        if (p.rank>=5){
-          try { if (window.SDK && SDK.ready && SDK.commercialBreak) SDK.commercialBreak(); } catch(e){}
-        }
           try { recordFirstEvoTime(G.time||0); } catch(e){}
         }
       }
@@ -2644,6 +3290,62 @@ function _topUpMatchBots(initial=false){
 // =====================================================================
 // 世界初始化 / 補充
 // =====================================================================
+function findAuthoritySpawnPosition(){
+  let tries=0;
+  while (tries<24){
+    const x = rand(100, WORLD.w-100);
+    const y = rand(100, WORLD.h-100);
+    const nearPlayer = !!(G.player && dist({x,y}, G.player) < 1200);
+    const nearOther = G.authorities.some(a => a && a.id && Math.hypot(a.x-x, a.y-y) < 900);
+    if (!nearPlayer && !nearOther) return {x,y};
+    tries++;
+  }
+  return {x:rand(100, WORLD.w-100), y:rand(100, WORLD.h-100)};
+}
+function hasAuthorityWorldItem(id){
+  return !!(G.authorities||[]).find(a => a && a.id === id && !a._gone && !a._picked);
+}
+function hasAuthorityInInventory(p, id){
+  return !!(p && p.authoritySlots && p.authoritySlots.some(a => a && a.id === id));
+}
+function authorityIsClaimedEverywhere(id){
+  if (!id) return false;
+  if (hasAuthorityWorldItem(id)) return true;
+  if (hasAuthorityInInventory(G.player, id)) return true;
+  if ([...G.enemies, ...G.minions].some(c => hasAuthorityInInventory(c, id))) return true;
+  return false;
+}
+function scheduleAuthorityRespawn(id){
+  if (!id) return;
+  G.authorityRespawns = G.authorityRespawns || {};
+  G.authorityRespawns[id] = (G.time||0) + rand(22, 36);
+}
+function spawnAuthorityWorldItem(def, opts={}){
+  if (!def || !def.id) return null;
+  if (hasAuthorityWorldItem(def.id)) return null;
+  const activeLimit = getAuthorityActiveLimit();
+  const activeCount = (G.authorities || []).filter(a => a && !a._gone && !a._picked).length;
+  if (activeCount >= activeLimit) return null;
+  const pos = (opts.x !== undefined && opts.y !== undefined) ? {x:opts.x,y:opts.y} : findAuthoritySpawnPosition();
+  const item = {...def, x:pos.x, y:pos.y, pulse:0, droppedT:G.time||0};
+  G.authorities.push(item);
+  return item;
+}
+function maybeRespawnAuthorities(){
+  if (!G.authorityRespawns) G.authorityRespawns = {};
+  const now = G.time || 0;
+  const activeLimit = getAuthorityActiveLimit();
+  const activeCount = (G.authorities || []).filter(a => a && !a._gone && !a._picked).length;
+  if (activeCount >= activeLimit) return;
+  for (const a of AUTHORITIES.slice(0, activeLimit)){
+    const id = a.id;
+    if (authorityIsClaimedEverywhere(id)) continue;
+    const due = G.authorityRespawns[id];
+    if (due !== undefined && now < due) continue;
+    if (due !== undefined) delete G.authorityRespawns[id];
+    spawnAuthorityWorldItem(a);
+  }
+}
 function spawnInitialWorld(){
   G._biomeCentroidsCache = null;  // v1.0.1: 重置生態快取
   generateTerrain();
@@ -2655,9 +3357,9 @@ function spawnInitialWorld(){
   const vw = Math.ceil(WORLD.w/vcs), vh = Math.ceil(WORLD.h/vcs);
   G.visited = [];
   for (let y=0;y<vh;y++){ const row=[]; for (let x=0;x<vw;x++) row.push(0); G.visited.push(row); }
-  G.stage = 1; G.eventCdT = 120; G.minibossSpawnT = 180; G.bossSpawnT = 240; G.bosses = []; G.timeline = [];
+  G.stage = 1; G.eventCdT = 120; G.minibossSpawnT = 180; G.bossSpawnT = 60; G.bosses = []; G.timeline = []; G.domains = [];
   // 大地圖：道具/靈氣 — v1.7.0: leaner ambient density for combat focus
-  for (let i=0;i<220;i++) spawnPickup();
+  for (let i=0;i<80;i++) spawnPickup();
   for (let i=0;i<160;i++) spawnSpirit();
   for (const qs of G.qiSprings){
     for (let i=0;i<30;i++){
@@ -2665,22 +3367,9 @@ function spawnInitialWorld(){
       G.spirits.push({x:qs.x+Math.cos(ang)*dd, y:qs.y+Math.sin(ang)*dd, pulse:Math.random()*Math.PI*2, qi:6});
     }
   }
-  for (let i=0;i<AUTHORITIES.length;i++){
-    const a = AUTHORITIES[i];
-    // v3.13.1: random scatter + separation so authorities feel truly "across the map"
-    let ax, ay, tries = 0;
-    do {
-      ax = rand(WORLD.w*0.08, WORLD.w*0.92);
-      ay = rand(WORLD.h*0.08, WORLD.h*0.92);
-      tries++;
-      const nearPlayer = !!(G.player && Math.hypot(ax-G.player.x, ay-G.player.y) < 1200);
-      let nearOther = false;
-      for (const ex of G.authorities){
-        if (Math.hypot(ax-ex.x, ay-ex.y) < 1400){ nearOther = true; break; }
-      }
-      if (!nearPlayer && !nearOther) break;
-    } while (tries < 20);
-    G.authorities.push({...a, x: ax, y: ay, pulse:0});
+  const initialAuthorityCount = getAuthorityPacingLimit();
+  for (let i=0;i<Math.min(initialAuthorityCount, AUTHORITIES.length);i++){
+    spawnAuthorityWorldItem(AUTHORITIES[i]);
   }
 // 出生點周遭塞一些靈氣與道具讓玩家先成長 (v1.8.2: drastically reduced — was instant +2 levels)
   if (G.player){
@@ -2688,7 +3377,7 @@ function spawnInitialWorld(){
       const ang=Math.random()*Math.PI*2, d=rand(120,700);
       G.spirits.push({x:G.player.x+Math.cos(ang)*d, y:G.player.y+Math.sin(ang)*d, pulse:Math.random()*Math.PI*2, qi:3});
     }
-    for (let i=0;i<8;i++){
+    for (let i=0;i<3;i++){
       const ang=Math.random()*Math.PI*2, d=rand(180,700);
       const def = weightedPickup();
       G.pickups.push({...def, x:G.player.x+Math.cos(ang)*d, y:G.player.y+Math.sin(ang)*d, pulse:0});
@@ -2734,43 +3423,50 @@ function spawnEnemy(initial=false){
   while (G.player && dist({x,y},G.player) < safeDist && tries<20);
   const e = makeCreature(sp, x, y, false);
   // v1.8.1: enemies scale with PLAYER rank — no more easy farming once you climb
-  let maxTier;
   const _pRank = (G.player && G.player.rank) || 1;
+  const stage = Math.max(1, G.stage || 1);
+  const stageTierCap = [2, 3, 5, 7, 9][stage - 1] || 2;
+  let maxTier;
   if (G.player){
     const d = dist({x,y},G.player);
     if (G.time < 60){
       maxTier = 1; // gentle 60s tutorial window
     } else if (G.time < 120){
-      maxTier = Math.min(2, _pRank);
+      maxTier = Math.min(2, _pRank, stageTierCap);
     } else {
-      // v3.5.1: max 1 rank above player — no time-based escalation that skips tiers
+      // v3.5.1: keep enemy tiers near the current lane, with stage gating
       const farBonus = d > 4000 ? 1 : 0;
-      maxTier = _pRank + farBonus;
+      maxTier = Math.min(9, Math.max(stageTierCap, Math.min(_pRank + 1 + farBonus, stageTierCap + 1)));
     }
   } else maxTier = 1;
   // v2.0: 9-level cap. Per-path population caps keep the True God tier scarce.
   maxTier = Math.max(1, Math.min(9, maxTier));
-  // Weighted tier: bias toward player rank (challenging fights, not pushovers)
-  const minTier = Math.max(1, _pRank - 2);
+  // Weighted tier: keep enemies near the current lane, but prevent sudden high-rank floods.
+  const minTier = Math.max(1, Math.min(maxTier, stage <= 2 ? 1 : _pRank - 3));
   let tier = minTier + Math.floor(Math.random()*Math.max(1, maxTier - minTier + 1));
-  // v2.0: endgame population caps per path: only 1 rank-9 (True God), up to 3 rank-8, up to 5 rank-7.
-  if (tier >= 7){
-    let c7=0, c8=0, c9=0;
+  if (tier >= 6){
+    let c6=0, c7=0, c8=0, c9=0;
     for (const en of G.enemies){
-      if (en._dead || !en.sp || en.sp.path !== sp.path) continue;
-      if (en.rank===7) c7++;
+      if (en._dead || !en.sp) continue;
+      if (en.rank===6) c6++;
+      else if (en.rank===7) c7++;
       else if (en.rank===8) c8++;
       else if (en.rank===9) c9++;
     }
-    // also count player if same path & high rank
-    if (G.player && G.player.sp && G.player.sp.path === sp.path){
-      if (G.player.rank===7) c7++;
-      else if (G.player.rank===8) c8++;
-      else if (G.player.rank===9) c9++;
-    }
-    if (tier===9 && (c9>=1 || (G.thrones && G.thrones[sp.path]))) tier = 8;
-    if (tier===8 && c8>=3) tier = 7;
-    if (tier===7 && c7>=5) tier = 6;
+    if (G.player && G.player.rank===6) c6++;
+    if (G.player && G.player.rank===7) c7++;
+    if (G.player && G.player.rank===8) c8++;
+    if (G.player && G.player.rank===9) c9++;
+    const caps = {
+      6: stage >= 3 ? 2 : 0,
+      7: stage >= 3 ? 1 : 0,
+      8: stage >= 4 ? 1 : 0,
+      9: stage >= 5 ? 1 : 0,
+    };
+    if (tier===9 && c9>=caps[9]) tier = 8;
+    if (tier===8 && c8>=caps[8]) tier = 7;
+    if (tier===7 && c7>=caps[7]) tier = 6;
+    if (tier===6 && c6>=caps[6]) tier = 5;
   }
   for (let r=1;r<tier;r++){
     const b=RANK_BONUS[r-1]; e.zhenyuan+=b.zy; e.daohen+=b.dh;
@@ -2787,8 +3483,8 @@ function spawnEnemy(initial=false){
   if (tier >= 5 && AUTHORITIES && AUTHORITIES.length){
     e.authoritySlots = e.authoritySlots || [];
     e.authCdT = e.authCdT || [];
-    const picks = tier >= 8 ? 2 : 1;
-    const shuffled = AUTHORITIES.slice().sort(()=>Math.random()-0.5);
+    const picks = 1;
+    const shuffled = AUTHORITIES.filter(a => !authorityIsClaimedEverywhere(a.id)).sort(()=>Math.random()-0.5);
     for (let i=0; i<Math.min(picks, shuffled.length); i++){
       e.authoritySlots.push({...shuffled[i]});
       e.authCdT.push(rand(4, 12)); // stagger initial CD so they don't all fire at once
@@ -2936,6 +3632,10 @@ function setupInput(canvas){
     if (k==='y' && G.started && !G.dead){ e.preventDefault(); try{ togglePartyPanel(); }catch(err){} }
     if (k==='a' && G.started && G.partyInvites && G.partyInvites.length && !document.getElementById('partyPanel')){ try{ partyAccept(G.partyInvites[0]); }catch(err){} }
     if (k==='d' && G.started && G.partyInvites && G.partyInvites.length && !document.getElementById('partyPanel')){ G.partyInvites.shift(); }
+    if (k==='g' && G.started && G.player && !G.dead && !G.won){
+      e.preventDefault();
+      try { togglePlayerDomain(); } catch(err){}
+    }
     // v3.8.0: matchmaking modal (works both on title and in-game)
     if (k==='n'){ e.preventDefault(); try { openMatchmakingModal(); } catch(err){} }
     // v3.9.0: leaderboard (L key)
@@ -3000,6 +3700,7 @@ function updatePlayer(p, dt){
   if (p.isPlayer) p.freeze = 0;
   else if (p.freeze>0){ p.freeze-=dt; return; }
   if (p.stun>0){ p.stun-=dt; }
+  if (p.isPlayer && (p._hitBlink||0) > 0) p._hitBlink = Math.max(0, p._hitBlink - dt * 6);
   // 被動回血
   if (p.isPlayer && p.hp>0 && p.hp<p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 2*p.zhenyuan*dt);
   if (p._regen>0 && p.hp>0 && p.hp<p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p._regen*dt);
@@ -3156,6 +3857,7 @@ function updatePlayer(p, dt){
 // 戰鬥
 // =====================================================================
 function doMelee(p){
+  p._atkSwing = G.time; // trigger attack swing animation
   // 扇形 90 度範圍
   const r = p.atkR + p.r;
   const enemies = (p===G.player)?G.enemies:[G.player, ...G.enemies.filter(e=>e!==p)];
@@ -3179,17 +3881,13 @@ function doMelee(p){
       G.particles.push({x:p.x,y:p.y,vx:0,vy:0,life:0.18,color:'#ffee44',r:p.r*1.6,_ring:true});
     }
   }
-  // v3.12.0: energy slash — melee fires a short-range projectile for reach + visual punch
-  if (hitCount >= 0 && p.isPlayer){
+  // arc shockwave at swing contact — visual punch without spawning a bullet
+  if (p.isPlayer){
     const slashAng = p.facing;
     const slashColor = (p.path && p.path.color) || '#88ccff';
-    G.projectiles.push({
-      x: p.x + Math.cos(slashAng)*(p.r+8),
-      y: p.y + Math.sin(slashAng)*(p.r+8),
-      vx: Math.cos(slashAng)*480, vy: Math.sin(slashAng)*480,
-      life: 0.38, r: 7, dmg: Math.floor((p.atk||10)*0.55),
-      color: slashColor, owner: p, hit: new Set(), pierce: 2,
-    });
+    const cx = p.x + Math.cos(slashAng)*(p.atkR*0.55);
+    const cy = p.y + Math.sin(slashAng)*(p.atkR*0.55);
+    G.shockwaves.push({x:cx, y:cy, r:0, max:p.atkR*0.7, life:0.18, lifeMax:0.18, color:slashColor, arc:Math.PI*0.65, facing:slashAng});
   }
   // v3.8.0: per-hit path-passive trigger (Dragon every-3rd-hit shock)
   if (hitCount > 0 && p === G.player) { try { _onPlayerMeleeHit(p); } catch(_){} }
@@ -3272,20 +3970,20 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
   let effDef = target.def;
   if (ap && ap.pierce>0) effDef = effDef * (1 - ap.pierce);
   final = final * 100 / (100 + Math.max(0, effDef));
+  if (attacker && attacker._partyCoopActive) final *= 1.12;
+  if (target && target._partyCoopActive) final *= 0.92;
   // 防禦狀態：強化版（0.15 倍）+ 反彈 30% 給攻擊者
   if (target.defending){
-    final *= 0.15;
-    if (attacker && attacker!==target && attacker.hp>0){
-      const reflect = Math.max(1, Math.round(dmg*0.3));
-      attacker.hp -= reflect;
-      addFloat(attacker.x, attacker.y-attacker.r, `Rfl ${reflect}`, '#88e0ff', 12, 0.6);
-      if (attacker.hp<=0) onKill(target, attacker);
-    }
+    final *= 0.55;  // 45% reduction — meaningful but not immunity
     addFloat(target.x, target.y-target.r, 'Blk', '#88e0ff', 14, 0.5);
     playSound('block');
   }
   // 暗夜暴擊
   if (attacker && attacker.darkT>0 && Math.random()<0.5){ final*=2; isCrit=true; }
+  // v3.18.0: FTUE damage reduction — rank-1 new players take 40% less damage
+  if (target.isPlayer && (target.rank||1) <= 1 && _lifetimeRunCount() < 5){
+    final = Math.floor(final * 0.6);
+  }
   final = Math.max(1, Math.round(final));
   // v2.2.0: Tyrant Bond — redirect % of dmg to highest-HP nearby foe of target
   if (target.dmgTransferT>0 && target.dmgTransferPct>0 && attacker && attacker!==target){
@@ -3312,6 +4010,8 @@ function dealDamage(attacker, target, dmg, color='#fff', isCrit=false){
   }
   if (final<=0){ if ((target.shieldHp||0)>0 || (target.dmgTransferT||0)>0){ return; } final = 1; }
   target.hp -= final;
+  // per-creature hit blink used by drawCreature for white flash
+  target._hitBlink = target.isPlayer ? 0.14 : 0.20;
   // v1.9.0: track "struck by higher creature" for species rite quests
   if (attacker && attacker !== target && target.q && attacker.rank > target.rank && final>0){
     target.q.hitByHigher = (target.q.hitByHigher||0) + 1;
@@ -3542,6 +4242,16 @@ function onKill(attacker, target){
 // Rank 2: unlock skill1(Q). 3: enhance Q.
 // Rank 4: unlock skill2(E). 5: enhance E.
 // Rank 6: unlock skill3(R). 7: enhance R.
+// Range multiplier: visually wider effects at higher ranks so power is felt.
+function _skillRange(p){
+  const r = p.rank||1;
+  if (r>=9) return 2.20;
+  if (r>=8) return 1.65;
+  if (r>=7) return 1.40;
+  if (r>=5) return 1.20;
+  if (r>=3) return 1.10;
+  return 1.0;
+}
 // Rank 8: all skills enhanced. Rank 9: all skills greatly enhanced.
 function _skillBoost(p, slot){
   const r = p.rank||1; let mult = 1;
@@ -3562,20 +4272,45 @@ function _skillCd(p, s, slot){
   return Math.max(0.5, (s.cd||3) * cdMult);
 }
 function castSkill(p, s, slot){
+  p._atkSwing = G.time; // skill cast triggers swing animation
   const boost = _skillBoost(p, slot||'Q');
   const dh = (p.daohen||1) * boost;
+  const rm = _skillRange(p);
   const type = s.type;
   shake(4);
   if (p.isPlayer) logMsg(`▶ ${s.name}${boost>1?` (×${boost.toFixed(2)})`:''}`);
   switch(type){
     case 'arrow3': for (let i=-1;i<=1;i++) fireProjectile(p, p.facing+i*0.25, p.rngDmg*0.7*dh, p.rngSpd, p.color); break;
-    case 'cleave': aoeSlash(p, 200, Math.PI, p.atk*3*dh, '#ffe080'); break;
+    case 'blade_rush': {
+      const reach = 240*rm;
+      const tx = p.x + Math.cos(p.facing)*reach;
+      const ty = p.y + Math.sin(p.facing)*reach;
+      p.x = clamp(tx,20,WORLD.w-20); p.y = clamp(ty,20,WORLD.h-20);
+      p.invuln = 0.2;
+      aoeSlash(p, 160*rm, Math.PI*0.8, p.atk*2.2*dh, '#ffe080');
+      for (const e of enemiesOf(p)){
+        if (dist(p,e) < 180*rm){ e.bleed = Math.max(e.bleed||0, 2.5); e.slow = Math.max(e.slow||0, 1.2); }
+      }
+      stunAround(p, 160*rm, 0.3);
+      flash('#ffe080',0.25); shake(6);
+    } break;
+    case 'guarded_cut': {
+      const reach = 220;
+      const tx = p.x + Math.cos(p.facing)*reach;
+      const ty = p.y + Math.sin(p.facing)*reach;
+      p.x = clamp(tx,20,WORLD.w-20); p.y = clamp(ty,20,WORLD.h-20);
+      p.invuln = 0.18;
+      lineSlash(p, 220, p.atk*2.8*dh, '#ffe080', 70, 220);
+      p.shieldHp = Math.max(p.shieldHp||0, Math.floor((p.maxHp||100)*0.18 + 40));
+      p.shieldT = Math.max(p.shieldT||0, 4);
+      flash('#ffe080',0.2); shake(5);
+    } break;
     case 'sword_rain': swordRain(p, 24, p.atk*1.5*dh); break;
-    case 'spin': aoeSlash(p, 180, Math.PI*2, p.atk*2*dh, p.color); knockbackAround(p, 180, 300); break;
-    case 'tail': aoeSlash(p, 220, Math.PI*1.5, p.atk*3*dh, p.color); knockbackAround(p, 220, 400); break;
+    case 'spin': aoeSlash(p, 180*rm, Math.PI*2, p.atk*2*dh, p.color); knockbackAround(p, 180*rm, 300); break;
+    case 'tail': aoeSlash(p, 220*rm, Math.PI*1.5, p.atk*3*dh, p.color); knockbackAround(p, 220*rm, 400); break;
     // v3.4.3: differentiated signature skills
     case 'summon_bat': for (let i=0;i<5;i++){ const m = makeCreature('bat', p.x+rand(-50,50), p.y+rand(-50,50), false); m.isMinion=true; m.ownerPlayer=p; m.life=15; m.maxLife=15; G.minions.push(m);} flash('#9a76d0',0.3); shake(8); break;
-    case 'thunder_storm': chainLightning(p, 16, p.atk*0.8*dh, 360); skyLightning(p, 8, p.atk*1.2*dh, 900); flash('#fff080',0.5); shake(14); break;
+    case 'thunder_storm': chainLightning(p, 16, p.atk*0.8*dh, 360*rm); skyLightning(p, 8, p.atk*1.2*dh, 900*rm); flash('#fff080',0.5); shake(14); break;
     case 'talisman_bolt': {
       // Auto-tracking primary bolt + chain to 4 nearby foes
       let best=null, bd=Infinity;
@@ -3593,30 +4328,130 @@ function castSkill(p, s, slot){
     case 'grab': grabNearest(p, p.atk*dh); break;
     // 注意：以下幾個 type 使用 setTimeout 必須在回呼內檢查 G.started/G.dead/p===G.player
     case 'bloodpool': G.hazards.push({type:'bloodpool', x:p.x, y:p.y, r:200, life:8, dmg:15*dh, color:'#cc1133', tick:0, owner:p}); break;
-    case 'stomp': aoeSlash(p, 250, Math.PI*2, p.atk*2.5*dh, '#aa6633'); stunAround(p, 250, 1); G.shockwaves.push({x:p.x,y:p.y,r:0,max:250,life:0.5,color:'#aa6633'}); break;
-    case 'roar': aoeSlash(p, 2000, Math.PI*2, p.atk*2*dh, '#ffaa30'); stunAround(p, 2000, 3); knockbackAround(p, 2000, 600); shake(15); break;
-    case 'pounce': dashAttack(p, 350, p.atk*2*dh, false); break;
+    case 'stomp': aoeSlash(p, 250*rm, Math.PI*2, p.atk*2.5*dh, '#aa6633'); stunAround(p, 250*rm, 1); G.shockwaves.push({x:p.x,y:p.y,r:0,max:250*rm,life:0.5,color:'#aa6633'}); break;
+    case 'roar': aoeSlash(p, 1100*rm, Math.PI*2, p.atk*1.7*dh, '#ffaa30'); stunAround(p, 1100*rm, 2); knockbackAround(p, 1100*rm, 420); shake(12); break;
+    case 'rend': {
+      const reach = 280;
+      const tx = p.x + Math.cos(p.facing)*reach;
+      const ty = p.y + Math.sin(p.facing)*reach;
+      p.x = clamp(tx,20,WORLD.w-20); p.y = clamp(ty,20,WORLD.h-20);
+      p.invuln = 0.18;
+      lineSlash(p, 260, p.atk*2.0*dh, '#ff9c7a', 90, 180);
+      flash('#ff7b5c',0.2); shake(4);
+    } break;
+    case 'pack_rush': {
+      dashAttack(p, 300, p.atk*1.6*dh, false);
+      stunAround(p, 140, 0.25);
+      flash('#ffb07a',0.2);
+    } break;
     case 'summon_wolf': for (let i=0;i<3;i++){ const m = makeCreature('wolf', p.x+rand(-40,40), p.y+rand(-40,40), false); m.isMinion = true; m.ownerPlayer = p; m.life=15; m.maxLife=15; G.minions.push(m);} break;
     case 'frenzy': p.rageT = 12; p.bonusAtkMult*=2; p.bonusDefMult*=2; recalcStats(p); p._healOnKill=true; setTimeout(()=>{ if (p && (!p.isPlayer || p===G.player)) p._healOnKill=false; },12000); break;
+    case 'coil_lash': {
+      lineSlash(p, 320, p.atk*1.6*dh, p.color, 90, 220);
+      stunAround(p, 150, 0.25);
+      flash(p.color,0.16);
+    } break;
+    case 'jiao_breath': {
+      coneBreath(p, 420*rm, Math.PI/2.2, p.atk*0.7*dh, '#66ddff');
+      for (const e of enemiesOf(p)){ const d=dist(p,e); if(d<420*rm){ const ang=angTo(p,e); const delta=Math.abs(((ang-p.facing+Math.PI*3)%(Math.PI*2))-Math.PI); if(delta<Math.PI/2.2){ e.slow=Math.max(e.slow||0, 2); } } }
+      flash('#66ddff',0.2);
+    } break;
     case 'breath': coneBreath(p, 400, Math.PI/2.5, p.atk*0.6*dh, '#ff6644'); break;
     case 'whirl': G.hazards.push({type:'whirl', x:p.x, y:p.y, r:180, life:3, dmg:p.atk*0.4*dh, color:p.color, tick:0, owner:p, followOwner:true}); break;
-    case 'dragon_form': p.titanT=15; p.bonusAtkMult*=2; p.bonusDefMult*=2; p.bonusSizeMult*=1.5; recalcStats(p); break;
-    case 'dive': dashAttack(p, 400, p.atk*3*dh, false); break;
+    case 'dragon_form': p.titanT=12; p.bonusAtkMult*=1.8; p.bonusDefMult*=1.8; p.bonusSizeMult*=1.25; recalcStats(p); break;
+    case 'swoop': {
+      const reach = 320;
+      const tx = p.x + Math.cos(p.facing)*reach;
+      const ty = p.y + Math.sin(p.facing)*reach;
+      p.x = clamp(tx,20,WORLD.w-20); p.y = clamp(ty,20,WORLD.h-20);
+      p.invuln = 0.14;
+      lineSlash(p, 260, p.atk*2.2*dh, '#cce0ff', 60, 140);
+      flash('#cce0ff',0.18);
+    } break;
+    case 'wind_shear': {
+      const baseFace = p.facing;
+      for (let i=-1;i<=1;i++){
+        p.facing = baseFace + i*0.22;
+        lineSlash(p, 260, p.atk*0.85*dh, '#cce0ff', 60, 80);
+      }
+      p.facing = baseFace;
+      for (const e of enemiesOf(p)) if (dist(p,e) < 290) e.slow = Math.max(e.slow||0, 2.5);
+      flash('#cce0ff',0.18);
+    } break;
     case 'feather_storm': for (let i=0;i<12;i++) fireProjectile(p, p.facing-Math.PI/4+i*(Math.PI/2)/11, p.rngDmg*0.5*dh, p.rngSpd*0.9, p.color); break;
-    case 'thunder_dive': skyLightning(p, 8, p.atk*4*dh, 700); break;
+    case 'thunderfall': fallingStorm(p, 6, p.atk*1.4*dh, 700*rm); stunAround(p, 720*rm, 0.35); break;
     case 'shadow_arrow': fireProjectile(p, p.facing, p.rngDmg*2*dh, p.rngSpd*1.2, '#aa66ff', 6); break;
+    case 'moon_burst': aoeSlash(p, 220*rm, Math.PI*2, p.atk*1.6*dh, '#7a6fff'); stunAround(p, 220*rm, 0.4); flash('#5a4eff',0.25); shake(4); break;
     case 'darkness': p.darkT = 8; p.invuln=0.1; flash('#220033',0.3); break;
     case 'death_gaze': deathGaze(p); break;
     case 'combo3':
       for (let i=0;i<3;i++) setTimeout(()=>{ if (!G.started||G.dead) return; if (p.isPlayer && p!==G.player) return; if (p.hp>0) aoeSlash(p, 100, Math.PI*0.8, p.atk*0.8*dh, '#ffaaaa'); }, i*150); break;
     case 'bloodrage': p.rageT = 6; p.bonusAtkMult*=1.5; recalcStats(p); break;
     case 'abyss': for (let i=0;i<5;i++){ const m = makeCreature('shark', p.x+rand(-60,60), p.y+rand(-60,60), false); m.isMinion=true; m.ownerPlayer=p; m.life=12; m.maxLife=12; G.minions.push(m);} break;
-    case 'shock': aoeSlash(p, 250, Math.PI*2, p.atk*1.5*dh, '#ffff80'); stunAround(p, 250, 0.5); break;
-    case 'chain': chainLightning(p, 8, p.atk*0.6*dh, 300); break;
-    case 'sky_lightning': skyLightning(p, 15, p.atk*1.5*dh, 1200); break;
+    case 'shock': aoeSlash(p, 250*rm, Math.PI*2, p.atk*1.5*dh, '#ffff80'); stunAround(p, 250*rm, 0.5); break;
+    case 'chain': chainLightning(p, 8, p.atk*0.6*dh, 300*rm); break;
+    case 'sky_lightning': skyLightning(p, 15, p.atk*1.5*dh, 1200*rm); break;
     case 'poison_sting': fireProjectile(p, p.facing, p.atk*1.5*dh, 600, '#aaff00', 1); break;
     case 'poison_cloud': G.hazards.push({type:'poison', x:p.x, y:p.y, r:200, life:6, dmg:p.atk*0.3*dh, color:'#88ff44', tick:0, owner:p}); break;
-    case 'plague': for (const e of G.enemies){ if (dist(e,p)<3000){ e.poison = 10; }} flash('#88ff44',0.4); break;
+    case 'plague': for (const e of G.enemies){ if (dist(e,p)<2200){ e.poison = Math.max(e.poison, 6); }} flash('#88ff44',0.4); break;
+    // Blood path skills
+    case 'blood_drain': {
+      let _bd_best=null, _bd_dist=Infinity;
+      for (const e of enemiesOf(p)){ const d=dist(p,e); if(d<420*rm&&d<_bd_dist){_bd_dist=d;_bd_best=e;} }
+      if (_bd_best){
+        const reach = Math.min(_bd_dist, 320*rm);
+        p.x = clamp(p.x+Math.cos(angTo(p,_bd_best))*reach, 20, WORLD.w-20);
+        p.y = clamp(p.y+Math.sin(angTo(p,_bd_best))*reach, 20, WORLD.h-20);
+        p.invuln = 0.2;
+        const _dmg = p.atk*2.2*dh;
+        dealDamage(p, _bd_best, _dmg, '#cc1133');
+        const _drain = Math.min(p.maxHp - p.hp, Math.round(_dmg * 0.5));
+        if (_drain > 0){ p.hp = Math.min(p.maxHp, p.hp + _drain); addFloat(p.x, p.y-30, `♥+${_drain}`, '#cc1133', 14, 1.0); }
+        flash('#cc1133', 0.3); shake(5);
+      } else {
+        dashAttack(p, 260, p.atk*2*dh, false);
+      }
+    } break;
+    case 'blood_ancestor_form': {
+      p.rageT = 15; p.bonusAtkMult = (p.bonusAtkMult||1) * 1.8; recalcStats(p);
+      p.lifestealT = 15; p.lifestealPct = Math.min(0.9, 0.60 * boost);
+      for (let i=0;i<3;i++){
+        const _ang = (i/3)*Math.PI*2;
+        const _m = makeCreature('bat', p.x+Math.cos(_ang)*60, p.y+Math.sin(_ang)*60, false);
+        _m.isMinion=true; _m.ownerPlayer=p; _m.life=15; _m.maxLife=15; G.minions.push(_m);
+      }
+      G.shockwaves.push({x:p.x,y:p.y,r:0,max:280,life:0.6,color:'#cc1133'});
+      flash('#cc1133', 0.5); shake(12);
+      if (p.isPlayer) addFloat(p.x, p.y-40, 'Blood Ancestor Form!', '#cc1133', 18, 2.0);
+    } break;
+    // Insect / Tyranid skills
+    case 'brood_spit': {
+      for (let i=-1;i<=1;i++){
+        const _ang = p.facing + i*0.28;
+        G.projectiles.push({ x:p.x, y:p.y,
+          vx:Math.cos(_ang)*(p.rngSpd||500)*0.85, vy:Math.sin(_ang)*(p.rngSpd||500)*0.85,
+          dmg:p.rngDmg*0.9*dh, color:'#aaff44', owner:p, life:1.5, pierce:2, hit:new Set(), r:5,
+          venom:8 });
+      }
+      flash('#88ff44', 0.18);
+    } break;
+    case 'synapse_pulse': {
+      aoeSlash(p, 200*rm, Math.PI*2, p.atk*1.0*dh, '#aaff33');
+      stunAround(p, 200*rm, 0.8);
+      for (let i=0;i<2;i++){
+        const _ang = Math.random()*Math.PI*2;
+        const _m = makeCreature('scorpion', p.x+Math.cos(_ang)*40, p.y+Math.sin(_ang)*40, false);
+        _m.isMinion=true; _m.ownerPlayer=p; _m.life=12; _m.maxLife=12; G.minions.push(_m);
+      }
+      flash('#aaff33', 0.3); shake(6);
+    } break;
+    case 'biogenesis': {
+      p.rageT = 12; p.bonusAtkMult = (p.bonusAtkMult||1) * 2; recalcStats(p);
+      G.hazards.push({type:'poison', x:p.x, y:p.y, r:220*rm, life:12, dmg:p.atk*0.35*dh, color:'#88ff44', tick:0, owner:p, followOwner:true});
+      G.shockwaves.push({x:p.x,y:p.y,r:0,max:300*rm,life:0.6,color:'#aaff33'});
+      flash('#aaff33', 0.4); shake(10);
+      if (p.isPlayer) addFloat(p.x, p.y-40, 'Biogenesis — Hive Tyrant!', '#aaff33', 18, 2.0);
+    } break;
     // v2.2.0 new utility skills
     case 'shield': {
       const amount = (p.maxHp||100) * 0.6 * boost + 80;
@@ -3641,6 +4476,37 @@ function castSkill(p, s, slot){
       if (p.isPlayer) addFloat(p.x, p.y-30, `Bond → ${(p.dmgTransferPct*100)|0}% ×8s`, '#ff8844', 16, 1.4);
     } break;
   }
+}
+function lineSlash(p, dist_, dmg, color, width=80, knock=0){
+  const ang = p.facing;
+  const cx = p.x + Math.cos(ang)*dist_*0.5;
+  const cy = p.y + Math.sin(ang)*dist_*0.5;
+  for (const e of enemiesOf(p)){
+    const dx = e.x - cx;
+    const dy = e.y - cy;
+    const dot = dx*Math.cos(ang) + dy*Math.sin(ang);
+    const cross = dx*Math.sin(ang) - dy*Math.cos(ang);
+    if (dot < -10 || dot > dist_ + 10) continue;
+    if (Math.abs(cross) > width + e.r) continue;
+    dealDamage(p, e, dmg, color);
+    if (knock > 0){
+      const kbAng = angTo(p,e);
+      e.x += Math.cos(kbAng)*knock*0.05;
+      e.y += Math.sin(kbAng)*knock*0.05;
+    }
+  }
+  G.shockwaves.push({x:cx,y:cy,r:0,max:dist_,life:0.28,lifeMax:0.28,color, arc:Math.PI*0.25, facing:ang});
+}
+function fallingStorm(p, count, dmg, range){
+  for (let i=0;i<count;i++){
+    const x = p.x + rand(-range,range);
+    const y = p.y + rand(-range,range);
+    G.shockwaves.push({x,y,r:0,max:120,life:0.36,color:'#fff080'});
+    for (const e of enemiesOf(p)){
+      if (Math.hypot(e.x-x,e.y-y) < 120) dealDamage(p,e,dmg,'#fff080');
+    }
+  }
+  flash('#fff080', 0.25); shake(7);
 }
 function aoeSlash(p, radius, arc, dmg, color){
   const enemies = enemiesOf(p);
@@ -3755,6 +4621,7 @@ function deathGaze(p){
 }
 function enemiesOf(p){
   if (p.isPlayer) return G.enemies.filter(e=>e.hp>0);
+  if (p.isBoss) return [G.player, ...G.enemies, ...G.minions].filter(x=>x && x !== p && x.hp>0);
   if (p.isMinion) return [G.player, ...G.enemies.filter(e=>e!==p && e.hp>0)].filter(x=>x && x.hp>0);
   return [G.player, ...G.minions.filter(m=>m.hp>0)].filter(x=>x && x.hp>0);
 }
@@ -3891,6 +4758,14 @@ function autoPickup(p){
   if (!_firstLock){
     for (const a of G.authorities){
       if (dist2(p,a) < (60+40)*(60+40)){
+        const alreadyHeld = p.authoritySlots.some(s => s && s.id === a.id);
+        if (alreadyHeld){
+          a._gone = true;
+          scheduleAuthorityRespawn(a.id);
+          addCoins(12);
+          pushKillFeed(`★ ${a.name} already equipped → +12 coins`, a.color);
+          continue;
+        }
         if (p.authoritySlots.length<6){
           p.authoritySlots.push(a); p.authCdT.push(0); p.q.authorities++;
           logMsg(`★ Picked up [${a.name}]`, 'promote');
@@ -3900,6 +4775,12 @@ function autoPickup(p){
           // v3.3.0: happyTime on Authority pickup — peak loot moment
           try { if (p.isPlayer && window.SDK && SDK.happyTime) SDK.happyTime(0.7); } catch(e){}
           a._gone = true;
+          scheduleAuthorityRespawn(a.id);
+        } else {
+          a._gone = true;
+          scheduleAuthorityRespawn(a.id);
+          addFloat(p.x, p.y-30, 'Authority slots full', '#ffd66b', 14, 1.2);
+          pushKillFeed('★ Authority slots full — fruit vanished', '#ffd66b');
         }
       }
     }
@@ -4007,9 +4888,21 @@ function aiUpdate(e, dt){
   if (e.bleed>0){ e.hp -= 5*dt; e.bleed-=dt; }
   if (e.poison>0){ e.hp -= 10*dt; e.poison-=dt; }
   if (e.slow>0) e.slow-=dt;
+  // God War: high-rank AIs are pulled toward the arena to fight for prize authorities
+  if (e._godWarTarget && G.godWar && G.godWar.active){
+    const gdx = e._godWarTarget.x - e.x, gdy = e._godWarTarget.y - e.y;
+    const gd = Math.hypot(gdx, gdy)||1;
+    if (gd > 100){ e.vx = (e.vx||0) + gdx/gd * 180 * dt; e.vy = (e.vy||0) + gdy/gd * 180 * dt; }
+    else e._godWarTarget = null;
+  } else if (e._godWarTarget) { e._godWarTarget = null; }
   if (e.atkCdT>0) e.atkCdT-=dt;
   if (e.rngCdT>0) e.rngCdT-=dt;
   if (e.skillQT>0) e.skillQT-=dt;
+  if (e.authCdT && e.authCdT.length){
+    for (let i = 0; i < e.authCdT.length; i++){
+      if (e.authCdT[i] > 0) e.authCdT[i] = Math.max(0, e.authCdT[i] - dt);
+    }
+  }
   e.aiTimer-=dt;
   // 找目標（視野設為 500，比原 800 低）
   // v3.10.0: target selection — AI vs AI creates organic conflict
@@ -4029,6 +4922,16 @@ function aiUpdate(e, dt){
     for (const x of G.enemies) {
       if (!x||x.hp<=0) continue;
       const d=dist(e,x); if (d<sightR && d<td){ td=d; tgt=x; }
+    }
+    if (e.isVassal && e.ownerPlayer && e.ownerPlayer.hp>0){
+      const owner = e.ownerPlayer;
+      const od = dist(e, owner);
+      if (od > 220){
+        const ang = angTo(e, owner);
+        e.vx = Math.cos(ang) * e.spd * 0.55;
+        e.vy = Math.sin(ang) * e.spd * 0.55;
+        e.facing = ang;
+      }
     }
   } else {
     // Prioritize bounty target (extended sight) — but only part of smart bots commit
@@ -4085,9 +4988,10 @@ function aiUpdate(e, dt){
     } else if (e.rngDmg>0 && td<e.rngR && e.rngCdT<=0 && Math.random()<((e.rank||1)<=3?0.07:0.22)){
       doRanged(e); e.rngCdT = e.rngCd*((e.rank||1)<=3 ? 3.5 : 2.2);
     } else {
-      // 目標殘血時全速追擊（製造追殺張力）
-      const chaseSp = _tgtHpPct < 0.3 ? 1.05 : ((e.rank||1) <= 3 ? 0.60 : 0.85);
-      const ang=angTo(e,tgt); const sp=e.spd*chaseSp*(e.slow>0?0.5:1);
+      // 目標殘血時略微加速，但不再讓低階 AI 長期貼身追殺
+      const chaseSp = _tgtHpPct < 0.3 ? 1.02 : ((e.rank||1) <= 3 ? 0.58 : 0.78);
+      const pace = getCombatPacingMultiplier(e, tgt);
+      const ang=angTo(e,tgt); const sp=e.spd*chaseSp*pace*(e.slow>0?0.5:1);
       e.vx=Math.cos(ang)*sp; e.vy=Math.sin(ang)*sp;
     }
     // 技能：4x 頻率（更接近玩家行為）
@@ -4178,6 +5082,7 @@ function updateProjectiles(dt){
         if (pr.freeze && pr.freeze>0) t.freeze = Math.max(t.freeze||0, pr.freeze);
         if (pr.slow   && pr.slow>0)   t.slow   = Math.max(t.slow||0,   pr.slow);
         if (pr.dot    && pr.dot>0)    t.bleed   = Math.max(t.bleed||0,  pr.dot);
+        if (pr.venom  && pr.venom>0)  t.poison  = Math.max(t.poison||0, pr.venom);
         // Rift Sovereign: explode into 8 projectiles on hit
         if (pr._riftExplode){
           for (let _re=0;_re<8;_re++){
@@ -4427,7 +5332,8 @@ function _showDeathOverlay(){
   // v1.7.0: award coins and show in death stats
   let _coinsEarned = 0;
   try { _coinsEarned = awardRunCoins(); } catch(e){}
-  const _coinTxt = (_coinsEarned>0) ? ` · ★ +${_coinsEarned} coins earned (Total: ${getCoins()})` : '';
+  const _coinTxt = (_coinsEarned>0) ? ` · ★ +${_coinsEarned} coins earned${G._firstRunDoubled?' (×2 First Run of the Day!)':''} (Total: ${getCoins()})` : '';
+  try { _hideSupplyDropOffer(); } catch(e){}
   document.getElementById('deathStats').textContent =
     `Tier ${G.player.rank} ${tierIcon(G.player)} ${tierName(G.player)} · Kills ${G.player.q.kills} · High-tier ${G.player.q.killHighTier} · XP ${G.player.qi} · Survived ${(G.time/60)|0}m${(G.time%60)|0}s`
     + _rankTxt
@@ -4436,6 +5342,16 @@ function _showDeathOverlay(){
   const _curForm = getRankForm(G.player);
   const _nextPreview = getNextEvolutionPreview(G.player);
   try { _renderBoostOfferPanel(document.getElementById('death'), 'Next-run boosts: spend coins or use an ad for a permanent edge'); } catch(e){}
+  try { _renderVaultPanel(document.getElementById('death')); } catch(e){}
+  // v3.18.0: check & display newly unlocked achievements
+  try { const _newAch = checkAchievements(); _renderAchievementUnlocks(_newAch, document.getElementById('death')); } catch(e){}
+  // session run streak bonus
+  G._sessionRuns = (G._sessionRuns||0) + 1;
+  if (G._sessionRuns >= 3){
+    const _bonus = Math.min(150, G._sessionRuns * 20);
+    addCoins(_bonus); accrueVault(_bonus);
+    pushKillFeed(`🔁 Run streak x${G._sessionRuns}! +${_bonus}🪙 bonus`, '#ffd66b');
+  }
   const _deathNext = document.getElementById('deathNextForm');
   const _deathHook = document.getElementById('deathHook');
   const _restartBtn = document.getElementById('restartBtn');
@@ -4559,20 +5475,99 @@ function _showDeathOverlay(){
     }
   }catch(e){}
 }
+function _buildWinScreen(root){
+  const p = G.player; if (!p) return;
+  const old = document.getElementById('_winCinema'); if (old) old.remove();
+  const panel = document.createElement('div');
+  panel.id = '_winCinema';
+  panel.style.cssText = 'width:100%;max-width:720px;margin:0 auto 14px;';
+  const pc = (p.path && p.path.color) || '#ffd66b';
+  const pn = (p.path && p.path.name)  || 'Unknown';
+  const kills     = (p.q && p.q.kills)      || 0;
+  const bossKills = (p.q && p.q.bossKilled) || 0;
+  const rifts     = (p.q && p.q.riftsUsed)  || 0;
+  const timeS = Math.floor(G.time || 0);
+  const tm = Math.floor(timeS/60), ts = timeS%60;
+  const td = tierData(p);
+  const godTitle = td ? td.name  : 'True God';
+  const godPerk  = td ? td.pdesc : 'The absolute sovereign of this realm.';
+  const godIcon  = td ? td.icon  : '👑';
+  const throneEntries = Object.entries(G.thrones || {}).filter(([,h])=>h && h.hp>0);
+  const throneHTML = throneEntries.length>1 ? `
+    <div style="background:rgba(20,10,40,0.9);border:1px solid #5a3a9a;border-radius:10px;padding:10px 14px;margin:8px 0;">
+      <div style="font-size:11px;font-weight:700;color:#cc88ff;margin-bottom:6px;text-align:center;letter-spacing:2px;">⚔ FINAL THRONE MAP</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;">
+        ${throneEntries.map(([path,holder])=>{
+          const isSelf = holder===p;
+          const name = isSelf ? 'YOU' : (holder.name||path.toUpperCase());
+          return `<div style="padding:4px 8px;border-radius:5px;background:${isSelf?'rgba(255,214,107,0.14)':'rgba(255,255,255,0.04)'};border:1px solid ${isSelf?'#7a5a2d':'#2a2a3a'};">
+            <span style="font-size:9px;color:#555;text-transform:uppercase;">${path} Throne</span><br>
+            <span style="color:${isSelf?'#ffd66b':'#aaa'};font-size:12px;font-weight:700;">${name}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+  const feedItems = (G.killFeed||[]).filter(k=>k&&k.msg).slice(-8).reverse();
+  panel.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 0;">
+      <div style="background:rgba(200,60,40,0.14);border:1px solid #cc4422;border-radius:8px;padding:10px 6px;text-align:center;">
+        <div style="font-size:32px;font-weight:900;color:#ff7744;">${kills}</div>
+        <div style="font-size:10px;color:#777;margin-top:2px;text-transform:uppercase;letter-spacing:1px;">Creatures Slain</div>
+      </div>
+      <div style="background:rgba(200,140,0,0.14);border:1px solid #cc9900;border-radius:8px;padding:10px 6px;text-align:center;">
+        <div style="font-size:32px;font-weight:900;color:#ffcc33;">${bossKills}</div>
+        <div style="font-size:10px;color:#777;margin-top:2px;text-transform:uppercase;letter-spacing:1px;">Outer Gods Slain</div>
+      </div>
+      <div style="background:rgba(60,140,220,0.14);border:1px solid #3388cc;border-radius:8px;padding:10px 6px;text-align:center;">
+        <div style="font-size:32px;font-weight:900;color:#55aaff;">${tm}m ${ts<10?'0':''}${ts}s</div>
+        <div style="font-size:10px;color:#777;margin-top:2px;text-transform:uppercase;letter-spacing:1px;">Survival Time</div>
+      </div>
+    </div>
+    <div style="background:rgba(20,14,35,0.9);border:1px solid ${pc}44;border-radius:10px;padding:10px 14px;margin:8px 0;display:flex;gap:14px;align-items:flex-start;">
+      <div style="font-size:40px;line-height:1;flex-shrink:0;">${godIcon}</div>
+      <div>
+        <div style="font-size:17px;font-weight:900;color:${pc};text-shadow:0 0 14px ${pc}55;">${godTitle}</div>
+        <div style="font-size:11px;color:#aaa;margin-top:3px;">${godPerk}</div>
+        <div style="font-size:10px;color:#555;margin-top:4px;">Path of ${pn} · Sanctums: ${rifts}</div>
+      </div>
+    </div>
+    ${throneHTML}
+    <div style="background:rgba(10,8,20,0.88);border:1px solid #2a2a4a;border-radius:10px;padding:8px 12px;margin:8px 0;max-height:100px;overflow:hidden;">
+      <div style="font-size:10px;font-weight:700;color:#445566;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;">Arena Chronicle</div>
+      ${feedItems.length?feedItems.map(k=>`<div style="font-size:11px;color:${k.color||'#777'};line-height:1.55;">${k.msg}</div>`).join(''):'<div style="font-size:11px;color:#444;">—</div>'}
+    </div>`;
+  const ws2 = document.getElementById('winStats');
+  if (ws2) root.insertBefore(panel, ws2); else root.appendChild(panel);
+}
 function winGame(){
   if (G.won) return;
   G.won = true;
-  document.getElementById('win').classList.remove('hidden');
-  try { _renderBoostOfferPanel(document.getElementById('win'), 'Victory boosts: add a permanent edge for your next run'); } catch(e){}
+  const _wr = document.getElementById('win');
+  _wr.classList.remove('hidden');
+  try {
+    const _h1 = _wr.querySelector('h1');
+    if (_h1 && G.player){
+      const _td = tierData(G.player);
+      _h1.style.color = G.player.path.color;
+      _h1.style.textShadow = `0 0 28px ${G.player.path.color}70`;
+      _h1.innerHTML = `${_td?_td.icon:'👑'} ${_td?_td.name:'True God'}<span style="font-size:0.48em;display:block;opacity:0.65;font-weight:400;margin-top:4px;">Apotheosis Complete — You Became a God</span>`;
+    }
+  } catch(e){}
+  try { _buildWinScreen(_wr); } catch(e){}
+  try { _renderBoostOfferPanel(_wr, 'Victory boosts: add a permanent edge for your next run'); } catch(e){}
   const summary = buildEndingSummary('victory', 'Your legend is sealed in the annals of the arena.');
   const ws = document.getElementById('winStats');
   if (ws){
-    ws.textContent = `${G.player.path.name} · Seq 0 [Fool, the True God] enthroned! ${summary.subtitle}`;
+    const _td2 = G.player ? tierData(G.player) : null;
+    ws.textContent = `Path of ${G.player.path.name} · ${_td2?_td2.name:'True God'} enthroned! ${summary.subtitle}`;
     const detail = document.getElementById('winDetail');
     if (detail){ detail.innerHTML = summary.bullets.map(b => `<div>${b}</div>`).join(''); }
   }
-  // v3.4.0: stop active gameplay session + show end-of-game commercial (peak satisfaction — high engagement ad slot)
-  try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
+  // v3.17.0: stop gameplay session + governed interstitial (natural break, pacing-capped)
+  try { if (window.SDK && SDK.ready && SDK.gameplayStop) SDK.gameplayStop(); } catch(e){}
+  try { _hideSupplyDropOffer(); tryMidroll('win'); } catch(e){}
+  try { _renderVaultPanel(document.getElementById('win')); } catch(e){}
+  try { const _newAch = checkAchievements(); _renderAchievementUnlocks(_newAch, document.getElementById('win')); } catch(e){}
   // v3.7.0: viral share button — reward coins for sharing (drives organic acquisition)
   try { _setupWinShareButton(); } catch(e){}
   // v2.0.0: win-screen rewarded ad (+300 coins) — shown on ad-supported platforms only
@@ -4678,21 +5673,9 @@ function drawStatusBanner(){
   ctx.save();
   // v3.12.0: persistent objective hint
   if (G.started && !G.dead && !G.won){
-    let goal = '';
-    if (p.rank >= 9){
-      goal = '★ TRUE GOD — win by slaying all rivals or last survivor';
-    } else if (p.rank >= 8){
-      const need = [];
-      if ((p.q.bossKilled||0) < 2) need.push(`Outer God ${p.q.bossKilled||0}/2`);
-      if ((p.q.riftsUsed||0) < 4) need.push(`Sanctum ${p.q.riftsUsed||0}/4`);
-      const throneHolder = G.thrones && G.thrones[p.pathKey];
-      if (throneHolder && throneHolder !== p && !(p.q.killThrone >= 1)) need.push('Usurp Throne');
-      goal = need.length ? '⚡ Apotheosis: ' + need.join(' · ') : '⚡ Ready to ascend! Keep leveling';
-    } else {
-      const QI_THR_VALS = [0,80,220,440,800,1400,2200,3200,4400,6000];
-      const need = QI_THR_VALS[p.rank] || 999;
-      const pct = Math.min(100, Math.floor((p.qi / need) * 100));
-      goal = `Rank ${p.rank}/9 → ${pct}% XP · Kill enemies & capture Sanctums`;
+    let goal = getObjectiveSummary(p);
+    if (p.rank < 9 && p.rank >= 2 && (!p.authoritySlots || !p.authoritySlots.length)){
+      goal = `Authority • ${goal}`;
     }
     ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
@@ -4711,6 +5694,21 @@ function drawStatusBanner(){
       ctx.fillStyle = '#aa88cc'; ctx.strokeStyle = '#000';
       const vt = `Veil of Erasure in ${Math.ceil(starts)}s`;
       ctx.strokeText(vt, cx, 40); ctx.fillText(vt, cx, 40);
+    }
+    const domain = getPlayerDomain();
+    if (domain && G.player.rank >= 7){
+      ctx.fillStyle = '#ffd66b'; ctx.strokeStyle = '#000';
+      const dt = `Domain: ${domain.vassals.size}/${domain.vassalCap} vassals · press G to redraw`;
+      ctx.strokeText(dt, cx, 76); ctx.fillText(dt, cx, 76);
+      if (G.player._domainInside){
+        const inside = 'Inside your domain: +power, +authority flow';
+        ctx.fillStyle = '#7fd07f';
+        ctx.strokeText(inside, cx, 94); ctx.fillText(inside, cx, 94);
+      }
+    } else if (G.player.rank >= 7){
+      ctx.fillStyle = '#ffd66b'; ctx.strokeStyle = '#000';
+      const dt = 'Tier 7+ can claim a domain with G';
+      ctx.strokeText(dt, cx, 76); ctx.fillText(dt, cx, 76);
     }
     // boss nearby
     if (G.bosses && G.bosses.length){
@@ -4737,7 +5735,7 @@ function drawStatusBanner(){
     ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-    const t = 'Defending (80% dmg reduction + reflect)';
+    const t = 'Defending (45% dmg reduction)';  // shift + right-click
     ctx.strokeText(t, cx, window.innerHeight-90); ctx.fillText(t, cx, window.innerHeight-90);
   }
   ctx.restore();
@@ -5078,6 +6076,172 @@ function updatePathBond(){
   G.player._pathBondActive = bond;
 }
 
+function getPlayerDomain(){
+  if (!G.domains || !G.player) return null;
+  return G.domains.find(d => d && d.active && d.ownerRef === G.player) || null;
+}
+function createDomain(owner, opts = {}){
+  if (!owner || (owner.rank||1) < 7) return null;
+  G.domains = G.domains || [];
+  let domain = G.domains.find(d => d && d.active && d.ownerRef === owner);
+  const radius = opts.r || Math.round(980 + Math.max(0, (owner.rank||7) - 7) * 150 + Math.min(4, (owner.authoritySlots||[]).length) * 90);
+  if (!domain){
+    domain = {
+      id: ++G._nidSeq,
+      active: true,
+      ownerRef: owner,
+      ownerName: owner.isPlayer ? 'You' : (owner.name || owner.sp?.name || 'Sovereign'),
+      ownerPath: owner.pathKey || owner.path?.name || 'unknown',
+      x: opts.x !== undefined ? opts.x : owner.x,
+      y: opts.y !== undefined ? opts.y : owner.y,
+      r: radius,
+      createdAt: G.time || 0,
+      seal: owner.authoritySlots && owner.authoritySlots[0] ? owner.authoritySlots[0].id : null,
+      sealName: owner.authoritySlots && owner.authoritySlots[0] ? owner.authoritySlots[0].name : '',
+      color: owner.path?.color || owner.color || '#ffd66b',
+      vassals: new Set(),
+      vassalCap: Math.max(2, 2 + Math.floor((owner.rank||7) - 7) * 2 + Math.min(3, (owner.authoritySlots||[]).length)),
+      fadeT: 0,
+    };
+    G.domains.push(domain);
+  } else {
+    domain.x = opts.x !== undefined ? opts.x : owner.x;
+    domain.y = opts.y !== undefined ? opts.y : owner.y;
+    domain.r = radius;
+    domain.color = owner.path?.color || owner.color || domain.color;
+    domain.seal = owner.authoritySlots && owner.authoritySlots[0] ? owner.authoritySlots[0].id : domain.seal;
+    domain.sealName = owner.authoritySlots && owner.authoritySlots[0] ? owner.authoritySlots[0].name : domain.sealName;
+    domain.ownerName = owner.isPlayer ? 'You' : (owner.name || owner.sp?.name || domain.ownerName);
+    domain.vassalCap = Math.max(2, 2 + Math.floor((owner.rank||7) - 7) * 2 + Math.min(3, (owner.authoritySlots||[]).length));
+    domain.active = true;
+    domain.fadeT = 0;
+  }
+  return domain;
+}
+function togglePlayerDomain(){
+  if (!G.player || (G.player.rank||1) < 7){
+    pushKillFeed('Need Tier 7+ to claim a domain', '#ff88cc');
+    return false;
+  }
+  const domain = createDomain(G.player, { x:G.player.x, y:G.player.y });
+  if (!domain) return false;
+  addFloat(G.player.x, G.player.y - 70, '✦ Domain claimed', domain.color, 16, 1.8);
+  pushKillFeed(`✦ Domain formed · ${domain.vassals.size}/${domain.vassalCap} vassals`, domain.color);
+  return true;
+}
+function convertToVassal(enemy, domain){
+  if (!enemy || !domain) return null;
+  const idx = G.enemies.indexOf(enemy);
+  if (idx >= 0) G.enemies.splice(idx, 1);
+  enemy.isMinion = true;
+  enemy.isVassal = true;
+  enemy.ownerPlayer = domain.ownerRef;
+  enemy.ownerDomainId = domain.id;
+  enemy._humanLike = false;
+  enemy._aggroPlayerT = 0;
+  enemy.aiState = 'vassal';
+  enemy.color = domain.color || enemy.color;
+  enemy.name = `${enemy.name || enemy.sp?.name || 'Follower'} · Vassal`;
+  enemy.life = Math.max(enemy.life || 0, 20 + (enemy.rank||1) * 2);
+  enemy.maxLife = Math.max(enemy.maxLife || 0, enemy.life);
+  if (enemy.hp > enemy.maxHp) enemy.hp = enemy.maxHp;
+  domain.vassals.add(enemy.nid || enemy.name || Math.random());
+  G.minions.push(enemy);
+  try { addFloat(enemy.x, enemy.y - 28, '✦ Joined the domain', '#7fd07f', 13, 1.8); } catch(e){}
+  try { pushKillFeed(`✦ ${enemy.name} bends the knee`, '#7fd07f'); } catch(e){}
+  return enemy;
+}
+function updateDomains(dt){
+  if (!G.domains || !G.domains.length) return;
+  const playerDomain = getPlayerDomain();
+  for (const domain of G.domains){
+    if (!domain) continue;
+    const owner = domain.ownerRef;
+    if (!owner || owner.hp <= 0 || owner._dead){
+      domain.fadeT = (domain.fadeT || 0) + dt;
+      if (domain.fadeT > 10) domain.active = false;
+      continue;
+    }
+    domain.fadeT = 0;
+    domain.vassals = domain.vassals || new Set();
+    const ownerInside = Math.hypot((owner.x||0)-domain.x, (owner.y||0)-domain.y) <= domain.r;
+    if (owner.isPlayer){
+      const nextPower = ownerInside ? 1 + Math.min(0.28, 0.06 + (domain.vassals.size * 0.03)) : 1;
+      if (owner._domainPower !== nextPower){
+        owner._domainPower = nextPower;
+        try { recalcStats(owner); } catch(e){}
+      }
+      owner._domainRadius = domain.r;
+      owner._domainName = 'Domain of ' + (domain.ownerName || 'You');
+      owner._domainVassals = domain.vassals.size;
+      owner._domainInside = ownerInside;
+    }
+    const recruitCap = domain.vassalCap + Math.max(0, (owner.rank||7) - 7);
+    for (const e of G.enemies){
+      if (!e || e.hp <= 0 || e._dead || e.isBoss) continue;
+      const rank = e.rank || 1;
+      if (rank > Math.max(3, (owner.rank||7) - 4)) continue;
+      const d = Math.hypot((e.x||0)-domain.x, (e.y||0)-domain.y);
+      if (d > domain.r * 0.84) continue;
+      e._domainJoinT = (e._domainJoinT || 0) + dt;
+      if (e._domainJoinT >= 4 && domain.vassals.size < recruitCap){
+        convertToVassal(e, domain);
+      }
+    }
+    for (const m of G.minions){
+      if (!m || m.hp <= 0) continue;
+      if (m.ownerDomainId !== domain.id) continue;
+      const within = Math.hypot((m.x||0)-domain.x, (m.y||0)-domain.y) <= domain.r;
+      const nextBuff = within ? (1.08 + Math.min(0.22, domain.vassals.size * 0.02)) : 1;
+      if (m._domainBuff !== nextBuff){
+        m._domainBuff = nextBuff;
+        try { recalcStats(m); } catch(e){}
+      }
+    }
+  }
+  if (playerDomain && G.player){
+    G.player._domainInside = Math.hypot((G.player.x||0)-playerDomain.x, (G.player.y||0)-playerDomain.y) <= playerDomain.r;
+  }
+}
+function drawDomains(){
+  if (!G.domains || !G.domains.length) return;
+  ctx.save();
+  for (const domain of G.domains){
+    if (!domain || !domain.active) continue;
+    const owner = domain.ownerRef;
+    const fill = ctx.createRadialGradient(domain.x, domain.y, 0, domain.x, domain.y, domain.r);
+    fill.addColorStop(0, (domain.color || '#ffd66b') + '22');
+    fill.addColorStop(0.65, (domain.color || '#ffd66b') + '10');
+    fill.addColorStop(1, '#00000000');
+    ctx.fillStyle = fill;
+    ctx.beginPath(); ctx.arc(domain.x, domain.y, domain.r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = (domain.color || '#ffd66b') + (owner && owner.isPlayer ? 'cc' : '88');
+    ctx.lineWidth = owner && owner.isPlayer ? 5 : 3;
+    ctx.setLineDash([14, 8]);
+    ctx.lineDashOffset = -(G.time * 18);
+    ctx.globalAlpha = 0.12 + Math.min(0.2, (domain.vassals.size || 0) * 0.02);
+    ctx.beginPath(); ctx.arc(domain.x, domain.y, domain.r, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const label = `${domain.ownerName || 'Sovereign'} · ${domain.vassals.size || 0}/${domain.vassalCap || 0} vassals`;
+    ctx.strokeStyle = '#000a'; ctx.lineWidth = 3;
+    ctx.strokeText(label, domain.x, domain.y - domain.r - 18);
+    ctx.fillText(label, domain.x, domain.y - domain.r - 18);
+    if (domain.sealName){
+      ctx.fillStyle = domain.color || '#ffd66b';
+      ctx.font = '11px sans-serif';
+      ctx.fillText(`Seal: ${domain.sealName}`, domain.x, domain.y + domain.r + 16);
+    }
+    if (owner && owner.isPlayer && G.player === owner){
+      ctx.fillStyle = '#ffd66b';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('DOMAIN CORE', domain.x, domain.y + 2);
+    }
+  }
+  ctx.restore();
+}
+
 function buildEndingSummary(type, extra){
   const p = G.player;
   const partySize = G.party ? G.party.members.size : 1;
@@ -5117,9 +6281,9 @@ function buildEndingSummary(type, extra){
 }
 function getBossSpawnConfig(){
   const baseStage = Math.max(1, G.stage || 1);
-  const maxBosses = baseStage >= 5 ? 3 : (baseStage >= 4 ? 2 : 1);
-  const intervalBase = baseStage >= 5 ? 95 : (baseStage >= 4 ? 110 : 130);
-  const intervalVar = baseStage >= 5 ? 28 : (baseStage >= 4 ? 38 : 48);
+  const maxBosses = baseStage >= 5 ? 3 : (baseStage >= 3 ? 2 : 1);
+  const intervalBase = baseStage >= 5 ? 78 : (baseStage >= 4 ? 86 : (baseStage >= 3 ? 92 : 72));
+  const intervalVar = baseStage >= 5 ? 18 : (baseStage >= 4 ? 20 : 24);
   return { maxBosses, intervalBase, intervalVar };
 }
 
@@ -5160,7 +6324,9 @@ function winGameLastStand(){
     const detail = document.getElementById('winDetail');
     if (detail){ detail.innerHTML = summary.bullets.map(b => `<div>${b}</div>`).join(''); }
   }
-  try { if (window.SDK && SDK.ready){ SDK.gameplayStop && SDK.gameplayStop(); SDK.commercialBreak && SDK.commercialBreak(); } } catch(e){}
+  try { if (window.SDK && SDK.ready && SDK.gameplayStop) SDK.gameplayStop(); } catch(e){}
+  try { _hideSupplyDropOffer(); tryMidroll('win_laststand'); } catch(e){}
+  try { _renderVaultPanel(document.getElementById('win')); } catch(e){}
   try { addCoins(300); pushKillFeed('🪙 +300 coins — Twilight Champion!', '#ffd66b'); } catch(e){}
   try { _setupWinShareButton(); } catch(e){}
   // v3.9.0: submit to global + local leaderboards
@@ -5771,13 +6937,65 @@ function updateBounty(dt){
 // =====================================================================
 // v3.11.0: AI 權柄施放 — 高階 AI 在戰鬥中釋放權柄製造對抗感
 // =====================================================================
+function pickAuthorityAISlot(e, targets){
+  if (!e.authCdT) e.authCdT = [];
+  const hpPct = e.hp / (e.maxHp || 1);
+  const nearbyCount = targets.reduce((n, t) => n + (dist(e, t) < 700 ? 1 : 0), 0);
+  const closeCount = targets.reduce((n, t) => n + (dist(e, t) < 1200 ? 1 : 0), 0);
+  const nearestDist = targets.length ? Math.min(...targets.map(t => dist(e, t))) : Infinity;
+  let bestSlot = -1;
+  let bestScore = -Infinity;
+  for (let i = 0; i < e.authoritySlots.length; i++){
+    if ((e.authCdT[i] || 0) > 0) continue;
+    const a = e.authoritySlots[i];
+    if (!a) continue;
+    let score = 0;
+    switch (a.id){
+      case 'life':
+        score = hpPct < 0.45 ? 10 : hpPct < 0.75 ? 5 : 1;
+        break;
+      case 'titan':
+        score = (e.titanT || 0) <= 0 ? 7 : 2;
+        if (e.phase >= 2) score += 2;
+        if (hpPct > 0.6) score += 1;
+        break;
+      case 'time':
+        score = nearbyCount > 0 ? 8 : closeCount > 0 ? 5 : 2;
+        break;
+      case 'void':
+        score = closeCount >= 2 ? 10 : nearbyCount > 0 ? 7 : 3;
+        if (hpPct < 0.7) score += 1;
+        break;
+      case 'fire':
+        score = closeCount > 0 ? 8 : nearbyCount > 0 ? 5 : 2;
+        break;
+      case 'frost':
+        score = nearestDist < 1000 ? 7 : 3;
+        break;
+      case 'gale':
+        score = nearestDist < 700 ? 8 : closeCount > 0 ? 6 : 3;
+        if (hpPct < 0.5) score += 1;
+        break;
+      case 'thunder':
+        score = closeCount >= 2 ? 8 : nearbyCount > 0 ? 6 : 3;
+        if (e.phase >= 2) score += 1;
+        break;
+      case 'omni':
+        score = e.phase >= 2 ? 9 : hpPct < 0.7 ? 7 : 4;
+        if (closeCount >= 2) score += 2;
+        break;
+      default:
+        score = 1;
+    }
+    score += Math.random() * 0.25;
+    if (score > bestScore){ bestScore = score; bestSlot = i; }
+  }
+  return bestSlot;
+}
 function castAuthorityAI(e){
   if (!e.authoritySlots || !e.authoritySlots.length) return;
-  let slot = -1;
-  for (let i = 0; i < e.authoritySlots.length; i++){
-    if (!e.authCdT) e.authCdT = [];
-    if ((e.authCdT[i]||0) <= 0){ slot = i; break; }
-  }
+  const targets = enemiesOf(e);
+  let slot = pickAuthorityAISlot(e, targets);
   if (slot < 0) return;
   const a = e.authoritySlots[slot];
   if (!a) return;
@@ -5786,7 +7004,6 @@ function castAuthorityAI(e){
   pushKillFeed(`⚡ ${e.name||e.sp.name} unleashed ${a.name}!`, a.color||'#ff8800');
   flash(a.color || '#ff8800', 0.35); shake(10);
   G.shockwaves.push({x:e.x, y:e.y, r:0, max:700, life:0.7, color:a.color||'#ff8800'});
-  const targets = enemiesOf(e);
   switch(a.id){
     case 'frost':
       for (const t of targets) if (dist(e,t)<1200){ dealDamage(e,t,80*dh,'#88e0ff'); t.freeze=Math.max(t.freeze||0,3); }
@@ -5837,6 +7054,19 @@ function castAuthorityAI(e){
     case 'life':
       e.maxHp += 60; e.hp = Math.min(e.hp+200, e.maxHp);
       break;
+    case 'omni':
+      for (let i = 0; i < 10; i++){
+        const sx = clamp(e.x + rand(-900, 900), 20, WORLD.w - 20);
+        const sy = clamp(e.y + rand(-900, 900), 20, WORLD.h - 20);
+        G.shockwaves.push({x:sx, y:sy, r:0, max:260, life:0.45, color:'#ffdd66'});
+        for (const t of targets){
+          if (dist({x:sx, y:sy}, t) < 260){
+            dealDamage(e, t, 95 * dh, '#ffdd66');
+          }
+        }
+      }
+      try { G._bossReveal = { t: 8, x: e.x, y: e.y }; } catch(_){ }
+      break;
     default:
       for (const t of targets) if (dist(e,t)<500){ dealDamage(e,t,90*dh, a.color||'#fff'); }
   }
@@ -5880,23 +7110,23 @@ function loop(t){
 function update(dt){
   G.time += dt;
   G._mDt = dt;
-  // timed midroll ads: fire at 3min and 7min of survival (peak engagement = highest CPM)
+  // v3.17.0: timed interstitials removed (never interrupt live gameplay).
+  // Replaced with opt-in rewarded Supply Drop offers every ~5 min alive.
   if (!G.dead && !G.won && G.player && G.player.hp>0){
-    const _midTimes = [180, 420];
-    for (const _mt of _midTimes){
-      if (!G._midrollFired) G._midrollFired = {};
-      if (G.time >= _mt && !G._midrollFired[_mt]){
-        G._midrollFired[_mt] = true;
-        try { if (window.SDK && SDK.ready && SDK.commercialBreak) SDK.commercialBreak(); } catch(e){}
-      }
+    if ((G.time - (G._lastSupplyT||0)) >= MONETIZE.SUPPLY_DROP_INTERVAL){
+      G._lastSupplyT = G.time;
+      try { _showSupplyDropOffer(); } catch(e){}
     }
   }
   // v3.7.0: Twilight of the Gods ticks
-  try { updateVeil(dt); updateAscended(dt); updatePartyInvites(dt); updatePathBond(); checkLastSurvivorWin(); if (G.finalT>0) G.finalT -= dt; } catch(e){}
+  try { updateVeil(dt); updateAscended(dt); updatePartyInvites(dt); updatePathBond(); updateGodWarEvent(dt); updatePartyCoopBuff(dt); updateDomains(dt); checkLastSurvivorWin(); if (G.finalT>0) G.finalT -= dt; } catch(e){}
   try { updateBounty(dt); } catch(e){}
-  // 相機平滑跟隨 + 世界邊界夾限 + NaN 保護
+  // 相機平滑跟隨 + 前瞻偏移 + 世界邊界夾限 + NaN 保護
   if (!isFinite(G.player.x) || !isFinite(G.player.y)){ G.player.x = WORLD.w/2; G.player.y = WORLD.h/2; G.player.vx=0; G.player.vy=0; }
-  G.cam.tx = G.player.x; G.cam.ty = G.player.y;
+  // 鏡頭前瞻：向移動方向多看 100px，讓玩家「看到前方」
+  const _leadX = clamp(G.player.vx * 0.22, -110, 110);
+  const _leadY = clamp(G.player.vy * 0.22, -110, 110);
+  G.cam.tx = G.player.x + _leadX; G.cam.ty = G.player.y + _leadY;
   const halfW = window.innerWidth/2, halfH = window.innerHeight/2;
   G.cam.tx = clamp(G.cam.tx, halfW, WORLD.w - halfW);
   G.cam.ty = clamp(G.cam.ty, halfH, WORLD.h - halfH);
@@ -5935,8 +7165,14 @@ function update(dt){
     pushKillFeed('⚠ Position reset', '#ff8888');
   }
   // v2.1.0: defensive skip — dead creatures must not run AI/attack even before filter runs
-  for (const e of G.enemies){ if (e._dead || e.hp<=0) continue; try{ aiUpdate(e, dt); }catch(err){ e.hp=0; console.warn('ai err',err);} }
-  for (const m of G.minions){ if (m._dead || m.hp<=0) { m.life=0; continue; } try{ aiUpdate(m, dt); }catch(err){ m.hp=0;} m.life-=dt; if (m.life<=0) m.hp=0; }
+  for (const e of G.enemies){ if (e._dead || e.hp<=0) continue;
+    if ((e._hitBlink||0) > 0) e._hitBlink = Math.max(0, e._hitBlink - dt * 5.5);
+    try{ aiUpdate(e, dt); }catch(err){ e.hp=0; console.warn('ai err',err);}
+  }
+  for (const m of G.minions){ if (m._dead || m.hp<=0) { m.life=0; continue; }
+    if ((m._hitBlink||0) > 0) m._hitBlink = Math.max(0, m._hitBlink - dt * 5.5);
+    try{ aiUpdate(m, dt); }catch(err){ m.hp=0;} m.life-=dt; if (m.life<=0) m.hp=0;
+  }
   updateProjectiles(dt);
   updateHazards(dt);
   // 粒子
@@ -5993,7 +7229,7 @@ function update(dt){
   // v0.9.0: 世界 Boss
   for (let _i=G.bosses.length-1;_i>=0;_i--){ if (G.bosses[_i].hp<=0){ onBossDeath(G.bosses[_i]); G.bosses.splice(_i,1); G.bossSpawnT=160; } }
   const bossCfg = getBossSpawnConfig();
-  if (G.stage>=3 && G.bosses.length<bossCfg.maxBosses){
+  if ((G.stage>=2 || G.time >= 60) && G.bosses.length<bossCfg.maxBosses){
     G.bossSpawnT -= dt;
     if (G.bossSpawnT <= 0){
       spawnBoss();
@@ -6039,12 +7275,16 @@ function update(dt){
     for (let i=0;i<waveSize;i++){ try { spawnEnemy(false); } catch(e){} }
     // v3.5.0: miniboss from stage 1, Outer Gods from stage 3 (was stage 2/4) — escalate chaos faster
     if (newStage>=1 && !G.miniboss){ try { spawnMiniboss(); G.minibossSpawnT = 120; } catch(e){} }
-    if (newStage>=3 && G.bosses.length===0){ try { spawnBoss(); G.bossSpawnT = 120; } catch(e){} }
+    if (newStage>=2 && G.bosses.length===0){ try { spawnBoss(); G.bossSpawnT = 55; } catch(e){} }
     if (newStage>=4){ G.eventCdT = Math.min(G.eventCdT, 12); }
   }
   if (G.stageBannerT>0) G.stageBannerT -= dt;
   if (G.revealT>0) G.revealT -= dt;
   if (G.pingT>0) G.pingT -= dt;
+  if (G._bossReveal && G._bossReveal.t > 0){
+    G._bossReveal.t -= dt;
+    if (G._bossReveal.t <= 0) G._bossReveal = null;
+  }
   // v1.0.0: 小 Boss · Ancient Wraith（Era of Cultivation起，每 180s）
   if (G.stage>=2){
     if (G.miniboss && G.miniboss.hp<=0){ onMinibossDeath(G.miniboss); G.miniboss=null; G.minibossSpawnT = G.stage>=3?150:180; }
@@ -6088,7 +7328,8 @@ function update(dt){
   if (G.tutorialStep===4 && G.tutorialT>24){ addFloat(G.player.x, G.player.y-60, "★ Capture 4 Sanctums + slay an Outer God = Apotheosis (win)", "#ff88cc", 18, 5); G.tutorialStep=5; }
   // 補充靈氣與道具
   if (G.spirits.length<70 && Math.random()<0.35) spawnSpirit();
-  if (G.pickups.length<180 && Math.random()<0.25) spawnPickup();  // v1.7.0: leaner ambient
+  if (G.pickups.length<80 && Math.random()<0.06) spawnPickup();
+  maybeRespawnAuthorities();
   // v1.2.0 多人聯機 tick
   if (window.Net){
     try{ Net.update(G.player, dt); }catch(e){}
@@ -6133,11 +7374,13 @@ function render(){
     const sy = (G.cam.shake>0)?rand(-G.cam.shake,G.cam.shake):0;
     ctx.translate(window.innerWidth/2 - G.cam.x + sx, window.innerHeight/2 - G.cam.y + sy);
     drawCosmicBG();
+    drawGodWarArena();
     drawTerrain();
     drawAmbientMotes();
     drawTendrils();
     drawQiSprings();
     drawRifts();
+    drawDomains();
     drawSpirits();
     drawPickups();
     drawAuthoritiesWorld();
@@ -6180,6 +7423,7 @@ function render(){
   try{ drawKillFeed(); }catch(e){}
   try{ drawStreakBanner(); }catch(e){}
   try{ drawEdgeArrows(); }catch(e){}
+  try{ drawBossRevealBanner(); }catch(e){}
   try{ drawEvoReveal(); }catch(e){}
   try{ drawJoystick(); }catch(e){}
   try{ drawLeaderboard(); }catch(e){}
@@ -6682,20 +7926,99 @@ function drawCreature(c){
       ctx.restore();
     }
   }
-  // 身體（依物種形狀繪製 — 若有 AI 繪製肖像則優先用圖）
+  // ── Portrait / shape rendering with full animation system ────────────────
   ctx.save();
-  // v3.1.0: 呼吸 idle 動畫（subtle）
-  const breath = 1 + Math.sin(G.time*2.4 + (c._fp||0))*0.025;
-  ctx.translate(c.x,c.y); ctx.scale(breath, breath);
-  if (c.darkT>0 && !isP) ctx.globalAlpha = 0.4;
-  // v3.4.5: portrait does NOT rotate with facing — always faces up-screen so isometric art looks correct
-  const _portrait = getPortrait(c.species, c.rank);
-  if (_portrait){
-    const _sz = c.r * 2.4;
-    ctx.drawImage(_portrait, -_sz/2, -_sz/2, _sz, _sz);
+  const _spd2 = c.vx*c.vx + c.vy*c.vy;
+  const _spd  = Math.sqrt(_spd2);
+  const _fp   = c._fp || 0;
+  const _t    = G.time;
+
+  // ── 1. IDLE BREATH — gentle sinusoidal scale, species-specific speed ─────
+  const _idleRate = c.sp && c.sp.shape === 'insect' ? 3.2
+                  : c.sp && c.sp.shape === 'dragon'  ? 1.8
+                  : c.sp && c.sp.shape === 'bird'    ? 2.6
+                  : 2.2;
+  const breath = 1 + Math.sin(_t * _idleRate + _fp) * 0.038;
+
+  // ── 2. MOVEMENT STRETCH & SQUASH ────────────────────────────────────────
+  // Squash/stretch along velocity axis (classic animation principle)
+  let mStretchX = 1, mStretchY = 1, mAngle = 0;
+  if (_spd > 60) {
+    const stretchAmt = Math.min(_spd / 260, 0.20);  // up to 20% stretch
+    mAngle   = Math.atan2(c.vy, c.vx);
+    mStretchX = 1 + stretchAmt;
+    mStretchY = 1 / mStretchX;  // preserve "volume"
+  }
+
+  // ── 3. ATTACK SWING — lunge → overshoot → settle ────────────────────────
+  const _atkAge = (_t - (c._atkSwing || -99));
+  const _atkDur = 0.32;
+  let atkScale = 1, atkLean = 0;
+  if (_atkAge < _atkDur) {
+    const _p = _atkAge / _atkDur;  // 0→1
+    // keyframe: ramp up (0→0.35), peak (0.35), decay with overshoot (0.35→1)
+    const peak = _p < 0.35 ? _p / 0.35 : 1 - (_p - 0.35) / 0.65;
+    atkScale = 1 + peak * 0.28;  // pop up to 28% larger at peak
+    atkLean  = Math.sin(_p * Math.PI) * 0.18;  // brief forward lean
+  }
+
+  // ── 4. HIT RECOIL — squash inward when taking a hit ─────────────────────
+  let hitSquash = 1;
+  if ((c._hitBlink || 0) > 0.3) {
+    hitSquash = 0.82 + (1 - c._hitBlink) * 0.18;  // briefly squash on hit
+  }
+
+  // ── 5. COMPOSE FINAL TRANSFORM ──────────────────────────────────────────
+  ctx.translate(c.x, c.y);
+  // Overall scale (breath × attack × hit)
+  const finalScale = breath * atkScale * hitSquash;
+  // Movement stretch: rotate canvas to velocity axis, apply stretch, rotate back
+  if (_spd > 60 && mAngle !== 0) {
+    ctx.rotate(mAngle);
+    ctx.scale(mStretchX * finalScale, mStretchY * finalScale);
+    ctx.rotate(-mAngle);
   } else {
-    ctx.rotate(c.facing); // drawShape still uses facing for non-portrait creatures
+    ctx.scale(finalScale, finalScale);
+  }
+
+  if (c.darkT > 0 && !isP) ctx.globalAlpha = 0.4;
+
+  const _portrait = getPortrait(c.species, c.rank);
+  if (_portrait) {
+    const _atkPortrait = (c._atkSwing && _atkAge < _atkDur) ? getAtkPortrait(c.species, c.rank) : null;
+    const _img = _atkPortrait || _portrait;
+    const _sz  = c.r * 2.4;
+    // Flip left/right based on movement or facing
+    const _faceLeft = c.isPlayer ? c.vx < -30 : Math.cos(c.facing) < -0.28;
+    // Attack lean toward facing + movement lean
+    const _moveLean = _spd > 80 ? clamp(Math.sin(Math.atan2(c.vy, c.vx) - Math.PI/2) * 0.14, -0.14, 0.14) : 0;
+    const _totalLean = _moveLean + atkLean * (c.isPlayer ? 0.8 : 0.5);
+    if (_totalLean) ctx.rotate(_totalLean);
+    if (_faceLeft) ctx.scale(-1, 1);
+    // Attack glow (warm flash at peak of swing)
+    if (_atkAge < _atkDur && atkScale > 1.12) {
+      ctx.globalAlpha = (atkScale - 1.0) * 1.8;
+      ctx.fillStyle = (c.path && c.path.color) || '#ffffff';
+      ctx.beginPath(); ctx.arc(0, 0, c.r * 1.1, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = c.darkT > 0 && !isP ? 0.4 : 1;
+    }
+    ctx.drawImage(_img, -_sz/2, -_sz/2, _sz, _sz);
+    // White hit-blink overlay
+    if ((c._hitBlink || 0) > 0) {
+      ctx.globalAlpha = c._hitBlink * 0.72;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(0, 0, c.r * 0.92, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  } else {
+    ctx.rotate(c.facing);
     drawShape(c);
+    if ((c._hitBlink || 0) > 0) {
+      ctx.globalAlpha = c._hitBlink * 0.58;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(0, 0, c.r * 1.05, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
   ctx.globalAlpha = 1;
   ctx.restore();
@@ -7377,6 +8700,16 @@ function drawStarMap(){
     ctx.fillStyle = rf.used?'#666':'#fff'; ctx.font='10px sans-serif'; ctx.textAlign='center';
     ctx.fillText(rf.name, px, py - 10);
   }
+  for (const d of (G.domains||[])){
+    if (!d || !d.active) continue;
+    const px = mx + d.x*sx, py = my + d.y*sy;
+    const pr = Math.max(6, d.r * Math.min(sx, sy));
+    ctx.strokeStyle = (d.color||'#ffd66b') + '88';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = d.color || '#ffd66b'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+    ctx.fillText((d.ownerName||'Domain') + ' · ' + (d.vassals?.size||0), px, py + 14);
+  }
   // 權柄
   for (const a of G.authorities){
     const px = mx + a.x*sx, py = my + a.y*sy;
@@ -7580,6 +8913,14 @@ function drawMinimap(){
   _drawAuthorityHoldersOnMap(mx, my, sx, sy, false);
   for (const qs of G.qiSprings){ ctx.fillStyle='#bb88ff'; ctx.beginPath(); ctx.arc(mx+qs.x*sx,my+qs.y*sy,3,0,Math.PI*2); ctx.fill(); }
   for (const rf of G.rifts){ ctx.fillStyle = rf.used ? '#444' : rf.color; ctx.beginPath(); ctx.arc(mx+rf.x*sx,my+rf.y*sy,4,0,Math.PI*2); ctx.fill(); if (!rf.used){ ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke(); } }
+  for (const d of (G.domains||[])){
+    if (!d || !d.active) continue;
+    const px = mx + d.x*sx, py = my + d.y*sy;
+    const pr = Math.max(4, d.r * Math.min(sx, sy));
+    ctx.strokeStyle = (d.color||'#ffd66b') + '66';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2); ctx.stroke();
+  }
   // 敵人（階位越高越亮）
   for (const e of G.enemies){
     ctx.fillStyle = e.rank>=5 ? '#ff80ff' : (e.rank>=3 ? '#ffaa44' : '#f55');
@@ -7660,6 +9001,29 @@ function drawEdgeArrows(){
       if (riftCount<=3) drawArrow(sc.sx,sc.sy, rf.color||'#44ffcc','RIFT');
     }
   }
+}
+
+function drawBossRevealBanner(){
+  const r = G._bossReveal;
+  if (!r || r.t <= 0 || !G.player || !G.started) return;
+  const W = window.innerWidth;
+  const d = Math.hypot((r.x||0) - G.player.x, (r.y||0) - G.player.y);
+  const name = r.name || 'Outer God';
+  ctx.save();
+  ctx.globalAlpha = clamp(r.t / 10, 0, 1);
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(W/2 - 170, 16, 340, 42);
+  ctx.strokeStyle = r.color || '#aa44ff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(W/2 - 170, 16, 340, 42);
+  ctx.fillStyle = r.color || '#ffd66b';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('☄ OUTER GOD MANIFESTS', W/2, 34);
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px sans-serif';
+  ctx.fillText(name + ' · ~' + Math.max(1, Math.round(d / 100)) + 'm away', W/2, 52);
+  ctx.restore();
 }
 
 // =====================================================================
@@ -7910,25 +9274,23 @@ function updateHUD(){
   const q = currentQuest(p);
   const statsEl = document.getElementById('stats');
   if (statsEl){
+    const objective = getObjectiveSummary(p);
+    const authLine = (p.rank >= 2)
+      ? `<div class="cdrow">Authority • ${p.authoritySlots?.length || 0}/6 slots • ${p.authoritySlots?.length ? 'powers ready' : 'pick your first fruit'}</div>`
+      : '<div class="cdrow">Authority • unlock at Tier 2</div>';
+    const bossLine = G.boss && G.boss.hp>0
+      ? `<div class="quest" style="background:#aa44ff33;border-left-color:#aa44ff;color:#dabbff;">☄ ${G.boss.name} · ${G.boss.hp|0}/${G.boss.maxHp}</div>`
+      : `<div style="color:#888;font-size:10px;margin-top:3px">Outer God in ${(G.bossSpawnT||0)|0}s</div>`;
+    const questLine = q
+      ? `<div class="quest" style="${p.qi>=QI_THR[p.rank]&&!q.req(p)?'background:#ff446644;border-left-color:#ff4466;color:#ffccdd;':''}">` + (p.qi>=QI_THR[p.rank]&&!q.req(p)?'⚠ Ready to promote: ':'Goal: ') + q.desc + ` <span class="qprog">[${q.show(p)}]</span> ` + (q.req(p)?'<span class="qdone">✓</span>':'') + '</div>'
+      : '<div class="quest qdone">★ Next step: keep surviving</div>';
     statsEl.innerHTML = `
-      <div class="pathLine"><b style="color:${p.path.color}">${p.path.name}</b> · <span style="color:${p.path.color}">${tierIcon(p)} ${tierName(p)}</span>(Tier ${p.rank}/9)— <span style="color:#cccccc">${tierData(p)?tierData(p).pname:''}</span></div>
+      <div class="pathLine"><b style="color:${p.path.color}">${p.path.name}</b> · <span style="color:${p.path.color}">${tierIcon(p)} ${tierName(p)}</span> (Tier ${p.rank}/9)</div>
+      <div class="objective">${objective}</div>
       <div>Essence x${p.zhenyuan.toFixed(2)} · Dao x${p.daohen.toFixed(2)}</div>
-      <div class="cdrow">
-        ${(()=>{
-          function skBadge(cd, t, name, slot, unlock, rank){
-            const rBoost = slot==='Q'&&rank>=3||slot==='E'&&rank>=5||slot==='R'&&rank>=7 ? '★' : '';
-            const mega = rank>=9?'⚡':rank>=8?'★★':rank>=7?'★':'';
-            if (rank < unlock) return `<span style="color:#555">${slot} 🔒 lv${unlock}</span>`;
-            if (t>0) return `<span style="color:#ff8866">${slot} ${t.toFixed(1)}s ${name}</span>`;
-            return `<span style="color:#88ff88">${slot}${mega} ✓ ${name}</span>`;
-          }
-          return skBadge(p.sp.skillQ.cd,p.skillQT,p.sp.skillQ.name,'Q',p.sp.skillQ.unlockRank||1,p.rank)
-            +' | '+skBadge(p.sp.skillE.cd,p.skillET,p.sp.skillE.name,'E',p.sp.skillE.unlockRank||1,p.rank)
-            +' | '+skBadge(p.sp.skillR.cd,p.skillRT,p.sp.skillR.name,'R',p.sp.skillR.unlockRank||1,p.rank);
-        })()}
-      </div>
-      ${G.boss && G.boss.hp>0 ? `<div class="quest" style="background:#aa44ff33;border-left-color:#aa44ff;color:#dabbff;">☄ Outer God ${G.boss.name} · HP ${G.boss.hp|0}/${G.boss.maxHp}</div>` : `<div style="color:#888;font-size:10px;margin-top:4px">外神降臨：${(G.bossSpawnT||0)|0}s 後</div>`}
-      ${q ? `<div class="quest" style="${p.qi>=QI_THR[p.rank]&&!q.req(p)?'background:#ff446644;border-left-color:#ff4466;color:#ffccdd;':''}">${p.qi>=QI_THR[p.rank]&&!q.req(p)?'⚠ Enough XP! Complete quest or reach XP '+(QI_THR[p.rank]*1.8|0)+' Force ascend: ':'Quest: '}${q.desc}　<span class="qprog">[${q.show(p)}]</span> ${q.req(p)?'<span class="qdone">✓</span>':''}</div>` : '<div class="quest qdone">★ Divinity achieved</div>'}
+      ${authLine}
+      ${bossLine}
+      ${questLine}
     `;
   }
   // 權柄槽（v0.8.0: 6 槽，按 1-6 釋放）
@@ -8188,6 +9550,16 @@ function awardRunCoins(){
     const qi = p.qi|0, rank = p.rank|0, kills = (p.q&&p.q.kills)|0;
     const coinMul = getCoinGainMultiplier(p);
     earned = Math.floor((qi/15 + rank*12 + kills*2) * coinMul);
+    // v3.17.0: first run of the day pays double (habit-forming session driver)
+    G._firstRunDoubled = false;
+    try {
+      const _fday = _utcDay();
+      if (localStorage.getItem('evo_first_run_day') !== _fday){
+        localStorage.setItem('evo_first_run_day', _fday);
+        earned *= MONETIZE.FIRST_RUN_DAILY_MULT;
+        G._firstRunDoubled = true;
+      }
+    } catch(e){}
     // Daily quest completion bonus
     const dq = getDailyQuest();
     if (dq && !dq.done){
@@ -8201,7 +9573,7 @@ function awardRunCoins(){
         try{ localStorage.setItem(EVO_DAILY_QUEST_KEY, JSON.stringify(dq)); }catch(e){}
       }
     }
-    if (earned > 0) addCoins(earned);
+    if (earned > 0){ addCoins(earned); try { accrueVault(earned); } catch(e){} }
     // v1.8.0: weekly challenge progress + mastery + lifetime
     try { progressWeekly(kills, 1, qi, rank); } catch(e){}
     try { addMasteryKills(G.selectedSpecies, kills); } catch(e){}
@@ -8502,67 +9874,8 @@ function startMenuPreviews(){
         const sp = SPECIES[sk]; if (!sp) continue;
         const pcx = cvs.getContext('2d');
         pcx.clearRect(0,0,cvs.width,cvs.height);
-        // v3.4.4: AI-art portrait path (preferred when available)
-        const _portrait = getPortrait(sk, 1);
-        if (_portrait){
-          pcx.save();
-          pcx.globalAlpha = 1;
-          const _haloR = Math.min(cvs.width, cvs.height)*0.55;
-          const _halo = pcx.createRadialGradient(cvs.width/2, cvs.height/2, 6, cvs.width/2, cvs.height/2, _haloR);
-          _halo.addColorStop(0, (sp.color||'#888888')+'55');
-          _halo.addColorStop(1, 'rgba(0,0,0,0)');
-          pcx.fillStyle = _halo; pcx.fillRect(0,0,cvs.width,cvs.height);
-          const _bob2 = Math.sin(_menuPreviewT*1.6 + sk.charCodeAt(0))*2;
-          const _iw = _portrait.naturalWidth || _portrait.width;
-          const _ih = _portrait.naturalHeight || _portrait.height;
-          const _pad = 4;
-          const _maxW = cvs.width - _pad*2, _maxH = cvs.height - _pad*2;
-          const _scale = Math.min(_maxW/_iw, _maxH/_ih);
-          const _dw = _iw*_scale, _dh = _ih*_scale;
-          const _dx = (cvs.width - _dw)/2, _dy = (cvs.height - _dh)/2 + _bob2;
-          try { pcx.drawImage(_portrait, _dx, _dy, _dw, _dh); } catch(e){}
-          pcx.restore();
-          continue;
-        }
-        const grd = pcx.createRadialGradient(cvs.width/2, cvs.height/2, 4, cvs.width/2, cvs.height/2, 60);
-        grd.addColorStop(0, sp.color+'30');
-        grd.addColorStop(1, 'rgba(0,0,0,0)');
-        pcx.fillStyle = grd; pcx.fillRect(0,0,cvs.width,cvs.height);
-        G.time = _menuPreviewT;
-        const bob = Math.sin(_menuPreviewT*1.8 + sk.charCodeAt(0))*4;
-        const facing = Math.sin(_menuPreviewT*0.7)*0.3;
-        const r = 22;
-        pcx.save();
-        // v3.4.2: reset state that may persist from a previous frame's drawShape call
-        pcx.globalAlpha = 1;
-        pcx.translate(cvs.width/2, cvs.height/2 + bob);
-        pcx.rotate(facing);
-        // v3.4.2: draw preview using pcx directly (no global ctx swap needed)
-        // This avoids any risk of corrupting the main canvas ctx reference
-        try {
-          ctx = pcx;
-          const fake = {
-            x:0, y:0, r:r, facing:0, vx:0, vy:0,
-            color:sp.color, sp:sp, _fp:sk.charCodeAt(0), isPlayer:false,
-            rank:1, hp:1, maxHp:1,
-          };
-          try { drawShape(fake); } catch(e){
-            // drawShape failed — fallback: colored circle + species icon
-            if (typeof console !== 'undefined') console.warn('[preview drawShape]', sk, e && (e.message||e));
-            pcx.globalAlpha = 0.9;
-            pcx.fillStyle = sp.color || '#888888';
-            pcx.beginPath(); pcx.arc(0, 0, r*0.85, 0, Math.PI*2); pcx.fill();
-            pcx.strokeStyle = '#ffffff55'; pcx.lineWidth = 1.5; pcx.stroke();
-            pcx.globalAlpha = 1;
-            pcx.fillStyle = '#ffffff';
-            pcx.font = Math.floor(r*1.1)+'px serif';
-            pcx.textAlign = 'center'; pcx.textBaseline = 'middle';
-            pcx.fillText(sp.icon || '?', 0, r*0.08);
-          }
-        } finally {
-          ctx = _saveCtx;
-        }
-        pcx.restore();
+        const _bob2 = Math.sin(_menuPreviewT*1.6 + sk.charCodeAt(0))*2;
+        renderSpeciesPortrait(pcx, sk, cvs.width, cvs.height, { rank:1, bob:_bob2 });
       }
     } finally {
       G.time = _saveGtime;
@@ -8570,6 +9883,45 @@ function startMenuPreviews(){
     _menuPreviewRAF = requestAnimationFrame(loop);
   };
   _menuPreviewRAF = requestAnimationFrame(loop);
+}
+
+function renderHeroPanel(){
+  const panel = document.getElementById('heroPanel');
+  const stats = document.getElementById('heroStats');
+  if (!panel || !stats) return;
+  const coins = getCoins();
+  const streak = getStreakState();
+  const streakReady = (streak.lastClaim || '') !== _utcDay();
+  const deal = getDailyDeal();
+  const def = deal && deal.id ? BOOST_DEFS.find(x=>x.id===deal.id) : null;
+  const dealText = deal && !deal.bought && def ? `${def.name} · ${deal.price}🪙` : 'Daily offer ready';
+  stats.innerHTML = `
+    <div class="heroStat"><span>🪙</span><strong>${coins}</strong><small>Coins in reserve</small></div>
+    <div class="heroStat"><span>⚡</span><strong>${streakReady ? 'Ready' : 'Live'}</strong><small>${streakReady ? 'Claim streak reward' : 'Streak already claimed'}</small></div>
+    <div class="heroStat"><span>✨</span><strong>${def ? 'Hot' : 'Calm'}</strong><small>${def ? dealText : 'Boosts and cosmetics available'}</small></div>`;
+}
+
+function openPremiumOffer(){
+  try {
+    if (typeof _openShopModal === 'function') _openShopModal();
+    else {
+      const m = document.getElementById('shopModal');
+      if (m) m.classList.remove('hidden');
+    }
+  } catch(e){}
+}
+
+function claimStarterPack(){
+  const key = 'evo_starter_pack_claimed_v1';
+  const claimed = localStorage.getItem(key) === '1';
+  if (!claimed){
+    addCoins(120);
+    localStorage.setItem(key, '1');
+  }
+  const btn = document.getElementById('starterPackBtn');
+  if (btn) btn.textContent = '⚡ Starter Pack ✓';
+  try { pushKillFeed && pushKillFeed('⚡ Starter Pack unlocked: +120 coins for your next run.', '#ffd66b'); } catch(e){}
+  openPremiumOffer();
 }
 
 function buildMenu(){
@@ -8600,7 +9952,31 @@ function buildMenu(){
   const _spinFreeAvail = !_spinState.freeUsed;
   const _spinAdAvail = Math.max(0, 3 - (_spinState.adSpinsUsed||0));
   const _spinTxt = `<span style="color:#ffd66b">🎰 Spin: ${_spinFreeAvail ? 'free ready' : 'used'} · ad ${_spinAdAvail}/3</span>`;
-  topBar.innerHTML = `<span style="font-weight:700;color:#ffd66b;font-size:16px">🪙 ${_coins} coins</span> ${_formsTxt} ${_dqTxt} ${_streakText} ${_weeklyTxt} ${_spinTxt}`;
+  let _vaultTxt = '';
+  try {
+    const _v = getVault();
+    if (_v >= 30){
+      const _vFull = _v >= MONETIZE.VAULT_CAP * 0.8;
+      _vaultTxt = ` <span style="color:${_vFull?'#ffd66b':'#cfa9ff'};font-weight:${_vFull?'700':'400'};">${_vFull?'⚠️':'🏦'} Vault ${_v}🪙${_vFull?' CLAIM NOW!':''}</span>`;
+    }
+  } catch(e){}
+  // achievement count badge
+  let _achTxt = '';
+  try {
+    const _achDone = Object.keys(getAchievements()).length;
+    const _achTotal = ACHIEVEMENT_DEFS.length;
+    _achTxt = ` <span style="color:#ffa84a">🏆 ${_achDone}/${_achTotal}</span>`;
+  } catch(e){}
+  // weekly challenge: show as mini progress bar
+  let _weeklyBarTxt = _weeklyTxt;
+  try {
+    const _wc = getWeeklyChallenge();
+    if (_wc && !_wc.done){
+      const _wp = Math.min(100, Math.round((_wc.progress||0)/_wc.target*100));
+      _weeklyBarTxt = `<span style="color:#ff88cc">📜 Week: ${_wc.desc} <span style="font-size:10px;background:#221a2a;border-radius:3px;padding:1px 4px;">${_wc.progress||0}/${_wc.target} [${_wp}%]</span></span>`;
+    }
+  } catch(e){}
+  topBar.innerHTML = `<span style="font-weight:700;color:#ffd66b;font-size:16px">🪙 ${_coins} coins</span>${_vaultTxt}${_achTxt} ${_formsTxt} ${_dqTxt} ${_streakText} ${_weeklyBarTxt} ${_spinTxt}`;
   // v3.6.0: revenge list + lifetime Outer God kills shown in menu
   try {
     const _rev = getRevengeList();
@@ -8616,27 +9992,32 @@ function buildMenu(){
   for (const pk of Object.keys(PATHS)){
     const arr = byPath[pk]; if (!arr) continue;
     const grp = document.createElement('div'); grp.className='pathGroup';
-    const h = document.createElement('div'); h.className='pathHeader'; h.style.color=PATHS[pk].color;
+    const pathColor = PATHS[pk].color;
+    const h = document.createElement('div'); h.className='pathHeader';
+    h.style.cssText = `color:${pathColor};--path-color:${pathColor}`;
     h.textContent = `${PATHS[pk].icon} ${PATHS[pk].name} → ${PATHS[pk].tiers[8].name}`;
     grp.appendChild(h);
     for (const sk of arr){
       const sp = SPECIES[sk];
       const div = document.createElement('div'); div.className='species';
-      // v1.7.0: lock badge UI
+      div.style.setProperty('--path-color', sp.color);
+      // lock state
       const cost = SPECIES_LOCKS[sk];
       const locked = (cost!==undefined && cost>0 && !isUnlocked(sk));
-      let lockBadge = '';
+      let lockOverlay = '';
       if (locked){
         const canBuy = getCoins() >= cost;
-        div.style.opacity = '0.7';
-        lockBadge = `<div style="float:right;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${canBuy?'#3a6b3a':'#552222'};color:${canBuy?'#ccffcc':'#ffaaaa'};border:1px solid ${canBuy?'#7fd07f':'#aa5555'}">🔒 ${cost} ${canBuy?'(click to unlock)':'(need more)'}</div>`;
-      } else if (cost>0){
-        lockBadge = `<div style="float:right;padding:2px 6px;border-radius:4px;font-size:10px;background:#2a4a2a;color:#9fd09f">✓ Unlocked</div>`;
+        lockOverlay = `<div style="position:absolute;inset:0;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.62);backdrop-filter:blur(2px);z-index:2;gap:4px">
+          <div style="font-size:22px">🔒</div>
+          <div style="font-size:11px;font-weight:800;color:${canBuy?'#7fd07f':'#ff8888'}">${cost} coins</div>
+          <div style="font-size:10px;color:${canBuy?'#ccffcc':'#ffaaaa'}">${canBuy?'Click to unlock':'Need more coins'}</div>
+        </div>`;
       }
-      div.innerHTML = `${lockBadge}<div style="font-weight:700;color:${sp.color}">${sp.icon} ${sp.name}</div>
-        <canvas class="speciesPreview" width="120" height="80" data-sk="${sk}" style="display:block;margin:6px auto 4px;background:linear-gradient(180deg,rgba(40,30,60,0.5),rgba(20,12,32,0.6));border:1px solid #553;border-radius:6px;"></canvas>
-        <div class="nums">HP ${sp.base.hp} · ATK ${sp.base.atk} · SPD ${sp.base.spd} ${sp.base.rngDmg?`· Ranged ${sp.base.rngDmg}`:'(melee only)'}</div>
-        <div class="skills">Q ${sp.skillQ.name} · E ${sp.skillE.name} (tier ${sp.skillE.unlockRank}) · R ${sp.skillR.name} (tier ${sp.skillR.unlockRank})</div>${(()=>{
+      const rangedTag = sp.base.rngDmg ? `<span style="color:#88ccff;font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(136,204,255,0.12);margin-left:4px">RANGED</span>` : '';
+      div.innerHTML = `${lockOverlay}<div style="font-size:13px;font-weight:800;color:${sp.color};margin-bottom:3px">${sp.icon} ${sp.name}${rangedTag}</div>
+        <canvas class="speciesPreview" width="160" height="160" data-sk="${sk}"></canvas>
+        <div class="nums">HP ${sp.base.hp} · ATK ${sp.base.atk} · SPD ${sp.base.spd}</div>
+        <div class="skills">Q ${sp.skillQ.name} · E ${sp.skillE.name} (${sp.skillE.unlockRank}) · R ${sp.skillR.name} (${sp.skillR.unlockRank})</div>${(()=>{
           // v1.8.0: mastery progress bar
           try {
             const mk = (getMastery()[sk]||0);
@@ -8673,6 +10054,8 @@ function buildMenu(){
   }
   // v2.6.0: start live animated previews on each species card
   try { startMenuPreviews(); } catch(e){}
+  renderHeroPanel();
+
   // show save info banner
   const _sv = getSave();
   let _siel = document.getElementById('saveInfo');
@@ -8855,9 +10238,9 @@ function drawOnlineBadge(){
 
 async function startGame(){
   if (!G.selectedSpecies) return;
-  if (window.SDK && SDK.ready && !G._firstAdShown){
+  if (!G._firstAdShown){
     G._firstAdShown = true;
-    try { await SDK.commercialBreak(); } catch(e){}
+    try { await tryMidroll('game_start'); } catch(e){}  // governor skips newcomers' first runs
   }
   document.getElementById('menu').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
@@ -8865,7 +10248,8 @@ async function startGame(){
   try { const _pb = document.getElementById('pauseBtn'); if (_pb) _pb.classList.add('show'); } catch(e){}
   G.enemies=[]; G.minions=[]; G.projectiles=[]; G.pickups=[]; G.spirits=[]; G.authorities=[]; G.particles=[]; G.floats=[]; G.shockwaves=[]; G.hazards=[];
   G.dead=false; G.won=false; G.time=0;
-  G._midrollFired = {};
+  G._lastSupplyT = 0;
+  try { _hideSupplyDropOffer(); } catch(e){}
   G._matchTargetPlayers = MATCH_TARGET_PLAYERS;
   G._matchHumansAtStart = _matchHumanCount();
   G._matchBotTarget = Math.max(0, G._matchTargetPlayers - G._matchHumansAtStart);
@@ -8883,15 +10267,19 @@ async function startGame(){
   // v2.6.0: 進入遊戲時啟動 BGM
   try { startBGM(); } catch(e){}
   // v2.7.0: 第一次玩啟動 tutorial
+  // v3.18.0: enable FTUE mode for first 3 lifetime runs
+  G._firstRunMode = _lifetimeRunCount() < 3;
   try { startTutorial(); } catch(e){}
-  G.player = makeCreature(G.selectedSpecies, WORLD.w/2, WORLD.h/2 - 1500, true);
+  const _spawnSpecies = (G.selectedSpecies && SPECIES[G.selectedSpecies]) ? G.selectedSpecies : 'wolf';
+  G.selectedSpecies = _spawnSpecies;
+  G.player = makeCreature(_spawnSpecies, WORLD.w/2, WORLD.h/2 - 1500, true);
   // 玩家額外加成：基礎 +30% HP / +50% DEF（容錯）
   G.player.bonusDefMult = 1.5;
   G.player.maxHp = Math.floor(G.player.maxHp * 1.3);
   G.player.hp = G.player.maxHp;
   recalcStats(G.player);
   G.player.hp = G.player.maxHp; G.player.sta = G.player.maxSta;
-  G.player.invuln = 10; // 10s spawn protection
+  G.player.invuln = _lifetimeRunCount() < 5 ? 20 : 10; // extended spawn protection for new players
   try { applyBoostsToPlayer(G.player, getActiveBoosts()); } catch(e){}
   // v1.6.0 retention bonus: consume banked Qi from previous run — v1.8.3: DISABLED auto-apply (was instant level on start). Banked Qi now stays as a small comeback boost capped at 30.
   try {
@@ -9017,7 +10405,8 @@ async function restartGame(){
   G.started=false; G.selectedSpecies=null; G._reviveUsed=false; G._coinDoubleUsed=false; G._crateUsed=false;
   G._autoMatchWanted = false;
   G.killFeed=[]; G.leaderboard=[]; G.deathBy=''; G.errorCount=0;
-  if (window.SDK && SDK.ready){ try { await SDK.commercialBreak(); } catch(e){} }
+  try { _hideSupplyDropOffer(); } catch(e){}
+  try { await tryMidroll('restart'); } catch(e){}  // between-rounds slot, pacing-governed
   document.getElementById('menu').classList.remove('hidden');
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('startBtn').disabled=true;
@@ -9048,10 +10437,11 @@ window.addEventListener('load', async ()=>{
     } catch(e){}
   }).catch(()=>{});
 
-  // v1.6.0: Quick Start (random species) — Poki best practice: 1-click play
+  // v1.6.0: Quick Start — respect the current selection when present, otherwise pick a default
   const _qs = document.getElementById('quickStartBtn');
   if (_qs) _qs.onclick = ()=>{
-    G.selectedSpecies = tutorialDone() ? Object.keys(SPECIES)[(Math.random()*Object.keys(SPECIES).length)|0] : 'wolf';
+    const _pref = (G.selectedSpecies && SPECIES[G.selectedSpecies]) ? G.selectedSpecies : 'wolf';
+    G.selectedSpecies = _pref;
     // v3.13.1: click-to-play flow = auto-match then immediate start
     G._autoMatchWanted = true;
     try { if (window.Net){ Net.connect(); if (Net.online) Net.findMatch(MATCH_TARGET_PLAYERS); } } catch(e){}
@@ -9079,10 +10469,47 @@ window.addEventListener('load', async ()=>{
   function _refreshCoinDisplay(){
     const el = document.getElementById('coinCount');
     if (el) el.textContent = getCoins();
+    renderHeroPanel();
   }
   _refreshCoinDisplay();
   const _coinDisp = document.getElementById('coinDisplay');
   if (_coinDisp) _coinDisp.onclick = ()=>{ _openShopModal(); };
+  const _shopCtaBtn = document.getElementById('shopCtaBtn');
+  if (_shopCtaBtn) _shopCtaBtn.onclick = ()=>{ _openShopModal(); };
+  const _starterPackBtn = document.getElementById('starterPackBtn');
+  if (_starterPackBtn) _starterPackBtn.onclick = ()=>{ claimStarterPack(); };
+
+  // v3.17.0: comeback bonus — lapsed players (20h+ away) get a welcome-back gift
+  try {
+    const _m = getMetrics();
+    const _last = _m.lastPlayed || 0;
+    const _cbKey = 'evo_comeback_day';
+    if (_last && (Date.now() - _last) > MONETIZE.COMEBACK_HOURS*3600e3 && localStorage.getItem(_cbKey) !== _utcDay()){
+      localStorage.setItem(_cbKey, _utcDay());
+      const _cp = document.getElementById('coinPanel');
+      if (_cp){
+        const cb = document.createElement('button');
+        cb.id = 'comebackBtn';
+        cb.textContent = `🎁 Welcome back! Claim +${MONETIZE.COMEBACK_COINS} 🪙`;
+        cb.style.cssText = 'background:linear-gradient(135deg,#1a5a3a,#44ee88);color:#111;font-weight:700;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;';
+        _cp.appendChild(cb);
+        cb.onclick = async ()=>{
+          if (!cb._claimed){
+            cb._claimed = true;
+            addCoins(MONETIZE.COMEBACK_COINS); _refreshCoinDisplay();
+            if (rewardedAvailable()){
+              cb.textContent = `▶ Watch Ad: +${MONETIZE.COMEBACK_COINS*2} 🪙 more`;
+            } else { cb.textContent = '✓ Claimed'; cb.disabled = true; }
+          } else {
+            cb.disabled = true; cb.textContent = 'Loading…';
+            const ok = await showRewarded('comeback');
+            if (ok){ addCoins(MONETIZE.COMEBACK_COINS*2); _refreshCoinDisplay(); cb.textContent = '✓ Claimed all!'; }
+            else { cb.textContent = '✓ Claimed'; }
+          }
+        };
+      }
+    }
+  } catch(e){}
 
   // streak button
   const _streakBtn = document.getElementById('streakBtn');
@@ -9093,10 +10520,11 @@ window.addEventListener('load', async ()=>{
         _streakBtn.textContent = `🔥 Streak Day ${res.day} ✓`;
       } else {
         _streakBtn.textContent = `🔥 +${res.reward} coins! (Day ${res.day})`;
-        setTimeout(()=>{ _streakBtn.textContent = `🔥 Daily Streak`; },3000);
+        setTimeout(()=>{ _refreshNotifBadges(); },3000);
         _refreshCoinDisplay();
         addFloat && G.player && addFloat(G.player.x||0, 0, `+${res.reward} daily coins`, '#ffd66b', 16, 2);
       }
+      try { checkAchievements(); } catch(e){}
     };
   }
 
@@ -9140,8 +10568,7 @@ window.addEventListener('load', async ()=>{
     _spinAdBtn.onclick = async ()=>{
       const state = getSpinState(); if ((state.adSpinsUsed||0) >= 3) return;
       _spinAdBtn.disabled = true;
-      let ok = false;
-      try { if (window.SDK && SDK.ready && typeof SDK.rewardedBreak==='function') ok = await SDK.rewardedBreak(); } catch(e){}
+      const ok = await showRewarded('spin');
       if (ok){
         const prize = trySpinAd();
         if (prize) _doSpinAnimation(prize);
@@ -9160,12 +10587,102 @@ window.addEventListener('load', async ()=>{
   function _openShopModal(){
     if (!_shopModal) return;
     _shopModal.classList.remove('hidden');
+    _renderDailyDeal();
     _renderBoostList();
     _renderCosmeticList();
+    _renderPrestigeOption();
+    _renderAchievementsPanel();
     _refreshCoinDisplay();
+  }
+
+  // v3.18.0: Prestige reset — when all boosts owned, offer a coin-paid reset for the prestige loop
+  function _renderPrestigeOption(){
+    const old = document.getElementById('prestigeBox'); if (old) old.remove();
+    const owned = getActiveBoosts();
+    if (owned.length < BOOST_DEFS.length) return;  // only when all owned
+    const box = document.createElement('div'); box.id = 'prestigeBox';
+    box.style.cssText = 'margin:10px auto;max-width:640px;border:1.5px solid #ffd66b;background:linear-gradient(135deg,rgba(50,30,0,.8),rgba(20,12,30,.9));border-radius:12px;padding:12px;text-align:center;';
+    const prestigeLevel = parseInt(localStorage.getItem('evo_prestige_level')||'0',10)||0;
+    box.innerHTML = `
+      <div style="font-weight:700;color:#ffd66b;font-size:15px;">✨ Prestige Reset ${prestigeLevel > 0 ? `(Level ${prestigeLevel})` : ''}</div>
+      <div style="font-size:12px;color:#ccc;margin:6px 0;">All boosts maxed! Prestige to reset boosts, keep cosmetics, and earn a permanent +${10+prestigeLevel*5}% bonus coins per run forever.</div>
+      <button id="prestigeBtn" style="background:linear-gradient(135deg,#8a6000,#ffd66b);color:#111;border:none;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer;">Prestige (200🪙)</button>`;
+    _shopModal.appendChild(box);
+    const btn = document.getElementById('prestigeBtn');
+    if (btn) btn.onclick = ()=>{
+      if (getCoins() < 200){ btn.textContent = 'Need 200🪙'; return; }
+      setCoins(getCoins() - 200);
+      const nLv = (parseInt(localStorage.getItem('evo_prestige_level')||'0',10)||0) + 1;
+      localStorage.setItem('evo_prestige_level', String(nLv));
+      // reset boosts
+      const s = getBoostState(); s.activeBoosts = []; saveBoostState(s);
+      _renderBoostList(); _renderPrestigeOption(); _refreshCoinDisplay();
+      pushKillFeed && pushKillFeed(`✨ Prestige ${nLv}! Boosts reset. Permanent +${10+nLv*5}% coins/run unlocked.`, '#ffd66b');
+    };
+  }
+
+  // v3.18.0: Achievements panel in shop
+  function _renderAchievementsPanel(){
+    const old = document.getElementById('achievPanel'); if (old) old.remove();
+    const achDone = getAchievements();
+    const frag = document.createElement('div'); frag.id = 'achievPanel';
+    frag.style.cssText = 'margin:14px auto;max-width:640px;text-align:left;';
+    frag.innerHTML = `<h2 style="font-size:14px;color:#ffa84a;margin-bottom:8px;">🏆 Achievements (${Object.keys(achDone).length}/${ACHIEVEMENT_DEFS.length})</h2>` +
+      `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">` +
+      ACHIEVEMENT_DEFS.map(def=>{
+        const done = !!achDone[def.id];
+        return `<div style="background:rgba(20,16,32,.8);border:1px solid ${done?'#ffd66b':'#333'};border-radius:8px;padding:8px;opacity:${done?1:.6};">
+          <div style="font-size:18px;">${done?def.icon:'❓'}</div>
+          <div style="font-size:11px;font-weight:700;color:${done?'#ffd66b':'#888'};">${done?def.name:'???'}</div>
+          <div style="font-size:10px;color:#aaa;margin-top:2px;">${done?def.desc+' (+'+def.reward+'🪙)':'???'}</div>
+        </div>`;
+      }).join('') + `</div>`;
+    _shopModal.appendChild(frag);
+  }
+
+  // v3.17.0: Deal of the Day — 50% off one rotating boost (urgency + coin sink)
+  function _renderDailyDeal(){
+    const box = document.getElementById('dailyDealBox'); if (!box) return;
+    const st = getDailyDeal();
+    const def = BOOST_DEFS.find(x=>x.id===st.id);
+    if (!def){ box.innerHTML = ''; return; }
+    const done = st.bought || getActiveBoosts().includes(def.id);
+    box.innerHTML = `<div style="border:1.5px solid #ffd66b;border-radius:10px;padding:10px;margin:8px auto;max-width:640px;background:linear-gradient(135deg,rgba(60,40,10,.6),rgba(30,16,40,.8));display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <span style="font-size:22px;">${def.icon}</span>
+      <span style="font-weight:700;color:#ffd66b;">⏰ Deal of the Day: ${def.name}</span>
+      <span style="font-size:12px;color:#888;text-decoration:line-through;">🪙 ${def.price}</span>
+      <span style="font-weight:700;color:#7fd07f;">🪙 ${st.price} (−50%)</span>
+      <button id="dealBuyBtn" ${done?'disabled':''} style="padding:5px 14px;font-weight:700;border:none;border-radius:6px;cursor:${done?'not-allowed':'pointer'};background:${done?'#333':'#946f0d'};color:${done?'#888':'#ffd66b'};">${done?'✓ Owned':'Buy'}</button>
+    </div>`;
+    const b = document.getElementById('dealBuyBtn');
+    if (b && !done) b.onclick = ()=>{
+      if (buyDailyDeal()){ _renderDailyDeal(); _renderBoostList(); _refreshCoinDisplay(); _refreshNotifBadges(); }
+      else { b.textContent = 'Need coins'; }
+    };
   }
   if (_shopBtn) _shopBtn.onclick = _openShopModal;
   if (_shopClose) _shopClose.onclick = ()=>{ _shopModal.classList.add('hidden'); };
+
+  // v3.18.0: notification badges — update button labels with status dots
+  function _refreshNotifBadges(){
+    try {
+      // shop badge: daily deal available and not bought
+      const _deal = getDailyDeal();
+      const _dealAvail = _deal && !_deal.bought && !getActiveBoosts().includes(_deal.id);
+      if (_shopBtn) _shopBtn.textContent = _dealAvail ? '🛒 Shop 🔴' : '🛒 Shop';
+      // spin badge: free spin available
+      const _ss = getSpinState();
+      const _spinFree = !_ss.freeUsed;
+      const _spinBadge = document.getElementById('spinBtn');
+      if (_spinBadge) _spinBadge.textContent = _spinFree ? '🎰 Free Spin! 🟢' : '🎰 Free Spin!';
+      // streak badge: not claimed today
+      const _stk = getStreakState();
+      const _streakReady = _stk.lastClaim !== _utcDay();
+      const _streakBadge = document.getElementById('streakBtn');
+      if (_streakBadge) _streakBadge.textContent = _streakReady ? '🔥 Daily Streak 🔴' : '🔥 Daily Streak';
+    } catch(e){}
+  }
+  _refreshNotifBadges();
 
   function _renderBoostList(){
     const el = document.getElementById('boostList'); if (!el) return;
@@ -9188,12 +10705,19 @@ window.addEventListener('load', async ()=>{
   }
 
   const COSMETIC_DEFS = [
-    { id:'trail_gold',   name:'Gold Trail',   price:80,  desc:'Golden particle trail while moving', preview:'🌟' },
-    { id:'trail_purple', name:'Void Trail',    price:80,  desc:'Purple void trail while moving',     preview:'💜' },
-    { id:'trail_red',    name:'Inferno Trail', price:80,  desc:'Red flame trail while moving',       preview:'🔥' },
-    { id:'aura_cyan',    name:'Ice Aura',      price:120, desc:'Icy blue glow ring around you',      preview:'❄️' },
-    { id:'aura_gold',    name:'Divine Aura',   price:150, desc:'Golden halo (always visible)',       preview:'✨' },
-    { id:'aura_dark',    name:'Void Aura',     price:150, desc:'Dark void aura (Outer God vibes)',   preview:'🌑' },
+    { id:'trail_gold',   name:'Gold Trail',     price:80,  desc:'Golden particle trail while moving',   preview:'🌟' },
+    { id:'trail_purple', name:'Void Trail',      price:80,  desc:'Purple void trail while moving',       preview:'💜' },
+    { id:'trail_red',    name:'Inferno Trail',   price:80,  desc:'Red flame trail while moving',         preview:'🔥' },
+    { id:'aura_cyan',    name:'Ice Aura',        price:120, desc:'Icy blue glow ring around you',        preview:'❄️' },
+    { id:'aura_gold',    name:'Divine Aura',     price:150, desc:'Golden halo (always visible)',         preview:'✨' },
+    { id:'aura_dark',    name:'Void Aura',       price:150, desc:'Dark void aura (Outer God vibes)',     preview:'🌑' },
+    // v3.18.0: expanded catalog
+    { id:'trail_green',  name:'Life Trail',      price:90,  desc:'Green life-energy trail while moving', preview:'💚' },
+    { id:'trail_white',  name:'Holy Trail',      price:90,  desc:'White divine light trail',             preview:'🤍' },
+    { id:'aura_red',     name:'Blood Aura',      price:160, desc:'Crimson vampiric glow',                preview:'🩸' },
+    { id:'aura_storm',   name:'Storm Aura',      price:160, desc:'Electric crackling storm field',       preview:'⚡' },
+    { id:'death_burst',  name:'Soul Burst',      price:200, desc:'Spectacular particle burst on death',  preview:'💥' },
+    { id:'crown_gold',   name:'Divine Crown',    price:250, desc:'Golden crown marker (visible to all)', preview:'👑' },
   ];
   const EVO_COSMETICS_KEY = 'evo_cosmetics';
   function getOwnedCosmetics(){ try{ return JSON.parse(localStorage.getItem(EVO_COSMETICS_KEY)||'[]'); }catch(e){ return []; } }
@@ -9216,11 +10740,12 @@ window.addEventListener('load', async ()=>{
     el.innerHTML = COSMETIC_DEFS.map(def=>{
       const have = owned.includes(def.id);
       const canAfford = getCoins() >= def.price;
-      return `<div style="background:rgba(20,16,32,.85);border:1.5px solid ${have?'#cc88ff':'#443355'};border-radius:8px;padding:10px;text-align:center;">
+      const isNew = !have && canAfford ? '🆕 ' : '';
+      return `<div style="background:rgba(20,16,32,.85);border:1.5px solid ${have?'#cc88ff':canAfford?'#6a4a8a':'#443355'};border-radius:8px;padding:10px;text-align:center;">
         <div style="font-size:22px;">${def.preview}</div>
-        <div style="font-weight:700;color:#cc88ff;font-size:13px;">${def.name}</div>
+        <div style="font-weight:700;color:#cc88ff;font-size:13px;">${isNew}${def.name}</div>
         <div style="font-size:11px;color:#aaa;margin:3px 0;">${def.desc}</div>
-        <button data-cos="${def.id}" style="margin-top:5px;padding:4px 12px;font-size:12px;font-weight:700;cursor:${have||!canAfford?'not-allowed':'pointer'};background:${have?'#442266':canAfford?'#442266':'#333'};color:${have?'#cc88ff':'#cc88ff'};border:none;border-radius:6px;">${have?'✓ Owned':`🪙 ${def.price}`}</button>
+        <button data-cos="${def.id}" style="margin-top:5px;padding:4px 12px;font-size:12px;font-weight:700;cursor:${have||!canAfford?'not-allowed':'pointer'};background:${have?'#442266':canAfford?'#5a3380':'#333'};color:#cc88ff;border:none;border-radius:6px;">${have?'✓ Owned':`🪙 ${def.price}`}</button>
       </div>`;
     }).join('');
     el.querySelectorAll('[data-cos]').forEach(btn=>{

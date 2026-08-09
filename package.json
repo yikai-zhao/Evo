@@ -1,11 +1,13 @@
 {
   "name": "evo",
-  "version": "3.16.0",
+  "version": "3.19.0",
   "description": "Twilight of the Gods — a multiplayer mythic battle royale on the open web.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node scripts/smoke-test.js",
+    "test:load": "node scripts/load-test.js",
+    "test:mobile": "VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 CPU_THROTTLE=4 MIN_FPS=24 PLAY_SECONDS=20 node scripts/playtest.js",
     "version:sync": "node scripts/sync-version.js",
     "version:check": "node scripts/sync-version.js --check",
     "prebuild": "node scripts/sync-version.js && node scripts/smoke-test.js",
@@ -36,6 +38,7 @@
   "devDependencies": {
     "electron": "^31.0.0",
     "electron-builder": "^24.0.0",
+    "puppeteer": "^25.4.0",
     "sharp": "^0.34.5",
     "terser": "^5.48.0"
   }

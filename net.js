@@ -33,29 +33,26 @@
   };
 
   function detectUrl(){
-    // 同網域 (Codespace 對外 https → 自動 wss)，host 把 -8080 換成 -8081
     try{
+      const params = new URLSearchParams(location.search||'');
+      const queryRelay = params.get('relay');
+      const configured = queryRelay || window.EVO_WS_URL || '';
+      if (/^wss?:\/\//i.test(configured)) return configured;
+      // Self-hosted/local mode serves HTTP and WebSocket from one origin.
       const loc = window.location;
-      let host = loc.host;
-      // GitHub Codespaces pattern: <name>-8080.app.github.dev → <name>-8081.app.github.dev
-      host = host.replace(/-8080\./, '-8081.');
-      // 本機 dev：localhost:8080 → localhost:8081
-      host = host.replace(/:8080\b/, ':8081');
       const proto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-      return `${proto}//${host}/ws`;
-    }catch(e){ return 'ws://localhost:8081/ws'; }
+      return `${proto}//${loc.host}/ws`;
+    }catch(e){ return 'ws://localhost:8080/ws'; }
   }
 
   Net.connect = function(){
-    // v3.2.0: 平台 iframe (Poki/CrazyGames) 預設關閉多人，避免 CORS/帶寬問題
-    // 例外: 玩家 URL 加 ?net=1 可強制開啟
+    // Multiplayer is now enabled by default on portal builds.
+    // Add ?net=0 to force-disable networking for local troubleshooting.
     try {
       const q = (location.search||'').toLowerCase();
-      const inFrame = (window.self !== window.top);
-      const onPlatform = window.SDK && SDK.platform && SDK.platform !== 'standalone';
-      if ((inFrame || onPlatform) && !q.includes('net=1')){
+      if (q.includes('net=0')){
         Net.disabled = true;
-        Net.log.push('[net] disabled on platform iframe');
+        Net.log.push('[net] disabled by query param');
         return;
       }
     } catch(e){}
@@ -209,6 +206,10 @@
   Net.sendFx = function(kind, data){
     if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return;
     try{ Net.ws.send(JSON.stringify(Object.assign({ t:'fx', kind }, data||{}))); }catch(e){}
+  };
+  Net.sendAnalytics = function(event, data){
+    if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return;
+    try{ Net.ws.send(JSON.stringify({ t:'analytics', event:String(event||'').slice(0,40), data:data||{} })); }catch(e){}
   };
   // v3.7.0: party invite messaging. action: 'invite' | 'accept' | 'decline' | 'leave' | 'roster'
   Net.onParty = null;

@@ -4,33 +4,33 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0820" />
-<meta name="description" content="Free .io PvP evolution game — pick from 13 creatures, evolve through 9 ranks, master 22 divine paths, and ascend to godhood. No download." />
-<meta name="keywords" content="io game, free online game, browser game, multiplayer PvP, evolution game, .io game, survival game, no download, HTML5 game, Evo" />
-<meta property="og:title" content="Evo — Free .io Evolution PvP, 14 Outer Gods" />
-<meta property="og:description" content="Evolve 13 creatures through 9 ranks. 6 divine paths. 14 boss battles. Multiplayer PvP. Play free." />
+<meta name="description" content="Evolve from creature to god in this fast browser PvP survival game. 13 species, 9 ranks, 14 Outer Gods, no download." />
+<meta name="keywords" content="io game, free online game, browser game, multiplayer PvP, evolution game, .io game, survival game, no download, HTML5 game, Outer Gods" />
+<meta property="og:title" content="Evo — 13 Species, 9 Ranks, 14 Outer Gods" />
+<meta property="og:description" content="Survive, evolve, and fight through 14 Outer Gods in a fast browser PvP arena. Play free." />
 <meta property="og:type" content="website" />
 <meta property="og:image" content="assets/cover.png" />
 <meta property="og:image:width" content="1024" />
 <meta property="og:image:height" content="512" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Evo — Free .io Evolution PvP" />
-<meta name="twitter:description" content="13 species, 9 evolution ranks, 14 outer god bosses, random biome maps. Play free." />
+<meta name="twitter:title" content="Evo — 13 Species, 14 Outer Gods" />
+<meta name="twitter:description" content="13 species, 9 evolution ranks, 14 Outer Gods, random biome maps. Play free." />
 <meta name="twitter:image" content="assets/cover.png" />
 <meta name="robots" content="index,follow" />
-<title>Evo — Free .io Evolution PvP · 14 Gods · Play Free</title>
-<link rel="icon" type="image/svg+xml" href="assets/icon.svg?v=3.16.0" />
-<link rel="icon" type="image/png" sizes="512x512" href="assets/icon.png?v=3.16.0" />
-<link rel="apple-touch-icon" sizes="200x200" href="assets/icon-200.png?v=3.16.0" />
-  <link rel="stylesheet" href="styles.css?v=3.16.0" />
-<link rel="preload" as="image" href="assets/icon.png?v=3.16.0" />
-<link rel="preload" as="script" href="game.js?v=3.16.0" />
+<title>Evo — 13 Species, 14 Outer Gods · Play Free</title>
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg?v=3.19.0" />
+<link rel="icon" type="image/png" sizes="512x512" href="assets/icon.png?v=3.19.0" />
+<link rel="apple-touch-icon" sizes="200x200" href="assets/icon-200.png?v=3.19.0" />
+  <link rel="stylesheet" href="styles.css?v=3.19.0" />
+<link rel="preload" as="image" href="assets/icon.png?v=3.19.0" />
+<link rel="preload" as="script" href="game.js?v=3.19.0" />
 <script type="application/ld+json">
 {
   "@context":"https://schema.org",
   "@type":"VideoGame",
   "name":"Evo",
-  "alternateName":"Evo — .io Evolution PvP",
-  "description":"Free .io PvP evolution game. Choose 1 of 13 creatures, evolve through 9 ranks, master 6 divine paths, and ascend to godhood in a 20,000² multiplayer arena.",
+  "alternateName":"Evo — 13 Species, 14 Outer Gods",
+  "description":"Free .io PvP evolution game. Choose 1 of 13 creatures, evolve through 9 ranks, and survive 14 Outer Gods in a 20,000² multiplayer arena.",
   "genre":["Action","Multiplayer",".io","Survival","PvP"],
   "playMode":"MultiPlayer",
   "applicationCategory":"Game",
@@ -49,8 +49,23 @@
   </div>
 
   <div id="menu" class="overlay hidden">
-    <h1>Evo<span class="sub">A .io Apotheosis</span></h1>
-    <p class="tag">Choose a creature. Hunt enemies. Evolve into a god.</p>
+    <h1>Evo<span class="sub">Competitive Survival Ascension</span></h1>
+    <p class="tag">Choose your bloodline. Outlast the Veil. Claim the throne.</p>
+
+    <div id="heroPanel" class="heroPanel">
+      <div class="heroTop">
+        <div class="heroCopy">
+          <div class="heroEyebrow">Elite survival loop</div>
+          <h2>Ascend with purpose. Upgrade fast. Win louder.</h2>
+          <p>Short runs, high-pressure fights, and instant power spikes built for replay.</p>
+        </div>
+        <div class="heroActions">
+          <button id="shopCtaBtn" class="primary">🛒 Premium Boosts</button>
+          <button id="starterPackBtn" class="secondary">⚡ Starter Pack</button>
+        </div>
+      </div>
+      <div id="heroStats" class="heroStats"></div>
+    </div>
 
     <div class="nameRow">
       <label for="playerName">Your name</label>
@@ -58,9 +73,9 @@
     </div>
 
     <div class="quickRow">
-      <button id="quickStartBtn" class="primary">▶ Click to Play (Auto Match)</button>
-      <button id="tutorialBtn" class="secondary">? 30-Second Tutorial</button>
-      <button id="mmBtn" class="secondary" style="background:linear-gradient(135deg,#2a5a8a,#5fa8ff);color:#fff;border:none">🌐 Multiplayer</button>
+      <button id="quickStartBtn" class="primary">▶ Start Run</button>
+      <button id="tutorialBtn" class="secondary">? Quick Tutorial</button>
+      <button id="mmBtn" class="secondary" style="background:linear-gradient(135deg,#2a5a8a,#5fa8ff);color:#fff;border:none">🌐 Matchmaking</button>
       <button id="lbBtn" class="secondary" style="background:linear-gradient(135deg,#5a3a1a,#ffd66b);color:#fff;border:none">🏆 Leaderboard</button>
     </div>
     <!-- coin panel: streak, spin, shop — primary daily re-engagement hook -->
@@ -146,6 +161,7 @@
   <div id="shopModal" class="overlay hidden">
     <h1>🛒 Shop</h1>
     <p class="tag">Spend coins to power up your next run</p>
+    <div id="dailyDealBox" style="width:100%;"></div>
     <div id="boostList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;max-width:640px;width:100%;margin:10px auto;"></div>
     <h2 style="margin-top:16px;color:#cc88ff;font-size:15px;">🎨 Cosmetics <span style="font-size:11px;color:#888;">(visual only)</span></h2>
     <div id="cosmeticList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;max-width:640px;width:100%;margin:8px auto;"></div>
@@ -156,6 +172,9 @@
   <canvas id="game"></canvas>
 
   <button id="muteBtn" title="Sound on/off">🔊</button>
+
+  <!-- v3.17.0: in-run rewarded supply drop offer (opt-in, auto-expires) -->
+  <button id="supplyDropBtn" class="hidden" style="position:fixed;bottom:130px;left:50%;transform:translateX(-50%);z-index:60;background:linear-gradient(135deg,#945f0d,#ffd66b);color:#221107;font-weight:700;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;box-shadow:0 4px 18px rgba(255,214,107,.4);">📦 Supply Drop — Watch Ad</button>
 
   <!-- v2.7.0: pause button (mobile-friendly), top-right next to mute -->
   <button id="pauseBtn" title="Pause (Esc)">⏸</button>
@@ -194,8 +213,8 @@
     </div>
   </div>
 
-  <script src="sdk.js?v=3.16.0" defer></script>
-  <script src="net.js?v=3.16.0" defer></script>
-  <script src="game.js?v=3.16.0" defer></script>
+  <script src="sdk.js?v=3.19.0" defer></script>
+  <script src="net.js?v=3.19.0" defer></script>
+  <script src="game.js?v=3.19.0" defer></script>
 </body>
 </html>

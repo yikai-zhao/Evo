@@ -1,19 +1,24 @@
 #!/usr/bin/env node
-// v3.4.4 — Batch-generate 65 species portraits (13 species × 5 ranks) via OpenAI Images API.
+// v3.5.0 — Batch-generate species portraits + optional attack poses via OpenAI Images API.
 //
 // Usage:
-//   OPENAI_API_KEY=sk-... node scripts/gen-portraits.mjs            # all missing
-//   OPENAI_API_KEY=sk-... node scripts/gen-portraits.mjs --force    # regenerate everything
-//   OPENAI_API_KEY=sk-... node scripts/gen-portraits.mjs --only swordsman,cultivator
+//   OPENAI_API_KEY=sk-... node scripts/gen-portraits.mjs                        # idle, all missing
+//   OPENAI_API_KEY=sk-... node scripts/gen-portraits.mjs --force                # idle, regenerate all
+//   OPENAI_API_KEY=sk-... node scripts/gen-portraits.mjs --atk                  # attack poses, missing
+//   OPENAI_API_KEY=sk-... node scripts/gen-portraits.mjs --atk --force          # attack poses, all
+//   OPENAI_API_KEY=sk-... node scripts/gen-portraits.mjs --only scorpion,electroEel
 //   OPENAI_API_KEY=sk-... node scripts/gen-portraits.mjs --size 1024 --model gpt-image-1
 //
-// Output: assets/species/<key>[-r3|-r5|-r7|-r9].png  (transparent background, square)
-//
-// Cost note: gpt-image-1 1024² ≈ $0.04/image → ~$2.60 for all 65. Re-runs only fill missing.
+// Cost: gpt-image-1 1024² ≈ $0.04/image
+//   Idle only (65 images):          ~$2.60
+//   Attack poses (65 images extra): ~$2.60
+//   Both full sets (130 images):    ~$5.20
+//   Only scorpion+eel idle (10):    ~$0.40
+//   Only scorpion+eel atk (10):     ~$0.40
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { allTargets } from './portrait-prompts.mjs';
+import { allTargets, allAtkTargets } from './portrait-prompts.mjs';
 
 const KEY = process.env.OPENAI_API_KEY;
 if (!KEY) {
@@ -24,7 +29,8 @@ if (!KEY) {
 }
 
 const argv = process.argv.slice(2);
-const force = argv.includes('--force');
+const force     = argv.includes('--force');
+const atkMode   = argv.includes('--atk');
 const _sizeIdx  = argv.indexOf('--size');
 const _modelIdx = argv.indexOf('--model');
 const _onlyIdx  = argv.indexOf('--only');
@@ -74,8 +80,10 @@ async function generate(target){
   fs.writeFileSync(path.join(OUT_DIR, target.file), buf);
 }
 
-const ALL_TARGETS = allTargets();
+const ALL_TARGETS = atkMode ? allAtkTargets() : allTargets();
 const targets = ALL_TARGETS.filter(t => !onlySet || onlySet.has(t.key));
+const modeLabel = atkMode ? 'ATTACK poses' : 'idle portraits';
+console.log(`Mode: ${modeLabel} | Model: ${model} | Size: ${size} | Force: ${force}`);
 let done = 0, skipped = 0, failed = 0;
 
 // Status map for live preview: 'pending' | 'skip' | 'done' | 'fail'

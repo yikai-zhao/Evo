@@ -7,13 +7,13 @@
 //   - Each client lives in exactly one room. Default = "global" lobby.
 //   - state/hit/fx/chat/enemy_kill/dead/party messages scope to room.
 //   - "global" is the legacy free-for-all (unlimited) for solo-mode peeks.
-//   - Match rooms have capacity (default 20). Auto-matchmaking joins the
+//   - Match rooms have capacity (default 28). Auto-matchmaking joins the
 //     fullest non-full room, else creates a new one.
 //   - Private rooms use a 4-char ALPHA code. Anyone with the code can join
 //     if it isn't full.
 //
 // New messages (client → server)
-//   { t:'mm_find',  cap?:20 }      → join/create a public match
+//   { t:'mm_find',  cap?:28 }      → join/create a public match
 //   { t:'mm_create' }              → make a private room, returns code
 //   { t:'mm_join',  code:'ABCD' }  → join private room by code
 //   { t:'mm_leave' }               → return to "global"
@@ -26,13 +26,66 @@ const fs   = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 
-const PORT = parseInt(process.argv[2] || process.env.PORT || '8081', 10);
+const PORT = parseInt(process.argv[2] || process.env.PORT || '8080', 10);
 const ROOT = __dirname;
-const DEFAULT_CAP = 20;
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : ROOT;
+try { fs.mkdirSync(DATA_DIR, { recursive:true }); } catch(e){ console.error('[storage] unable to create data directory:', e.message); }
+const DEFAULT_CAP = 28;
+const MAX_ROOM_CAP = 28;
 const GLOBAL_ROOM = 'global';
+const CHAT_WINDOW_MS = 5000;
+const CHAT_MAX_PER_WINDOW = 5;
+const HIT_WINDOW_MS = 1000;
+const HIT_MAX_PER_WINDOW = 18;
+const ANALYTICS_WINDOW_MS = 10000;
+const ANALYTICS_MAX_PER_WINDOW = 40;
+const ANALYTICS_EVENTS = new Set(['ad_offer_shown','ad_clicked','ad_completed','ad_failed','revive_used','match_respawn_used','run_end']);
+const ANALYTICS_FILE = path.join(DATA_DIR, 'analytics.json');
+let analytics = {};
+try { analytics = JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8')) || {}; } catch(e){ analytics = {}; }
+let analyticsWriteTimer = null;
+
+function persistJson(file, data){
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFile(tmp, JSON.stringify(data, null, 2), (writeErr)=>{
+    if (writeErr){ console.error('[storage] write failed:', writeErr.message); return; }
+    fs.rename(tmp, file, (renameErr)=>{ if (renameErr) console.error('[storage] rename failed:', renameErr.message); });
+  });
+}
+
+function clampRoomCap(cap){
+  return Math.max(2, Math.min(MAX_ROOM_CAP, Math.floor(+cap || DEFAULT_CAP)));
+}
+function consumeRate(c, key, windowMs, maxCount){
+  const now = Date.now();
+  const slot = c.rates[key] || { start:now, count:0 };
+  if (now - slot.start >= windowMs){ slot.start = now; slot.count = 0; }
+  slot.count++;
+  c.rates[key] = slot;
+  return slot.count <= maxCount;
+}
+function recordAnalytics(event, data){
+  if (!ANALYTICS_EVENTS.has(event)) return;
+  const day = new Date().toISOString().slice(0,10);
+  const bucket = analytics[day] = analytics[day] || { events:{}, placements:{}, outcomes:{} };
+  bucket.events[event] = (bucket.events[event]||0) + 1;
+  const placement = String((data&&data.placement)||'').slice(0,32).replace(/[^a-z0-9_-]/gi, '');
+  const outcome = String((data&&data.outcome)||'').slice(0,16).replace(/[^a-z0-9_-]/gi, '');
+  if (placement){
+    const p = bucket.placements[placement] = bucket.placements[placement] || {};
+    p[event] = (p[event]||0) + 1;
+  }
+  if (event === 'run_end' && outcome) bucket.outcomes[outcome] = (bucket.outcomes[outcome]||0) + 1;
+  if (!analyticsWriteTimer){
+    analyticsWriteTimer = setTimeout(()=>{
+      analyticsWriteTimer = null;
+      persistJson(ANALYTICS_FILE, analytics);
+    }, 1000);
+  }
+}
 
 // ---- v3.9.0: leaderboard persistence ----
-const LB_FILE = path.join(ROOT, 'leaderboard.json');
+const LB_FILE = path.join(DATA_DIR, 'leaderboard.json');
 const LB_MAX = 200;
 let _lbCache = [];
 try { _lbCache = JSON.parse(fs.readFileSync(LB_FILE, 'utf8')); if (!Array.isArray(_lbCache)) _lbCache = []; } catch(e){ _lbCache = []; }
@@ -59,7 +112,7 @@ function submitScore(entry){
   _lbCache.sort((a, b) => b.score - a.score);
   if (_lbCache.length > LB_MAX) _lbCache.length = LB_MAX;
   // best-effort persist (async, never blocks)
-  try { fs.writeFile(LB_FILE, JSON.stringify(_lbCache), () => {}); } catch(e){}
+  try { persistJson(LB_FILE, _lbCache); } catch(e){}
   const idx = _lbCache.indexOf(item);
   return { ...item, rank: idx + 1 };
 }
@@ -82,6 +135,14 @@ const httpServer = http.createServer((req, res) => {
     return res.end(JSON.stringify({
       ok:true, clients: clients.size, rooms: rooms.size, time: Date.now()
     }));
+  }
+  if (req.url === '/analytics' || req.url.startsWith('/analytics?')){
+    const required = process.env.ANALYTICS_TOKEN || '';
+    const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    const supplied = bearer || new URL(req.url, 'http://localhost').searchParams.get('token') || '';
+    if (required && supplied !== required){ res.writeHead(403); return res.end('Forbidden'); }
+    res.writeHead(200, {'Content-Type':'application/json', 'Cache-Control':'no-store'});
+    return res.end(JSON.stringify({ days:analytics }));
   }
   // v3.9.0: global leaderboard (top 50 by score, persisted to disk)
   if (req.url === '/leaderboard' || req.url.startsWith('/leaderboard?')){
@@ -140,7 +201,7 @@ const rooms   = new Map();             // code -> { code, capacity, members:Set<
 function ensureRoom(code, capacity, isPrivate){
   let r = rooms.get(code);
   if (!r){
-    r = { code, capacity, members: new Set(), isPrivate: !!isPrivate, createdAt: Date.now() };
+    r = { code, capacity:code===GLOBAL_ROOM ? 9999 : clampRoomCap(capacity), members: new Set(), isPrivate: !!isPrivate, createdAt: Date.now() };
     rooms.set(code, r);
   }
   return r;
@@ -176,10 +237,12 @@ function leaveRoom(id){
 function joinRoom(id, code, capacity, isPrivate){
   const c = clients.get(id); if (!c) return null;
   if (c.room) leaveRoom(id);
-  const r = ensureRoom(code, capacity || DEFAULT_CAP, isPrivate);
+  const r = ensureRoom(code, code===GLOBAL_ROOM ? 9999 : clampRoomCap(capacity), isPrivate);
   if (r.members.size >= r.capacity) return null;
   r.members.add(id);
   c.room = r.code;
+  // sync the updated roster to everyone in the room, including the newcomer
+  sendRoomInfo(r);
   // broadcast join to peers in this room
   broadcastRoom({ t:'join', id, name: c.name }, r.code, id);
   // tell the joining client about the room + welcome peer list
@@ -202,7 +265,7 @@ function sendRoomInfo(r){
 }
 
 function findPublicMatch(id, cap){
-  cap = cap || DEFAULT_CAP;
+  cap = clampRoomCap(cap);
   // pick the fullest non-full public room (sticky matchmaking — fill rooms before opening new ones)
   let best = null;
   for (const r of rooms.values()){
@@ -251,7 +314,7 @@ function getTopLB(n=10){
 wss.on('connection', (ws, req) => {
   const id = nextId++;
   const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '?').toString().split(',')[0];
-  clients.set(id, { ws, name: '?', last: Date.now(), ip, room: null, rank: 1 });
+  clients.set(id, { ws, name: '?', last: Date.now(), ip, room: null, rank: 1, rates:{} });
   console.log(`[+] client ${id} from ${ip}  (total ${clients.size})`);
 
   // Join the global lobby by default; client can mm_find/join to leave
@@ -270,16 +333,18 @@ wss.on('connection', (ws, req) => {
     switch (msg.t){
       // ---- room/matchmaking ----
       case 'mm_find':
-        findPublicMatch(id, msg.cap || DEFAULT_CAP);
+        findPublicMatch(id, clampRoomCap(msg.cap));
         break;
       case 'mm_create': {
         const code = genCode();
-        joinRoom(id, code, msg.cap || DEFAULT_CAP, true);
+        joinRoom(id, code, clampRoomCap(msg.cap), true);
         break;
       }
       case 'mm_join':
         if (typeof msg.code === 'string' && msg.code.length >= 3 && msg.code.length <= 8){
-          const r = joinRoom(id, msg.code.toUpperCase(), DEFAULT_CAP, true);
+          const code = msg.code.toUpperCase();
+          const existing = rooms.get(code);
+          const r = existing ? joinRoom(id, code, existing.capacity, existing.isPrivate) : null;
           if (!r) send(id, { t:'mm_error', reason:'room_full_or_invalid' });
         }
         break;
@@ -296,13 +361,23 @@ wss.on('connection', (ws, req) => {
         break;
       case 'hit':
         // direct-target relay (still must be in the same room)
-        if (typeof msg.target === 'number'){
+        if (typeof msg.target === 'number' && consumeRate(c, 'hit', HIT_WINDOW_MS, HIT_MAX_PER_WINDOW)){
           const tc = clients.get(msg.target);
-          if (tc && tc.room === c.room) send(msg.target, msg);
+          const maxDamage = 500 + Math.max(1, Math.min(9, c.rank||1)) * 500;
+          msg.dmg = Math.max(1, Math.min(maxDamage, Math.floor(+msg.dmg || 1)));
+          if (tc && tc.room === c.room && msg.target !== id) send(msg.target, msg);
         }
         break;
       case 'chat':
-        if (typeof msg.text === 'string' && msg.text.length < 200) broadcastRoom(msg, c.room);
+        if (typeof msg.text === 'string' && msg.text.length < 200 && consumeRate(c, 'chat', CHAT_WINDOW_MS, CHAT_MAX_PER_WINDOW)){
+          msg.text = msg.text.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '').trim();
+          if (msg.text) broadcastRoom(msg, c.room);
+        }
+        break;
+      case 'analytics':
+        if (typeof msg.event === 'string' && consumeRate(c, 'analytics', ANALYTICS_WINDOW_MS, ANALYTICS_MAX_PER_WINDOW)){
+          recordAnalytics(msg.event, msg.data && typeof msg.data === 'object' ? msg.data : {});
+        }
         break;
       case 'fx':
       case 'enemy_kill':

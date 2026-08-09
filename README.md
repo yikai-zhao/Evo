@@ -1,4 +1,4 @@
-# Evo — Twilight of the Gods
+# Evo — 13 Species, 14 Outer Gods
 
 A multiplayer mythic-evolution battle royale, playable in any browser.
 **Hunt → Ascend → Survive the shrinking Veil → Become the True God.**
@@ -10,13 +10,13 @@ A multiplayer mythic-evolution battle royale, playable in any browser.
 ## What it is
 
 Evo is a single-file HTML5 Canvas game — no engine, no framework, no install.
-You choose one of **56 creatures across 6 evolutionary paths** (Human / Dragon / Beast / Bird / Fish / Insect), kill, eat, evolve through 9 mortal tiers and 10 mythic Sequences, and try to claim one of the 6 Thrones before the **Veil of Erasure** closes in and erases everyone outside the ring.
+You choose one of **13 creatures**, kill, eat, evolve through 9 mortal tiers and 10 mythic Sequences, and try to claim one of the 6 Thrones before the **Veil of Erasure** closes in and erases everyone outside the ring.
 
 ### The endgame loop
 
 | Time | What happens |
 |---|---|
-| 0–5 min | Open world. Hunt, evolve, claim Authorities, fight Outer Gods. |
+| 0–5 min | Open world. Hunt, evolve, claim Authorities, fight 14 Outer Gods. |
 | 5 min   | **Veil of Erasure** descends — purple ring shrinks over 12 minutes. |
 | 5–17 min| Outside the ring → 1.8 %/sec corruption damage. Form a party (press `Y`). |
 | 16–17 min | **Final Tribulation** — last 5 entities get +30 % all stats, an extra Outer God spawns. |
@@ -59,20 +59,19 @@ npm run version:check       # CI guard — fails if ?v= drift detected
 |---|---|
 | WASD / Arrow keys | Move |
 | Left-click / Space | Melee (cone attack) |
-| Right-click | Defend (80 % reduction + 30 % reflect) |
+| Hold Left-click / Space | Basic attack chain |
 | `X` | Dash |
-| `E` | Eat / pickup |
-| `Q` | Refine Qi (humans only — burns lifespan for permanent stats) |
-| `R` | Authority ultimate |
-| `1` / `2` / `3` | Equipped Authority skills |
+| `Q` / `E` / `R` | Core species skills |
+| `1` / `2` / `3` | Equipped Authority powers |
 | `Y` | **Party panel** (invite nearby players) |
+| `Z` / `J` / `H` | Team regroup / retreat / focus fire |
 | `A` / `D` | Accept / decline incoming party invite |
 | `T` | Chat (multiplayer) |
 | `M` | Star map |
 | `P` | Ping |
 | `Esc` / `Shift+P` | Pause |
 
-Touch devices: virtual stick + 3 action buttons.
+Touch devices: left-stick move + attack / shot / dash / fruit buttons on the right.
 
 ---
 

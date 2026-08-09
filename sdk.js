@@ -134,25 +134,31 @@
       if (now - SDK.lastAdAt < SDK.MIN_AD_INTERVAL){ resolve(false); return; }
       SDK.lastAdAt = now;
       SDK._onAdStart();
-      const done = ()=>{ SDK._onAdEnd(); resolve(true); };
+      let settled = false;
+      const finish = (ok)=>{
+        if (settled) return;
+        settled = true;
+        SDK._onAdEnd();
+        resolve(!!ok);
+      };
       if (SDK._pokiReady && window.PokiSDK){
-        try { window.PokiSDK.commercialBreak().then(done, done); }
-        catch(e){ done(); }
+        try { window.PokiSDK.commercialBreak().then(()=>finish(true), ()=>finish(false)); }
+        catch(e){ finish(false); }
       } else if (SDK._czReady && window.CrazyGames){
         try {
           window.CrazyGames.SDK.ad.requestAd('midgame', {
             adStarted: ()=>{},
-            adFinished: done,
-            adError: ()=>done(),
+            adFinished: ()=>finish(true),
+            adError: ()=>finish(false),
           });
-        } catch(e){ done(); }
+        } catch(e){ finish(false); }
       } else if (SDK._gdReady && window.gdsdk){
         // v2.0.0: GameDistribution interstitial
         try {
-          window.gdsdk.showAd(window.gdsdk.AdType.Interstitial).then(done).catch(done);
-        } catch(e){ done(); }
+          window.gdsdk.showAd(window.gdsdk.AdType.Interstitial).then(()=>finish(true)).catch(()=>finish(false));
+        } catch(e){ finish(false); }
       } else {
-        done();
+        finish(false);
       }
     });
   };
