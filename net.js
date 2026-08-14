@@ -26,6 +26,7 @@
     log: [],
     lastTry: 0,
     url: '',
+    pendingMm: [],
     // v3.8.0: room/matchmaking state
     room: null,          // current room info { code, capacity, peers, isPrivate }
     roomList: [],        // [{ code, members, capacity, isPrivate, note, open, ownerName }]
@@ -55,6 +56,14 @@
     return !!(Net.ws && (Net.ws.readyState === 0 || Net.ws.readyState === 1));
   };
 
+  function flushPendingMm(){
+    if (!Net.ws || Net.ws.readyState !== 1 || !Array.isArray(Net.pendingMm) || !Net.pendingMm.length) return;
+    const queued = Net.pendingMm.splice(0, Net.pendingMm.length);
+    for (const obj of queued){
+      try { Net.ws.send(JSON.stringify(obj)); } catch(e){ Net.pendingMm.push(obj); break; }
+    }
+  }
+
   Net.connect = function(){
     // Multiplayer is now enabled by default on portal builds.
     // Add ?net=0 to force-disable networking for local troubleshooting.
@@ -78,6 +87,7 @@
       ws.onopen = () => {
         Net.online = true;
         Net.log.push('[net] open');
+        flushPendingMm();
       };
       ws.onmessage = (ev) => {
         let m; try{ m = JSON.parse(ev.data); }catch(e){ return; }
@@ -242,7 +252,13 @@
   };
   // v3.8.0: matchmaking helpers
   function _mm(obj){
-    if (!Net.online || !Net.ws || Net.ws.readyState !== 1) return false;
+    if (!Net.ws && !Net.ensureConnected()) return false;
+    if (Net.ws && Net.ws.readyState === 0){ Net.pendingMm.push(obj); return true; }
+    if (!Net.online || !Net.ws || Net.ws.readyState !== 1){
+      Net.ensureConnected();
+      Net.pendingMm.push(obj);
+      return true;
+    }
     try { Net.ws.send(JSON.stringify(obj)); return true; } catch(e){ return false; }
   }
   Net.findMatch  = function(cap){ return _mm({ t:'mm_find', cap: cap||20 }); };

@@ -10739,9 +10739,21 @@ async function startGame(){
       try {
         const peerCnt = (room.peers||[]).length + 1;
         pushKillFeed(`🌐 Room ${room.code} · ${peerCnt}/${room.capacity === 9999 ? '∞' : room.capacity}${room.isPrivate ? ' (private)' : ''}`, '#5fa8ff');
-        // Refresh modal if open
         const m = document.getElementById('mmModal');
-        if (m){ m.remove(); openMatchmakingModal(); }
+        if (m){
+          const status = m.querySelector('#mmStatus');
+          const codeLabel = m.querySelector('#mmCurrentRoom');
+          if (status){
+            status.textContent = room.code === 'global' ? 'Returned to global lobby' : 'Joined ' + room.code + ' · ' + peerCnt + '/' + (room.capacity === 9999 ? '∞' : room.capacity);
+            status.style.color = '#7fd07f';
+          }
+          if (codeLabel) {
+            const cap = room.capacity === 9999 ? '∞' : room.capacity;
+            codeLabel.textContent = room.code === 'global' ? '—' : room.code;
+            const summary = codeLabel.parentElement;
+            if (summary) summary.dataset.count = String(peerCnt);
+          }
+        }
       } catch(e){}
     };
     Net.onMmError = (reason)=>{
