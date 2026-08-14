@@ -3673,12 +3673,14 @@ function spawnInitialWorld(){
     }
   }
   const _isMatch = _isActiveMatchRoom();
-  // 敵人：match room 降低初始雜魚密度，靠「擬真 bot」湊到目標玩家數
-  const _ambientInit = _isMatch ? 42 : 90;
+  // v3.20.x: in active multiplayer rooms, client-local AI is disabled so each browser
+  // does not generate a different enemy population; otherwise A and B see different
+  // chase states even though they are in the same room.
+  const _ambientInit = _isMatch ? 0 : 90;
   for (let i=0;i<_ambientInit;i++) spawnEnemy(true);
   if (G.player){
     const nearKeys = Object.keys(SPECIES);
-    const _nearInit = _isMatch ? 8 : 16;
+    const _nearInit = _isMatch ? 0 : 16;
     for (let i=0;i<_nearInit;i++){
       const sp = nearKeys[(Math.random()*nearKeys.length)|0];
       const ang = Math.random()*Math.PI*2;
@@ -7537,6 +7539,14 @@ function update(dt){
   // 浮字
   for (const f of G.floats){ f.life-=dt; f.y += f.vy*dt; }
   G.floats = G.floats.filter(f=>f.life>0);
+  // v3.20.x: active multiplayer rooms cannot spawn client-local AI; otherwise each browser
+  // builds a different enemy field and the same room looks completely different per player.
+  if (_isActiveMatchRoom()){
+    G.enemies = [];
+    G.minions = [];
+    G.bosses = [];
+    G._matchBotTarget = 0;
+  }
   // 衝擊波
   for (const s of G.shockwaves){ if (s.lifeMax===undefined) s.lifeMax=s.life; s.life-=dt; s.r = s.max * (1 - s.life/s.lifeMax); }
   G.shockwaves = G.shockwaves.filter(s=>s.life>0);
@@ -7570,9 +7580,7 @@ function update(dt){
   }
   // v1.0.0: 大地圖敵人數量隨階段提升 — v1.8.2: denser, especially mid-game
   // v2.2.0: denser team-god-war map (was [180,240,300,360,460])
-  const enemyCap = _isActiveMatchRoom()
-    ? ([120, 150, 190, 230, 280][G.stage-1] || 120)
-    : ([380, 480, 600, 720, 880][G.stage-1] || 380);
+  const enemyCap = _isActiveMatchRoom() ? 0 : ([380, 480, 600, 720, 880][G.stage-1] || 380);
   while (G.enemies.length < enemyCap) spawnEnemy();
   // v2.1.0: rift ownership countdown (was simple respawn)
   for (const rf of G.rifts){
