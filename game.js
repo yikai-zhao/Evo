@@ -274,7 +274,7 @@ function tierIcon(p){
 }
 
 // v3.4.4: AI-art portraits per species (PNGs in assets/species/<key>.png)
-const SPECIES_PORTRAITS = {}; // key -> {base, r3, r5, r7, r9, atk, atk_r3..., ready}
+const SPECIES_PORTRAITS = {}; // key -> {base, r3, r5, r7, r9, ready}
 const _PORTRAIT_KEYS = ['swordsman','cultivator','dino','longSnake','lizard','croc','wolf','eagle','owl','bat','shark','electroEel','scorpion'];
 function _loadPortrait(key){
   const rec = SPECIES_PORTRAITS[key] = SPECIES_PORTRAITS[key] || { ready:false };
@@ -294,9 +294,6 @@ function _loadPortrait(key){
   };
   loadChain('', 'base');
   loadChain('-r3','r3'); loadChain('-r5','r5'); loadChain('-r7','r7'); loadChain('-r9','r9');
-  // attack-pose frames (optional — gracefully absent until generated)
-  loadChain('-atk','atk');
-  loadChain('-atk-r3','atk_r3'); loadChain('-atk-r5','atk_r5'); loadChain('-atk-r7','atk_r7'); loadChain('-atk-r9','atk_r9');
 }
 function preloadSpeciesPortraits(){
   for (const k of _PORTRAIT_KEYS) _loadPortrait(k);
@@ -1111,6 +1108,9 @@ async function showRewarded(placement){
   if (!rewardedAvailable()) return false;
   let ok = false;
   try { ok = await SDK.rewardedBreak(); } catch(e){}
+  try {
+    if (window.Net && Net.sendAnalytics) Net.sendAnalytics(ok ? 'ad_completed' : 'ad_failed', { placement });
+  } catch(e){}
   if (ok) try { bumpMetric('rewardedCompleted', 1); } catch(e){}
   return ok;
 }
@@ -1279,7 +1279,7 @@ const G = {
   evoReveal:null,
   firstHunt:null,
   fps:60, frameAcc:0, frameN:0, mapOpen:false,
-  bosses:[], bossSpawnT:240, bossDefeated:0,
+  bosses:[], bossSpawnT:15, bossDefeated:0, bossBlights:[],
   miniboss:null, minibossSpawnT:180, miniDefeated:0,
   event:null, eventCdT:120,  // Stars Align
   godWar:null, godWarCd:95,  // v3.19.0: divine arena event
@@ -1697,14 +1697,17 @@ function spawnBoss(){
   let pick;
   do { pick = BOSS_POOL[(Math.random()*BOSS_POOL.length)|0]; } while (G._lastBossType && pick.type===G._lastBossType && BOSS_POOL.length>1);
   G._lastBossType = pick.type;
-  // v3.12.0: spawn outer god near the player so it is visible and contestable sooner
-  const spawnAng = Math.random() * Math.PI * 2;
-  const spawnD   = rand(1400, 2400);
+  // spawn anywhere on map at least 1200px from player — bosses cover the whole world
+  let _sx, _sy, _tries = 0;
+  do {
+    _sx = rand(600, WORLD.w - 600);
+    _sy = rand(600, WORLD.h - 600);
+    _tries++;
+  } while (_tries < 20 && Math.hypot(_sx - px, _sy - py) < 1200);
   const nb = {
     isBoss:true, type:pick.type, name:pick.name,
-    x: clamp(px + Math.cos(spawnAng)*spawnD, 120, WORLD.w-120),
-    y: clamp(py + Math.sin(spawnAng)*spawnD, 120, WORLD.h-120),
-    vx:0, vy:0, r:80,
+    x: _sx, y: _sy,
+    vx:0, vy:0, r:130,
     hp:pick.hp, maxHp:pick.hp, atk:pick.atk,
     atkCdT:0, projT:4, eyeT:0, phase:1,
     color:pick.color, accent:pick.accent,
@@ -1992,6 +1995,36 @@ function onBossDeath(b){
   }
   for (let i=0;i<160;i++) G.particles.push({x:b.x,y:b.y,vx:rand(-600,600),vy:rand(-600,600),life:2,color:'#aa44ff',r:4});
   G.shockwaves.push({x:b.x,y:b.y,r:0,max:800,life:1.5,color:'#aa44ff'});
+}
+function drawBossBlights(){
+  if (!G.bossBlights || !G.bossBlights.length) return;
+  const t = G.time || 0;
+  // also draw Lands End spreading corruption
+  const _cx = WORLD.w/2, _cy = WORLD.h/2;
+  const leR = Math.min(7000, 2500 + t * 3);
+  if (leR > 2500){
+    ctx.save();
+    const g = ctx.createRadialGradient(_cx, _cy, leR*0.6, _cx, _cy, leR);
+    g.addColorStop(0, 'rgba(60,0,80,0.0)');
+    g.addColorStop(0.7, 'rgba(80,10,100,0.18)');
+    g.addColorStop(1, 'rgba(120,30,160,0.38)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(_cx, _cy, leR, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.save();
+  for (const bl of G.bossBlights){
+    bl.t -= 0; // countdown done in update
+    const alpha = Math.min(0.55, bl.t / 18) * (0.5 + 0.5*Math.sin(t*2));
+    const g2 = ctx.createRadialGradient(bl.x, bl.y, 0, bl.x, bl.y, bl.r);
+    g2.addColorStop(0, (bl.color||'#aa44ff') + 'aa');
+    g2.addColorStop(1, (bl.color||'#aa44ff') + '00');
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = g2;
+    ctx.beginPath(); ctx.arc(bl.x, bl.y, bl.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 function drawBoss(){
   for (const b of G.bosses){
@@ -2371,6 +2404,262 @@ function drawBoss(){
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    ctx.restore();
+  } else if (b.type === 'rift'){
+    // === 裂隙至尊：空間撕裂縫 + 放射裂紋 ===
+    ctx.save(); ctx.translate(b.x, b.y);
+    // jagged star body — alternating long/short spikes
+    ctx.fillStyle = '#0d0020';
+    ctx.beginPath();
+    const spikes = 11;
+    for (let i=0;i<spikes*2;i++){
+      const a = (i/(spikes*2))*Math.PI*2 - Math.PI/2 + b.eyeT*0.12;
+      const rr = i%2===0 ? b.r*pul : b.r*pul*0.45;
+      if(i===0) ctx.moveTo(Math.cos(a)*rr, Math.sin(a)*rr);
+      else ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 3;
+    ctx.shadowColor = col; ctx.shadowBlur = 22; ctx.stroke(); ctx.shadowBlur = 0;
+    // glowing rift cracks radiating outward
+    for (let i=0;i<7;i++){
+      const a = (i/7)*Math.PI*2 + b.eyeT*0.08;
+      const len = b.r*pul*(1.6 + Math.sin(b.eyeT*1.5+i)*0.3);
+      ctx.strokeStyle = acc; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.8;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a)*b.r*0.4, Math.sin(a)*b.r*0.4);
+      // zig-zag crack
+      for (let k=1;k<=5;k++){
+        const f=k/5;
+        const jitter = (Math.sin(b.eyeT*3+i*7+k)*18);
+        ctx.lineTo(Math.cos(a)*len*f + Math.cos(a+Math.PI/2)*jitter, Math.sin(a)*len*f + Math.sin(a+Math.PI/2)*jitter);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // void eye in center
+    const vg = ctx.createRadialGradient(0,0,0,0,0,b.r*0.5*pul);
+    vg.addColorStop(0,'#ffffff44'); vg.addColorStop(0.4,col+'88'); vg.addColorStop(1,'#00000000');
+    ctx.fillStyle=vg; ctx.beginPath(); ctx.arc(0,0,b.r*0.5*pul,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  } else if (b.type === 'plague'){
+    // === 瘟神·草履虫：不規則原蟲體 + 纖毛 + 細胞核 ===
+    ctx.save(); ctx.translate(b.x, b.y);
+    // paramecium-like amoeba outline (sum of sines for organic shape)
+    ctx.fillStyle = '#0f1a04';
+    ctx.beginPath();
+    const pts = 64;
+    for (let i=0;i<pts;i++){
+      const a = (i/pts)*Math.PI*2;
+      const rr = b.r*pul*(0.82
+        + 0.18*Math.sin(3*a + b.eyeT*0.9)
+        + 0.12*Math.sin(5*a - b.eyeT*1.3)
+        + 0.08*Math.sin(7*a + b.eyeT*0.5));
+      if(i===0) ctx.moveTo(Math.cos(a)*rr, Math.sin(a)*rr);
+      else ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+    // cilia — many short bristles around perimeter
+    ctx.strokeStyle = acc; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.65;
+    for (let i=0;i<36;i++){
+      const a = (i/36)*Math.PI*2;
+      const base = b.r*pul*(0.9 + 0.1*Math.sin(5*a+b.eyeT*2));
+      const tip  = base + 28 + Math.sin(b.eyeT*4+i)*10;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a)*base, Math.sin(a)*base);
+      ctx.lineTo(Math.cos(a)*tip,  Math.sin(a)*tip);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // pseudopods (3 extended blobs)
+    for (let i=0;i<3;i++){
+      const pa = b.eyeT*0.4 + i*(Math.PI*2/3);
+      const pr = b.r*pul*(1.25 + Math.sin(b.eyeT*1.2+i)*0.15);
+      const pg = ctx.createRadialGradient(Math.cos(pa)*pr, Math.sin(pa)*pr, 0, Math.cos(pa)*pr, Math.sin(pa)*pr, 38*pul);
+      pg.addColorStop(0, col+'cc'); pg.addColorStop(1, col+'00');
+      ctx.fillStyle=pg; ctx.globalAlpha=0.8;
+      ctx.beginPath(); ctx.arc(Math.cos(pa)*pr, Math.sin(pa)*pr, 38*pul, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // macronucleus (large kidney-shaped)
+    ctx.fillStyle = acc+'99';
+    ctx.beginPath(); ctx.ellipse(-b.r*0.2*pul, 0, b.r*0.38*pul, b.r*0.22*pul, b.eyeT*0.3, 0, Math.PI*2); ctx.fill();
+    // micronucleus (small dot)
+    ctx.fillStyle = '#ffffff88';
+    ctx.beginPath(); ctx.arc(b.r*0.18*pul, b.r*0.1*pul, b.r*0.1*pul, 0, Math.PI*2); ctx.fill();
+    // food vacuoles (scattered spots)
+    for (let i=0;i<5;i++){
+      const vx = Math.cos(i*1.3+b.eyeT*0.6)*b.r*0.35*pul;
+      const vy = Math.sin(i*2.1+b.eyeT*0.4)*b.r*0.28*pul;
+      ctx.fillStyle = '#cc664488'; ctx.beginPath(); ctx.arc(vx,vy,7+i*2,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  } else if (b.type === 'mirror'){
+    // === 分形鏡：自相似遞歸多邊形 + 旋轉鏡面 ===
+    ctx.save(); ctx.translate(b.x, b.y);
+    function drawFractalPoly(cx2,cy2,r2,depth,rot2){
+      if (depth<=0||r2<6) return;
+      const sides=5;
+      ctx.beginPath();
+      for(let i=0;i<sides;i++){
+        const a=rot2+(i/sides)*Math.PI*2;
+        if(i===0) ctx.moveTo(cx2+Math.cos(a)*r2,cy2+Math.sin(a)*r2);
+        else ctx.lineTo(cx2+Math.cos(a)*r2,cy2+Math.sin(a)*r2);
+      }
+      ctx.closePath();
+      ctx.strokeStyle=depth===3?col:depth===2?acc:'#ffffff';
+      ctx.lineWidth=depth*1.5;
+      ctx.globalAlpha=0.2+depth*0.22;
+      ctx.stroke();
+      for(let i=0;i<sides;i++){
+        const a=rot2+(i/sides)*Math.PI*2;
+        drawFractalPoly(cx2+Math.cos(a)*r2*0.55,cy2+Math.sin(a)*r2*0.55,r2*0.4,depth-1,rot2+(b.eyeT*0.3*(depth%2?1:-1)));
+      }
+    }
+    drawFractalPoly(0,0,b.r*pul,3,b.eyeT*0.2);
+    ctx.globalAlpha=1;
+    // mirror shards orbiting (5 spinning reflective planes)
+    for(let i=0;i<5;i++){
+      const ma=b.eyeT*0.6+i*Math.PI*2/5;
+      const mr=b.r*pul*1.5;
+      const mx2=Math.cos(ma)*mr, my2=Math.sin(ma)*mr;
+      ctx.save(); ctx.translate(mx2,my2); ctx.rotate(ma+b.eyeT);
+      ctx.fillStyle=col+'88'; ctx.strokeStyle=acc; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.rect(-18,-8,36,16); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#ffffff44'; ctx.beginPath(); ctx.rect(-14,-4,10,8); ctx.fill();
+      ctx.restore();
+    }
+    // central fractal core
+    const cg=ctx.createRadialGradient(0,0,0,0,0,b.r*0.5*pul);
+    cg.addColorStop(0,'#ffffff'); cg.addColorStop(0.5,col); cg.addColorStop(1,'#00000000');
+    ctx.fillStyle=cg; ctx.globalAlpha=0.85;
+    ctx.beginPath(); ctx.arc(0,0,b.r*0.5*pul,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+    ctx.restore();
+  } else if (b.type === 'worm'){
+    // === 世界蟲：多節蠕蟲巨體 + 刺毛腿 + 吞噬首端 ===
+    ctx.save();
+    const segments = 9;
+    const wormLen = b.r * pul * 2.6;
+    const headX = b.x + Math.cos(b.eyeT*0.35)*wormLen*0.45;
+    const headY = b.y + Math.sin(b.eyeT*0.25)*wormLen*0.45;
+    const tailX = b.x - Math.cos(b.eyeT*0.35)*wormLen*0.45;
+    const tailY = b.y - Math.sin(b.eyeT*0.25)*wormLen*0.45;
+    for (let s=segments-1;s>=0;s--){
+      const f = s/(segments-1);
+      const sx = tailX + (headX-tailX)*f;
+      const sy = tailY + (headY-tailY)*f + Math.sin(b.eyeT*2.2 + s*0.9)*22*(1-Math.abs(f-0.5)*1.5);
+      const sr = (b.r*0.58*pul)*(1 - f*0.35);
+      // segment body
+      const sg = ctx.createRadialGradient(sx,sy,0,sx,sy,sr);
+      sg.addColorStop(0,'#4a2800'); sg.addColorStop(0.7,col); sg.addColorStop(1,'#221100');
+      ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle=acc; ctx.lineWidth=2; ctx.stroke();
+      // legs (2 per segment on each side)
+      if (s<segments-1 && s>0){
+        for (let side=-1;side<=1;side+=2){
+          const la = Math.atan2(headY-tailY, headX-tailX) + Math.PI/2*side;
+          const lx = sx + Math.cos(la)*(sr*0.8);
+          const ly = sy + Math.sin(la)*(sr*0.8);
+          ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.lineCap='round';
+          ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx+Math.cos(la)*28, ly+Math.sin(la)*28); ctx.stroke();
+        }
+      }
+    }
+    // head — mandibles
+    ctx.fillStyle = '#1a0a00'; ctx.beginPath(); ctx.arc(headX,headY,b.r*0.72*pul,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = acc; ctx.lineWidth = 4; ctx.stroke();
+    for (let m=-1;m<=1;m+=2){
+      const ma = Math.atan2(headY-tailY, headX-tailX) + m*0.45;
+      ctx.strokeStyle = acc; ctx.lineWidth = 8; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(headX + Math.cos(ma)*b.r*0.5, headY + Math.sin(ma)*b.r*0.5);
+      ctx.lineTo(headX + Math.cos(ma)*b.r*1.1, headY + Math.sin(ma)*b.r*1.1);
+      ctx.stroke();
+    }
+    // glowing compound eyes
+    for (let e=-1;e<=1;e+=2){
+      const ea = Math.atan2(headY-tailY, headX-tailX) + e*0.28;
+      const ex2 = headX + Math.cos(ea)*b.r*0.38*pul;
+      const ey2 = headY + Math.sin(ea)*b.r*0.38*pul;
+      ctx.fillStyle = acc; ctx.beginPath(); ctx.arc(ex2,ey2,10,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(ex2,ey2,5,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  } else if (b.type === 'eclipse'){
+    // === 血蝕·天遮：日食黑盤 + 血焰日冕 + 血滴流落 ===
+    ctx.save(); ctx.translate(b.x, b.y);
+    // corona base (large red radial glow)
+    const cg2 = ctx.createRadialGradient(0,0,b.r*pul*0.9,0,0,b.r*pul*2.8);
+    cg2.addColorStop(0, col+'dd'); cg2.addColorStop(0.4, acc+'66'); cg2.addColorStop(1,'#00000000');
+    ctx.fillStyle=cg2; ctx.globalAlpha=0.9;
+    ctx.beginPath(); ctx.arc(0,0,b.r*pul*2.8,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+    // solar flares (irregular eruptions)
+    for (let i=0;i<8;i++){
+      const fa = (i/8)*Math.PI*2 + b.eyeT*0.18;
+      const flen = b.r*pul*(0.8 + Math.sin(b.eyeT*1.8+i*1.4)*0.55);
+      ctx.strokeStyle = i%2===0?col:acc; ctx.lineWidth = 8 + Math.sin(b.eyeT*2+i)*4; ctx.lineCap='round';
+      ctx.globalAlpha=0.7+Math.sin(b.eyeT*3+i)*0.2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(fa)*b.r*pul, Math.sin(fa)*b.r*pul);
+      ctx.quadraticCurveTo(
+        Math.cos(fa+0.4)*(b.r*pul+flen*0.5), Math.sin(fa+0.4)*(b.r*pul+flen*0.5),
+        Math.cos(fa)*( b.r*pul+flen), Math.sin(fa)*(b.r*pul+flen));
+      ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    // eclipse disc (dark circle over sun)
+    ctx.fillStyle='#0a0006'; ctx.beginPath(); ctx.arc(0,0,b.r*pul,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=col; ctx.lineWidth=5; ctx.shadowColor=col; ctx.shadowBlur=20; ctx.stroke(); ctx.shadowBlur=0;
+    // blood drips falling from disc edge
+    for (let i=0;i<6;i++){
+      const da = Math.PI*0.1 + (i/5)*Math.PI*0.8;
+      const dy = b.r*pul + (G.time*60+i*40)%100;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(Math.cos(Math.PI/2+da)*b.r*pul*0.9, dy - 50, 4+i%3*2, 0, Math.PI*2);
+      ctx.fill();
+    }
+    // blood-red corona ring
+    ctx.strokeStyle=acc; ctx.lineWidth=3; ctx.globalAlpha=0.6;
+    ctx.beginPath(); ctx.arc(0,0,b.r*pul*1.08,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=1;
+    ctx.restore();
+  } else if (b.type === 'void'){
+    // === 太初空洞·第一沉默：奇點 + 吸積盤 + 時空扭曲環 ===
+    ctx.save(); ctx.translate(b.x, b.y);
+    // accretion disc (tilted ellipse spinning)
+    ctx.save(); ctx.rotate(b.eyeT*0.25); ctx.scale(1, 0.3);
+    const ag = ctx.createRadialGradient(0,0,b.r*pul*0.5,0,0,b.r*pul*2.2);
+    ag.addColorStop(0,'#ffffff'); ag.addColorStop(0.15,acc); ag.addColorStop(0.6,col); ag.addColorStop(1,'#00000000');
+    ctx.fillStyle=ag; ctx.globalAlpha=0.75;
+    ctx.beginPath(); ctx.arc(0,0,b.r*pul*2.2,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.globalAlpha=1;
+    // distortion rings (expanding outward)
+    for (let i=0;i<4;i++){
+      const phase = ((b.eyeT*0.8 + i*0.6)%1);
+      const rr = b.r*pul*(0.9 + phase*1.8);
+      ctx.strokeStyle=acc; ctx.lineWidth=3*(1-phase); ctx.globalAlpha=(1-phase)*0.55;
+      ctx.beginPath(); ctx.arc(0,0,rr,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    // singularity — pure black core with hard purple edge
+    ctx.fillStyle='#000000'; ctx.beginPath(); ctx.arc(0,0,b.r*pul*0.9,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=col; ctx.lineWidth=6; ctx.shadowColor=col; ctx.shadowBlur=28; ctx.stroke(); ctx.shadowBlur=0;
+    // stars being absorbed (dots spiral inward)
+    for (let i=0;i<12;i++){
+      const sa = (i/12)*Math.PI*2 + b.eyeT*0.9;
+      const dist2 = b.r*pul*(1.1 + 0.9*((b.eyeT*0.4 + i*0.4)%1));
+      ctx.fillStyle='#ffffff'; ctx.globalAlpha=0.6*((dist2-b.r*pul)/(b.r*pul));
+      ctx.beginPath(); ctx.arc(Math.cos(sa)*dist2, Math.sin(sa)*dist2, 2.5, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    // event horizon shimmer
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=1.5; ctx.globalAlpha=0.18;
+    ctx.beginPath(); ctx.arc(0,0,b.r*pul*0.92,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=1;
     ctx.restore();
   } else {
     // === 星瞳古神 (default 'eye'): 原版巨眼 ===
@@ -2765,17 +3054,17 @@ function drawFirstHuntGuide(){
   ctx.save();
   ctx.globalAlpha = 0.9;
   ctx.fillStyle = 'rgba(15,12,22,0.88)';
-  ctx.fillRect(bannerX, 18, bannerW, 58);
+  ctx.fillRect(bannerX, 64, bannerW, 52);
   ctx.strokeStyle = '#ffd66b';
   ctx.lineWidth = 2;
-  ctx.strokeRect(bannerX, 18, bannerW, 58);
+  ctx.strokeRect(bannerX, 64, bannerW, 52);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffd66b';
-  ctx.font = 'bold 20px sans-serif';
-  ctx.fillText('FIRST KILL = FIRST HOOK', W/2, 42);
+  ctx.font = 'bold 18px sans-serif';
+  ctx.fillText('FIRST KILL = FIRST HOOK', W/2, 86);
   ctx.fillStyle = '#f4ecff';
-  ctx.font = '14px sans-serif';
-  ctx.fillText('Hunt the nearest creature to start your evolution chain', W/2, 63);
+  ctx.font = '13px sans-serif';
+  ctx.fillText('Hunt the nearest creature to start your evolution chain', W/2, 106);
   if (onScreen){
     const pulse = 12 + 5*Math.sin(G.time*6);
     ctx.strokeStyle = '#ffd66b';
@@ -3569,10 +3858,12 @@ function drawTutorial(){
   if (tut.t >= s.dur){ tut.step++; tut.t = 0; return; }
   // Render banner at top-center
   const W = canvas.width / (dpr||1), H = canvas.height / (dpr||1);
+  const mobile = isMobile();
   ctx.save();
   ctx.globalAlpha = Math.min(1, tut.t*4) * (tut.t > s.dur-0.4 ? Math.max(0, (s.dur-tut.t)/0.4) : 1);
-  const bx = W/2, by = 110;
-  const bw = 540, bh = 78;
+  const bx = W/2, by = mobile ? 154 : 110;
+  const bw = mobile ? Math.max(280, W-24) : 540;
+  const bh = mobile ? 58 : 78;
   ctx.fillStyle = 'rgba(20,16,32,0.88)';
   ctx.strokeStyle = '#ffd66b';
   ctx.lineWidth = 2;
@@ -3580,16 +3871,18 @@ function drawTutorial(){
   if (ctx.roundRect) ctx.roundRect(bx-bw/2, by-bh/2, bw, bh, 12); else ctx.rect(bx-bw/2, by-bh/2, bw, bh);
   ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#ffd66b';
-  ctx.font = 'bold 20px system-ui, sans-serif';
+  ctx.font = `bold ${mobile ? 15 : 20}px system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(`Step ${tut.step+1}/3 · ${s.text}`, bx, by-12);
   ctx.fillStyle = '#cccccc';
-  ctx.font = '13px system-ui, sans-serif';
+  ctx.font = `${mobile ? 11 : 13}px system-ui, sans-serif`;
   ctx.fillText(s.sub, bx, by+14);
   // Skip hint
-  ctx.fillStyle = '#888';
-  ctx.font = '11px system-ui, sans-serif';
-  ctx.fillText('(press T to skip tutorial)', bx, by+bh/2+12);
+  if (!mobile){
+    ctx.fillStyle = '#888';
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.fillText('(press T to skip tutorial)', bx, by+bh/2+12);
+  }
   // Pulsing arrow pointing at player (for step 1)
   if (tut.step === 0 && G.player){
     const cam = G.cam || {x:0,y:0};
@@ -3635,6 +3928,18 @@ function setupInput(canvas){
     if (k==='g' && G.started && G.player && !G.dead && !G.won){
       e.preventDefault();
       try { togglePlayerDomain(); } catch(err){}
+    }
+    if (k==='z' && G.started && G.player && !G.dead && !G.won){
+      e.preventDefault();
+      try { pushKillFeed('⚑ Team: Regroup on me!', '#72d6bb'); if (window.Net && Net.sendChat) Net.sendChat('⚑ Regroup on me!'); } catch(err){}
+    }
+    if (k==='j' && G.started && G.player && !G.dead && !G.won){
+      e.preventDefault();
+      try { pushKillFeed('⚑ Team: Retreat!', '#f3b35e'); if (window.Net && Net.sendChat) Net.sendChat('⚑ Retreat!'); } catch(err){}
+    }
+    if (k==='h' && G.started && G.player && !G.dead && !G.won){
+      e.preventDefault();
+      try { pushKillFeed('⚑ Team: Focus my target!', '#ff7f72'); if (window.Net && Net.sendChat) Net.sendChat('⚑ Focus my target!'); } catch(err){}
     }
     // v3.8.0: matchmaking modal (works both on title and in-game)
     if (k==='n'){ e.preventDefault(); try { openMatchmakingModal(); } catch(err){} }
@@ -3736,8 +4041,22 @@ function updatePlayer(p, dt){
   if (p.shieldT>0){ p.shieldT-=dt; if (p.shieldT<=0){ p.shieldHp=0; } }
   if (p.lifestealT>0) p.lifestealT-=dt;
   if (p.dmgTransferT>0) p.dmgTransferT-=dt;
-  // 壽命扣減（玩家）
-  if (p.isPlayer){ p.life -= dt; if (p.life<=0){ die('Lifespan exhausted'); return; } }
+  // 壽命扣減（玩家）— 污染地形额外加速
+  if (p.isPlayer){
+    let lifeDrain = 1;
+    const _cx = WORLD.w/2, _cy = WORLD.h/2;
+    // outside veil
+    if (G.veil && G.veil.active && Math.hypot(p.x-_cx, p.y-_cy) > G.veil.r) lifeDrain += 6;
+    // Lands End spreading zone
+    const _leR = Math.min(7000, 2500 + (G.time||0) * 3);
+    if (Math.hypot(p.x-_cx, p.y-_cy) < _leR) lifeDrain += 2.5;
+    // boss blight
+    for (const bl of (G.bossBlights||[])){
+      if (Math.hypot(p.x-bl.x, p.y-bl.y) < bl.r){ lifeDrain += 4; break; }
+    }
+    p.life -= lifeDrain * dt;
+    if (p.life<=0){ die('Lifespan exhausted'); return; }
+  }
 
   // ── 移動 ────────────────────────────────────────────
   applyJoystick();
@@ -5303,9 +5622,8 @@ function _renderBoostOfferPanel(root, title){
   const adBtn = document.getElementById('boostAdBtn');
   if (adBtn){ adBtn.onclick = async ()=>{
     adBtn.disabled = true; adBtn.textContent = 'Loading…';
-    let ok = true;
-    if (window.SDK && SDK.ready && typeof SDK.rewardedBreak === 'function'){ try { ok = await SDK.rewardedBreak(); } catch(e){ ok = false; } }
-    if (ok !== false){
+    const ok = await showRewarded('boost_offer');
+    if (ok){
       const offers = buildBoostOfferDeck();
       const offer = offers[(Math.random()*offers.length)|0] || BOOST_DEFS[0];
       if (offer && buyBoost(offer.id, { skipCost:true })){ adBtn.textContent = `✓ ${offer.name}`; }
@@ -5342,7 +5660,6 @@ function _showDeathOverlay(){
   const _curForm = getRankForm(G.player);
   const _nextPreview = getNextEvolutionPreview(G.player);
   try { _renderBoostOfferPanel(document.getElementById('death'), 'Next-run boosts: spend coins or use an ad for a permanent edge'); } catch(e){}
-  try { _renderVaultPanel(document.getElementById('death')); } catch(e){}
   // v3.18.0: check & display newly unlocked achievements
   try { const _newAch = checkAchievements(); _renderAchievementUnlocks(_newAch, document.getElementById('death')); } catch(e){}
   // session run streak bonus
@@ -5352,6 +5669,7 @@ function _showDeathOverlay(){
     addCoins(_bonus); accrueVault(_bonus);
     pushKillFeed(`🔁 Run streak x${G._sessionRuns}! +${_bonus}🪙 bonus`, '#ffd66b');
   }
+  try { _renderVaultPanel(document.getElementById('death')); } catch(e){}
   const _deathNext = document.getElementById('deathNextForm');
   const _deathHook = document.getElementById('deathHook');
   const _restartBtn = document.getElementById('restartBtn');
@@ -5413,9 +5731,14 @@ function _showDeathOverlay(){
       _revive.textContent = '▶ Watch Ad to Revive (Once per run)';
       _revive.onclick = async ()=>{
         if (G._reviveUsed) return;
-        G._reviveUsed = true;
         _revive.disabled = true; _revive.textContent = 'Loading ad…';
-        try { await SDK.rewardedBreak(); } catch(e){}
+        const ok = await showRewarded('revive');
+        if (!ok){
+          _revive.disabled = false;
+          _revive.textContent = 'Ad unavailable — try again';
+          return;
+        }
+        G._reviveUsed = true;
         // Restore 60% HP + invuln, hide death, resume
         G.dead = false;
         G._deathCinT = 0; G._deathOverlayShown = false; G._deathReason = null;
@@ -5447,11 +5770,10 @@ function _showDeathOverlay(){
       _cdb.textContent = `▶ Watch Ad: 🪙 Double Coins! (+${_coinsEarned} more)`;
       _cdb.onclick = async ()=>{
         if (G._coinDoubleUsed) return;
-        G._coinDoubleUsed = true;
         _cdb.disabled = true; _cdb.textContent = 'Loading ad…';
-        let ok = false;
-        try { ok = await SDK.rewardedBreak(); } catch(e){}
-        if (ok !== false){
+        const ok = await showRewarded('double_coins');
+        if (ok){
+          G._coinDoubleUsed = true;
           addCoins(_coinsEarned);
           try { bumpLifetime(0,0,0,_coinsEarned); } catch(e){}
           _cdb.textContent = `✓ +${_coinsEarned} bonus coins! (Total: ${getCoins()})`;
@@ -5566,8 +5888,8 @@ function winGame(){
   // v3.17.0: stop gameplay session + governed interstitial (natural break, pacing-capped)
   try { if (window.SDK && SDK.ready && SDK.gameplayStop) SDK.gameplayStop(); } catch(e){}
   try { _hideSupplyDropOffer(); tryMidroll('win'); } catch(e){}
-  try { _renderVaultPanel(document.getElementById('win')); } catch(e){}
   try { const _newAch = checkAchievements(); _renderAchievementUnlocks(_newAch, document.getElementById('win')); } catch(e){}
+  try { _renderVaultPanel(document.getElementById('win')); } catch(e){}
   // v3.7.0: viral share button — reward coins for sharing (drives organic acquisition)
   try { _setupWinShareButton(); } catch(e){}
   // v2.0.0: win-screen rewarded ad (+300 coins) — shown on ad-supported platforms only
@@ -5581,8 +5903,7 @@ function winGame(){
           if (_war._used) return;
           _war._used = true;
           _war.disabled = true; _war.textContent = 'Loading ad…';
-          let ok = false;
-          try { ok = await SDK.rewardedBreak(); } catch(e){}
+          const ok = await showRewarded('win_coins');
           if (ok){
             addCoins(300);
             _war.textContent = '✓ +300 Divine Coins rewarded! 🪙';
@@ -5683,18 +6004,7 @@ function drawStatusBanner(){
     ctx.fillStyle = p.rank >= 8 ? '#ffd66b' : '#cccccc';
     ctx.strokeText(goal, cx, 22);
     ctx.fillText(goal, cx, 22);
-    // veil countdown
-    if (G.veil && G.veil.active){
-      const timeLeft = Math.max(0, VEIL_END_T - G.time);
-      const veilText = timeLeft > 0 ? `🌑 Veil closes in ${Math.ceil(timeLeft)}s` : '🌑 Final Tribulation';
-      ctx.fillStyle = '#ff66cc'; ctx.strokeStyle = '#000';
-      ctx.strokeText(veilText, cx, 40); ctx.fillText(veilText, cx, 40);
-    } else if (G.time < VEIL_START_T){
-      const starts = Math.max(0, VEIL_START_T - G.time);
-      ctx.fillStyle = '#aa88cc'; ctx.strokeStyle = '#000';
-      const vt = `Veil of Erasure in ${Math.ceil(starts)}s`;
-      ctx.strokeText(vt, cx, 40); ctx.fillText(vt, cx, 40);
-    }
+    // veil countdown is shown in drawTimelineHUD bar — skip duplicate here
     const domain = getPlayerDomain();
     if (domain && G.player.rank >= 7){
       ctx.fillStyle = '#ffd66b'; ctx.strokeStyle = '#000';
@@ -5718,7 +6028,7 @@ function drawStatusBanner(){
         ctx.fillStyle = '#aa44ff'; ctx.strokeStyle = '#000';
         const hpPct = Math.floor(b.hp / b.maxHp * 100);
         const bt = `☄ ${b.name} — ${Math.floor(bd)}px away · HP ${hpPct}%`;
-        ctx.strokeText(bt, cx, 58); ctx.fillText(bt, cx, 58);
+        ctx.strokeText(bt, cx, 24); ctx.fillText(bt, cx, 24);
       }
     }
   }
@@ -5728,7 +6038,7 @@ function drawStatusBanner(){
     ctx.textAlign = 'center';
     ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
     const t = `★ Spawn protect ${p.invuln.toFixed(1)}s ★`;
-    ctx.strokeText(t, cx, 80); ctx.fillText(t, cx, 80);
+    ctx.strokeText(t, cx, 140); ctx.fillText(t, cx, 140);
   }
   if (p.defending){
     ctx.fillStyle = '#88e0ff';
@@ -6281,9 +6591,9 @@ function buildEndingSummary(type, extra){
 }
 function getBossSpawnConfig(){
   const baseStage = Math.max(1, G.stage || 1);
-  const maxBosses = baseStage >= 5 ? 3 : (baseStage >= 3 ? 2 : 1);
-  const intervalBase = baseStage >= 5 ? 78 : (baseStage >= 4 ? 86 : (baseStage >= 3 ? 92 : 72));
-  const intervalVar = baseStage >= 5 ? 18 : (baseStage >= 4 ? 20 : 24);
+  const maxBosses = baseStage >= 5 ? 10 : (baseStage >= 3 ? 8 : 6);
+  const intervalBase = baseStage >= 5 ? 14 : (baseStage >= 4 ? 17 : (baseStage >= 3 ? 20 : 22));
+  const intervalVar = baseStage >= 5 ? 5 : (baseStage >= 4 ? 6 : 8);
   return { maxBosses, intervalBase, intervalVar };
 }
 
@@ -6510,7 +6820,7 @@ function drawBiomeSectors(){
   ctx.beginPath(); ctx.arc(cx, cy, R_inner, 0, Math.PI*2); ctx.stroke();
   // Throne Plaza label
   ctx.globalAlpha = 0.7;
-  ctx.font = 'bold 36px serif';
+  ctx.font = `bold ${isMobile() ? 18 : 36}px serif`;
   ctx.fillStyle = '#ffd66b'; ctx.textAlign = 'center';
   ctx.fillText('THRONE PLAZA', cx, cy - R_inner - 18);
   ctx.restore();
@@ -7186,11 +7496,15 @@ function update(dt){
   G.shockwaves = G.shockwaves.filter(s=>s.life>0);
   // 防止特效爆炸導致 FPS 過低卡頓
   // v3.3.0: adaptive particle cap — mobile/low-pixel devices keep 250, desktop 500
-  const _pcap = (window.innerWidth < 720 || (navigator.hardwareConcurrency||4) <= 2) ? 250 : 500;
+  const _mobileBudget = isMobile();
+  const _pcap = _mobileBudget ? 160 : ((navigator.hardwareConcurrency||4) <= 2 ? 250 : 500);
   if (G.particles.length>_pcap) G.particles.splice(0, G.particles.length-_pcap);
-  if (G.shockwaves.length>80) G.shockwaves.splice(0, G.shockwaves.length-80);
-  if (G.floats.length>120) G.floats.splice(0, G.floats.length-120);
-  if (G.projectiles.length>200) G.projectiles.splice(0, G.projectiles.length-200);
+  const _shockCap = _mobileBudget ? 40 : 80;
+  const _floatCap = _mobileBudget ? 80 : 120;
+  const _projectileCap = _mobileBudget ? 140 : 200;
+  if (G.shockwaves.length>_shockCap) G.shockwaves.splice(0, G.shockwaves.length-_shockCap);
+  if (G.floats.length>_floatCap) G.floats.splice(0, G.floats.length-_floatCap);
+  if (G.projectiles.length>_projectileCap) G.projectiles.splice(0, G.projectiles.length-_projectileCap);
   // 玩家 regen
   if (G.player._regen) G.player.hp = Math.min(G.player.maxHp, G.player.hp + G.player._regen*dt);
   // Kill feed 老化
@@ -7227,14 +7541,24 @@ function update(dt){
     }
   }
   // v0.9.0: 世界 Boss
-  for (let _i=G.bosses.length-1;_i>=0;_i--){ if (G.bosses[_i].hp<=0){ onBossDeath(G.bosses[_i]); G.bosses.splice(_i,1); G.bossSpawnT=160; } }
+  for (let _i=G.bosses.length-1;_i>=0;_i--){ if (G.bosses[_i].hp<=0){ onBossDeath(G.bosses[_i]); G.bosses.splice(_i,1); G.bossSpawnT=12; } }
   const bossCfg = getBossSpawnConfig();
-  if ((G.stage>=2 || G.time >= 60) && G.bosses.length<bossCfg.maxBosses){
+  if (G.time >= 8 && G.bosses.length<bossCfg.maxBosses){
     G.bossSpawnT -= dt;
     if (G.bossSpawnT <= 0){
       spawnBoss();
-      G.bossSpawnT = bossCfg.intervalBase + Math.random() * bossCfg.intervalVar - (G.bosses.length * 8);
-      G.bossSpawnT = Math.max(70, G.bossSpawnT);
+      G.bossSpawnT = bossCfg.intervalBase + Math.random() * bossCfg.intervalVar;
+      G.bossSpawnT = Math.max(12, G.bossSpawnT);
+    }
+  }
+  // decay old blight zones and spawn new ones under active bosses
+  G.bossBlights = (G.bossBlights||[]).filter(bl => bl.t > 0);
+  for (const _b of G.bosses){
+    if (!_b || _b.hp<=0) continue;
+    _b._blightT = (_b._blightT||0) - dt;
+    if (_b._blightT <= 0){
+      _b._blightT = 3;
+      G.bossBlights.push({ x:_b.x, y:_b.y, r:220, t:18, color:_b.color });
     }
   }
   for (const _b of G.bosses) updateBoss(_b, dt);
@@ -7275,7 +7599,7 @@ function update(dt){
     for (let i=0;i<waveSize;i++){ try { spawnEnemy(false); } catch(e){} }
     // v3.5.0: miniboss from stage 1, Outer Gods from stage 3 (was stage 2/4) — escalate chaos faster
     if (newStage>=1 && !G.miniboss){ try { spawnMiniboss(); G.minibossSpawnT = 120; } catch(e){} }
-    if (newStage>=2 && G.bosses.length===0){ try { spawnBoss(); G.bossSpawnT = 55; } catch(e){} }
+    if (newStage>=1 && G.bosses.length===0){ try { spawnBoss(); G.bossSpawnT = 10; } catch(e){} }
     if (newStage>=4){ G.eventCdT = Math.min(G.eventCdT, 12); }
   }
   if (G.stageBannerT>0) G.stageBannerT -= dt;
@@ -7321,11 +7645,6 @@ function update(dt){
       G.firstHunt.shown = true;
     }
   }
-  if (G.tutorialStep===0 && G.tutorialT>2.5){ addFloat(G.player.x, G.player.y-60, isMobile()?"Left thumb moves · Right buttons attack":"WASD move · Left-click attack", "#ffd66b", 18, 3.5); G.tutorialStep=1; }
-  if (G.tutorialStep===1 && G.tutorialT>7){ addFloat(G.player.x, G.player.y-60, "🪙 Coins reward kills, daily quests & boss slayings", "#ffd66b", 18, 3.5); G.tutorialStep=2; }
-  if (G.tutorialStep===2 && G.tutorialT>12){ addFloat(G.player.x, G.player.y-60, "Stand near purple Qi springs · 1-6 cast Authority · M opens map", "#bb88ff", 18, 4); G.tutorialStep=3; }
-  if (G.tutorialStep===3 && G.tutorialT>18){ addFloat(G.player.x, G.player.y-60, "⚔ Players who kill you join your REVENGE list — hunt them next run", "#ff6677", 18, 4); G.tutorialStep=4; }
-  if (G.tutorialStep===4 && G.tutorialT>24){ addFloat(G.player.x, G.player.y-60, "★ Capture 4 Sanctums + slay an Outer God = Apotheosis (win)", "#ff88cc", 18, 5); G.tutorialStep=5; }
   // 補充靈氣與道具
   if (G.spirits.length<70 && Math.random()<0.35) spawnSpirit();
   if (G.pickups.length<80 && Math.random()<0.06) spawnPickup();
@@ -7376,8 +7695,10 @@ function render(){
     drawCosmicBG();
     drawGodWarArena();
     drawTerrain();
-    drawAmbientMotes();
-    drawTendrils();
+    if (!isMobile()){
+      drawAmbientMotes();
+      drawTendrils();
+    }
     drawQiSprings();
     drawRifts();
     drawDomains();
@@ -7387,6 +7708,7 @@ function render(){
     try{ drawBiomeSectors(); }catch(e){}
     try{ drawVeil(); }catch(e){}
     drawHazards();
+    try{ drawBossBlights(); }catch(e){}
     try{ drawBoss(); }catch(e){}
     try{ drawMiniboss(); }catch(e){}
     for (const m of G.minions) try{ drawCreature(m); }catch(e){}
@@ -7404,7 +7726,8 @@ function render(){
     // 再保底重設一次，確保 UI 層不被殘留 transform 影響
     ctx.setTransform(dpr,0,0,dpr,0,0);
   }
-  try{ drawOnlineBadge(); }catch(e){}
+  const _compactHud = isMobile();
+  if (!_compactHud) try{ drawOnlineBadge(); }catch(e){}
   // v2.9.0: vignette + boss-active chromatic frame — atmospheric cinema layer
   try { _drawVignette(); } catch(e){}
   // v2.9.0: 2.4s boss-arrival splash (uses AI-painted art if loaded; otherwise stylish title card)
@@ -7416,27 +7739,28 @@ function render(){
     ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
     ctx.globalAlpha = 1;
   }
-  try{ drawMinimap(); }catch(e){}
+  if (!_compactHud) try{ drawMinimap(); }catch(e){}
   try{ drawCrosshair(); }catch(e){}
-  try{ drawStatusBanner(); }catch(e){}
-  try{ drawFirstHuntGuide(); }catch(e){}
-  try{ drawKillFeed(); }catch(e){}
+  if (!_compactHud) try{ drawStatusBanner(); }catch(e){}
+  if (!_compactHud) try{ drawKillFeed(); }catch(e){}
   try{ drawStreakBanner(); }catch(e){}
   try{ drawEdgeArrows(); }catch(e){}
   try{ drawBossRevealBanner(); }catch(e){}
   try{ drawEvoReveal(); }catch(e){}
   try{ drawJoystick(); }catch(e){}
-  try{ drawLeaderboard(); }catch(e){}
+  if (!_compactHud) try{ drawLeaderboard(); }catch(e){}
   try{ drawVeilHUD(); }catch(e){}
   try{ drawPartyHUD(); }catch(e){}
-  try{ drawTimelineHUD(); }catch(e){}
-  try{ drawRoomHUD(); }catch(e){}
+  if (!_compactHud) try{ drawTimelineHUD(); }catch(e){}
+  if (!_compactHud) try{ drawRoomHUD(); }catch(e){}
   try{ drawAuthorityHUD(); }catch(e){}
   ctx.fillStyle = G.fps<30 ? '#ff6666' : (G.fps<50 ? '#ffcc66' : '#88ff88');
   ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
   ctx.fillText('FPS '+G.fps, 8, window.innerHeight-8);
-  ctx.fillStyle = '#88ccff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
-  ctx.fillText(G.mapOpen?'[M] Close map':'[M] Open map', window.innerWidth-12, window.innerHeight-8);
+  if (!_compactHud){
+    ctx.fillStyle = '#88ccff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(G.mapOpen?'[M] Close map':'[M] Open map', window.innerWidth-12, window.innerHeight-8);
+  }
   if (G.mapOpen) try{ drawStarMap(); }catch(e){ console.warn('[starmap]',e); }
   try{ drawWorldEventFX(); }catch(e){}
   try{ drawPingArrow(); }catch(e){}
@@ -7772,8 +8096,13 @@ function drawDecorItem(d){
     }
   }
 }
+function isWorldVisible(x, y, margin=80){
+  return Math.abs(x-G.cam.x) <= window.innerWidth/2+margin &&
+    Math.abs(y-G.cam.y) <= window.innerHeight/2+margin;
+}
 function drawSpirits(){
   for (const s of G.spirits){
+    if (!isWorldVisible(s.x, s.y, 10)) continue;
     s.pulse += 0.1;
     const r = 6 + Math.sin(s.pulse)*2;
     ctx.fillStyle = '#bb88ff'; ctx.beginPath(); ctx.arc(s.x,s.y,r,0,Math.PI*2); ctx.fill();
@@ -7782,6 +8111,7 @@ function drawSpirits(){
 }
 function drawPickups(){
   for (const p of G.pickups){
+    if (!isWorldVisible(p.x, p.y, 18)) continue;
     p.pulse += 0.08;
     const r = 10 + Math.sin(p.pulse)*2;
     ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fill();
@@ -7794,6 +8124,7 @@ function drawPickups(){
 }
 function drawAuthoritiesWorld(){
   for (const a of G.authorities){
+    if (!isWorldVisible(a.x, a.y, 100)) continue;
     a.pulse += 0.1;
     const r = 30 + Math.sin(a.pulse)*5;
     // 光環
@@ -7809,6 +8140,7 @@ function drawAuthoritiesWorld(){
 }
 function drawHazards(){
   for (const h of G.hazards){
+    if (!isWorldVisible(h.x, h.y, h.r+4)) continue;
     ctx.fillStyle = h.color+'55';
     ctx.beginPath(); ctx.arc(h.x,h.y,h.r,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle = h.color; ctx.lineWidth = 2; ctx.stroke();
@@ -10369,11 +10701,10 @@ async function startGame(){
     Net.onMmError = (reason)=>{
       pushKillFeed('⚠ Match error: ' + reason, '#ff8866');
     };
-    // v3.2.0: skip multiplayer on platform builds (Poki/CrazyGames) — avoid
-    // bleeding bandwidth to our own Render server when distributed on portals.
-    // Standalone (own domain) still gets multiplayer.
+    // Portal builds connect only when packaging injected a verified relay URL.
     const _plat = (window.SDK && SDK.platform) || 'standalone';
-    if (_plat === 'standalone'){
+    const _hasPortalRelay = /^wss?:\/\//i.test(String(window.EVO_WS_URL || ''));
+    if (_plat === 'standalone' || _hasPortalRelay){
       Net.connect();
       if (G._autoMatchWanted && Net.online){ try { Net.findMatch(MATCH_TARGET_PLAYERS); } catch(e){} }
     } else {
@@ -10416,8 +10747,10 @@ async function restartGame(){
 window.addEventListener('load', async ()=>{
   setupCanvas();
   setupInput(document.getElementById('game'));
+  if (window.Net) Net.ensureConnected();
   const _sdkP = (window.SDK ? SDK.init() : Promise.resolve()).catch(()=>{});
   buildMenu();
+  if (window.Net) Net.ensureConnected();
   document.getElementById('startBtn').onclick = startGame;
   document.getElementById('restartBtn').onclick = restartGame;
   document.getElementById('winRestartBtn').onclick = restartGame;
@@ -10444,7 +10777,7 @@ window.addEventListener('load', async ()=>{
     G.selectedSpecies = _pref;
     // v3.13.1: click-to-play flow = auto-match then immediate start
     G._autoMatchWanted = true;
-    try { if (window.Net){ Net.connect(); if (Net.online) Net.findMatch(MATCH_TARGET_PLAYERS); } } catch(e){}
+    try { if (window.Net){ Net.ensureConnected(); if (Net.online) Net.findMatch(MATCH_TARGET_PLAYERS); } } catch(e){}
     startGame();
   };
 
@@ -10460,7 +10793,7 @@ window.addEventListener('load', async ()=>{
   }
   // v3.8.0: matchmaking modal button on title
   const _mmBtn = document.getElementById('mmBtn');
-  if (_mmBtn){ _mmBtn.onclick = ()=>{ try{ openMatchmakingModal(); }catch(e){} }; }
+  if (_mmBtn){ _mmBtn.onclick = ()=>{ try{ if (window.Net) Net.ensureConnected(); openMatchmakingModal(); }catch(e){} }; }
   // v3.9.0: leaderboard button on title
   const _lbBtn = document.getElementById('lbBtn');
   if (_lbBtn){ _lbBtn.onclick = ()=>{ try{ openLeaderboardModal(); }catch(e){} }; }

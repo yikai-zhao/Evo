@@ -45,6 +45,14 @@
     }catch(e){ return 'ws://localhost:8080/ws'; }
   }
 
+  Net.ensureConnected = function(){
+    if (Net.disabled) return false;
+    if (Net.ws && (Net.ws.readyState === 0 || Net.ws.readyState === 1)) return true;
+    Net.url = Net.url || detectUrl();
+    Net.connect();
+    return !!(Net.ws && (Net.ws.readyState === 0 || Net.ws.readyState === 1));
+  };
+
   Net.connect = function(){
     // Multiplayer is now enabled by default on portal builds.
     // Add ?net=0 to force-disable networking for local troubleshooting.
@@ -60,7 +68,7 @@
     const now = Date.now();
     if (now - Net.lastTry < 2000) return;
     Net.lastTry = now;
-    Net.url = detectUrl();
+    Net.url = Net.url || detectUrl();
     Net.log.push('[net] connecting '+Net.url);
     try{
       const ws = new WebSocket(Net.url);
@@ -223,8 +231,8 @@
     try { Net.ws.send(JSON.stringify(obj)); return true; } catch(e){ return false; }
   }
   Net.findMatch  = function(cap){ return _mm({ t:'mm_find', cap: cap||20 }); };
-  Net.createRoom = function(cap){ return _mm({ t:'mm_create', cap: cap||20 }); };
-  Net.joinRoom   = function(code){ return _mm({ t:'mm_join', code: String(code||'').toUpperCase() }); };
-  Net.leaveRoom  = function(){ return _mm({ t:'mm_leave' }); };
-  setInterval(()=>{if(!Net.disabled && !Net.online&&Net.url)Net.connect();},4000);
+  Net.createRoom = function(cap){ Net.ensureConnected(); return _mm({ t:'mm_create', cap: cap||20 }); };
+  Net.joinRoom   = function(code){ Net.ensureConnected(); return _mm({ t:'mm_join', code: String(code||'').toUpperCase() }); };
+  Net.leaveRoom  = function(){ Net.ensureConnected(); return _mm({ t:'mm_leave' }); };
+  setInterval(()=>{if(!Net.disabled && !Net.online && (Net.url || !Net.ws)) Net.ensureConnected();},4000);
 })();
