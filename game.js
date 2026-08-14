@@ -6869,6 +6869,39 @@ function drawTimelineHUD(){
 }
 
 // ----- Matchmaking UI: lightweight modal triggered before game starts -----
+function renderMatchmakingRoomList(m, roomList){
+  const listWrap = m.querySelector('#mmRoomList');
+  if (!listWrap) return;
+  if (!Array.isArray(roomList) || !roomList.length){
+    listWrap.innerHTML = '<div style="color:#9aa5b5;font-size:12px;padding:8px 0;">No rooms yet — create one or wait for a public match.</div>';
+    return;
+  }
+  listWrap.innerHTML = roomList.map((r)=>{
+    const code = String(r.code || '');
+    const note = String(r.note || '').trim();
+    const openState = !!r.open ? '<span style="color:#7fd07f;">Open</span>' : '<span style="color:#ffcc66;">Waiting</span>';
+    const type = !!r.isPrivate ? 'Private' : 'Public';
+    const noteSuffix = note ? ' · ' + note : '';
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #2d3748;border-radius:8px;background:rgba(255,255,255,0.02);margin-top:6px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;color:#dfeaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${type} ${code} · ${r.members}/${r.capacity}</div>
+          <div style="font-size:11px;color:#a9b8d3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${openState}${noteSuffix}</div>
+        </div>
+        <button data-room-code="${code}" style="padding:6px 10px;border-radius:6px;border:1px solid #5fa8ff;background:#2a5a8a;color:#fff;cursor:pointer">Join</button>
+      </div>`;
+  }).join('');
+  listWrap.querySelectorAll('button[data-room-code]').forEach((btn)=>{
+    btn.onclick = ()=>{
+      const code = btn.dataset.roomCode;
+      if (!code) return;
+      Net.joinRoom(code);
+      const status = m.querySelector('#mmStatus');
+      if (status){ status.textContent = 'Joining '+code+'…'; status.style.color = '#7fd07f'; }
+    };
+  });
+}
+
 function openMatchmakingModal(){
   if (document.getElementById('mmModal')) return;
   const m = document.createElement('div');
@@ -6879,7 +6912,7 @@ function openMatchmakingModal(){
   const peers = inRoom ? (Net.room.peers||[]).length+1 : 0;
   const cap = inRoom ? Net.room.capacity : 8;
   m.innerHTML = `
-    <div style="background:#181425;border:2px solid #5fa8ff;border-radius:12px;padding:24px;min-width:340px;max-width:90%;color:#eaeaea;box-shadow:0 8px 40px rgba(0,0,0,0.7)">
+    <div style="background:#181425;border:2px solid #5fa8ff;border-radius:12px;padding:24px;min-width:360px;max-width:90%;color:#eaeaea;box-shadow:0 8px 40px rgba(0,0,0,0.7)">
       <div style="font-size:18px;font-weight:700;color:#5fa8ff;margin-bottom:14px">🌐 Multiplayer Match</div>
       <div style="font-size:12px;margin-bottom:14px;color:#aaa">
         Currently in room: <span style="color:#7fd07f">${code}</span>
@@ -6891,7 +6924,12 @@ function openMatchmakingModal(){
         <input id="mmCodeInput" placeholder="ROOM CODE" maxlength="6" style="flex:1;padding:8px;background:#0a0a14;color:#fff;border:1px solid #444;border-radius:4px;font-family:monospace;text-transform:uppercase;font-size:14px" />
         <button id="mmJoinBtn" style="padding:8px 14px;background:#2a8a5a;color:#ccffdd;border:1px solid #66cc99;border-radius:6px;cursor:pointer">Join</button>
       </div>
-      <button id="mmLeaveBtn" style="display:block;width:100%;margin:6px 0;padding:8px;background:#444;color:#ccc;border:1px solid #666;border-radius:6px;cursor:pointer;font-size:12px">↩ Solo Practice (Global Lobby)</button>
+      <div style="margin:14px 0 8px;color:#dfe9ff;font-size:12px;font-weight:700;">Available rooms</div>
+      <div id="mmRoomList" style="max-height:200px;overflow:auto;padding-right:4px;"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <input id="mmNoteInput" placeholder="Room note (optional)" maxlength="80" style="flex:1;padding:8px;background:#0a0a14;color:#fff;border:1px solid #444;border-radius:4px;font-size:12px" />
+      </div>
+      <button id="mmLeaveBtn" style="display:block;width:100%;margin:12px 0 0;padding:8px;background:#444;color:#ccc;border:1px solid #666;border-radius:6px;cursor:pointer;font-size:12px">↩ Solo Practice (Global Lobby)</button>
       <div id="mmStatus" style="margin-top:10px;font-size:11px;color:#888;min-height:14px"></div>
       <button id="mmCloseBtn" style="display:block;width:100%;margin-top:10px;padding:8px;background:transparent;color:#888;border:1px solid #333;border-radius:6px;cursor:pointer">Close</button>
     </div>`;
@@ -6899,14 +6937,19 @@ function openMatchmakingModal(){
   const status = m.querySelector('#mmStatus');
   function setStatus(t, c){ status.textContent = t; status.style.color = c||'#888'; }
   if (!window.Net || !Net.online) setStatus('⚠ Net offline — start the local server or connect via ?net=1', '#ff8866');
-  m.querySelector('#mmCloseBtn').onclick = ()=>m.remove();
+  const refreshRoomList = ()=>{
+    if (window.Net && typeof Net.listRooms === 'function') Net.listRooms();
+  };
+  if (window.Net) Net.onRoomList = (rooms)=>{ renderMatchmakingRoomList(m, rooms || []); };
+  m.querySelector('#mmCloseBtn').onclick = ()=>{ if (window.Net) Net.onRoomList = null; m.remove(); };
   m.querySelector('#mmFindBtn').onclick = ()=>{
     if (!Net.online){ setStatus('Net offline', '#ff8866'); return; }
     Net.findMatch(MATCH_TARGET_PLAYERS); setStatus('Searching fast queue…', '#88ccff');
   };
   m.querySelector('#mmCreateBtn').onclick = ()=>{
     if (!Net.online){ setStatus('Net offline', '#ff8866'); return; }
-    Net.createRoom(MATCH_TARGET_PLAYERS); setStatus('Creating private room…', '#aa66ff');
+    const note = m.querySelector('#mmNoteInput').value.trim();
+    Net.createRoom(MATCH_TARGET_PLAYERS, note); setStatus('Creating private room…', '#aa66ff');
   };
   m.querySelector('#mmJoinBtn').onclick = ()=>{
     const code = m.querySelector('#mmCodeInput').value.trim().toUpperCase();
@@ -6916,6 +6959,9 @@ function openMatchmakingModal(){
   m.querySelector('#mmLeaveBtn').onclick = ()=>{
     Net.leaveRoom(); setStatus('Returned to global lobby', '#888');
   };
+  refreshRoomList();
+  const listTimer = window.setInterval(refreshRoomList, 4000);
+  m._roomListTimer = listTimer;
 }
 function drawRoomHUD(){
   if (!window.Net || !Net.room) return;

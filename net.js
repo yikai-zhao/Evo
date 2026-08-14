@@ -28,7 +28,9 @@
     url: '',
     // v3.8.0: room/matchmaking state
     room: null,          // current room info { code, capacity, peers, isPrivate }
+    roomList: [],        // [{ code, members, capacity, isPrivate, note, open, ownerName }]
     onRoom: null,        // fn(roomInfo)
+    onRoomList: null,    // fn(list)
     onMmError: null,     // fn(reason)
   };
 
@@ -147,13 +149,26 @@
         break;
       case 'room':
         // v3.8.0: server tells us we're now in a room (with peer list)
-        Net.room = { code: m.code, capacity: m.capacity, peers: m.peers||[], isPrivate: !!m.isPrivate };
+        Net.room = {
+          code: m.code,
+          capacity: m.capacity,
+          peers: m.peers||[],
+          isPrivate: !!m.isPrivate,
+          note: m.note || '',
+          ownerId: m.ownerId || null,
+          ownerName: m.ownerName || null,
+          open: !!m.open,
+        };
         // when changing room, clear peer cache (old room's peers vanish)
         Net.peers.clear();
         for (const p of (m.peers||[])){
           Net.peers.set(p.id, { name: p.name, rank: p.rank||1, lastT: performance.now(), alive: true });
         }
         if (Net.onRoom) Net.onRoom(Net.room);
+        break;
+      case 'room_list':
+        Net.roomList = Array.isArray(m.rooms) ? m.rooms : [];
+        if (Net.onRoomList) Net.onRoomList(Net.roomList);
         break;
       case 'mm_error':
         if (Net.onMmError) Net.onMmError(m.reason||'unknown');
@@ -231,8 +246,9 @@
     try { Net.ws.send(JSON.stringify(obj)); return true; } catch(e){ return false; }
   }
   Net.findMatch  = function(cap){ return _mm({ t:'mm_find', cap: cap||20 }); };
-  Net.createRoom = function(cap){ Net.ensureConnected(); return _mm({ t:'mm_create', cap: cap||20 }); };
+  Net.createRoom = function(cap, note){ Net.ensureConnected(); return _mm({ t:'mm_create', cap: cap||20, note: String(note || '').slice(0, 80) }); };
   Net.joinRoom   = function(code){ Net.ensureConnected(); return _mm({ t:'mm_join', code: String(code||'').toUpperCase() }); };
   Net.leaveRoom  = function(){ Net.ensureConnected(); return _mm({ t:'mm_leave' }); };
+  Net.listRooms  = function(){ Net.ensureConnected(); return _mm({ t:'mm_list' }); };
   setInterval(()=>{if(!Net.disabled && !Net.online && (Net.url || !Net.ws)) Net.ensureConnected();},4000);
 })();

@@ -33,6 +33,9 @@ try { fs.mkdirSync(DATA_DIR, { recursive:true }); } catch(e){ console.error('[st
 const DEFAULT_CAP = 28;
 const MAX_ROOM_CAP = 28;
 const GLOBAL_ROOM = 'global';
+const MATCH_MIN_PLAYERS = 2;
+const MATCH_AUTO_OPEN_MS = 10000;
+const ROOM_NOTE_MAX = 80;
 const CHAT_WINDOW_MS = 5000;
 const CHAT_MAX_PER_WINDOW = 5;
 const HIT_WINDOW_MS = 1000;
@@ -198,11 +201,60 @@ let nextId = 1;
 const clients = new Map();             // id -> { ws, name, last, ip, room, rank }
 const rooms   = new Map();             // code -> { code, capacity, members:Set<id>, isPrivate, createdAt }
 
-function ensureRoom(code, capacity, isPrivate){
+function roomIsOpen(r){
+  if (!r) return false;
+  if (r.isPrivate) return true;
+  return r.members.size >= Math.min(r.capacity, MATCH_MIN_PLAYERS) || (Date.now() - r.createdAt) >= MATCH_AUTO_OPEN_MS;
+}
+
+function getVisibleRooms(){
+  const list = [];
+  for (const r of rooms.values()){
+    if (r.code === GLOBAL_ROOM) continue;
+    if (!r.isPrivate && !roomIsOpen(r)) continue;
+    list.push({
+      code: r.code,
+      capacity: r.capacity,
+      members: r.members.size,
+      isPrivate: !!r.isPrivate,
+      note: String(r.note || '').slice(0, ROOM_NOTE_MAX),
+      ownerId: r.ownerId || null,
+      ownerName: r.ownerId ? (clients.get(r.ownerId)?.name || `Player#${r.ownerId}`) : null,
+      open: roomIsOpen(r),
+      createdAt: r.createdAt,
+    });
+  }
+  list.sort((a,b)=> (b.members - a.members) || (a.code.localeCompare(b.code)));
+  return list.slice(0, 50);
+}
+
+function broadcastRoomList(){
+  const list = getVisibleRooms();
+  for (const [id, c] of clients){
+    if (c && c.ws && c.ws.readyState === 1){
+      send(id, { t:'room_list', rooms: list });
+    }
+  }
+}
+
+function ensureRoom(code, capacity, isPrivate, ownerId=null, note=''){
   let r = rooms.get(code);
   if (!r){
-    r = { code, capacity:code===GLOBAL_ROOM ? 9999 : clampRoomCap(capacity), members: new Set(), isPrivate: !!isPrivate, createdAt: Date.now() };
+    r = {
+      code,
+      capacity:code===GLOBAL_ROOM ? 9999 : clampRoomCap(capacity),
+      members: new Set(),
+      isPrivate: !!isPrivate,
+      ownerId: ownerId || null,
+      note: String(note || '').slice(0, ROOM_NOTE_MAX),
+      createdAt: Date.now(),
+      open: !!isPrivate,
+    };
     rooms.set(code, r);
+  } else {
+    if (ownerId && !r.ownerId) r.ownerId = ownerId;
+    if (note && !r.note) r.note = String(note || '').slice(0, ROOM_NOTE_MAX);
+    r.open = roomIsOpen(r);
   }
   return r;
 }
@@ -234,12 +286,15 @@ function leaveRoom(id){
   c.room = null;
 }
 
-function joinRoom(id, code, capacity, isPrivate){
+function joinRoom(id, code, capacity, isPrivate, note=''){
   const c = clients.get(id); if (!c) return null;
   if (c.room) leaveRoom(id);
-  const r = ensureRoom(code, code===GLOBAL_ROOM ? 9999 : clampRoomCap(capacity), isPrivate);
+  const r = ensureRoom(code, code===GLOBAL_ROOM ? 9999 : clampRoomCap(capacity), isPrivate, id, note);
   if (r.members.size >= r.capacity) return null;
   r.members.add(id);
+  r.ownerId = r.ownerId || id;
+  r.note = r.note || String(note || '').slice(0, ROOM_NOTE_MAX);
+  r.open = roomIsOpen(r);
   c.room = r.code;
   // sync the updated roster to everyone in the room, including the newcomer
   sendRoomInfo(r);
@@ -250,23 +305,45 @@ function joinRoom(id, code, capacity, isPrivate){
     const pc = clients.get(pid);
     return { id: pid, name: pc ? pc.name : '?' };
   });
-  send(id, { t:'room', code: r.code, capacity: r.capacity, peers, isPrivate: r.isPrivate });
+  send(id, {
+    t:'room',
+    code: r.code,
+    capacity: r.capacity,
+    peers,
+    isPrivate: r.isPrivate,
+    note: r.note || '',
+    ownerId: r.ownerId || id,
+    ownerName: r.ownerId ? (c.name || `Player#${r.ownerId}`) : c.name,
+    open: r.open,
+  });
+  broadcastRoomList();
   return r;
 }
 
 function sendRoomInfo(r){
+  r.open = roomIsOpen(r);
   const peers = [...r.members].map(pid => {
     const pc = clients.get(pid);
     return { id: pid, name: pc ? pc.name : '?', rank: pc ? (pc.rank||1) : 1 };
   });
   for (const pid of r.members){
-    send(pid, { t:'room', code: r.code, capacity: r.capacity, peers: peers.filter(p=>p.id!==pid), isPrivate: r.isPrivate });
+    const pc = clients.get(pid);
+    send(pid, {
+      t:'room',
+      code: r.code,
+      capacity: r.capacity,
+      peers: peers.filter(p=>p.id!==pid),
+      isPrivate: r.isPrivate,
+      note: r.note || '',
+      ownerId: r.ownerId || pid,
+      ownerName: r.ownerId ? (pc?.name || `Player#${r.ownerId}`) : (pc?.name || `Player#${pid}`),
+      open: r.open,
+    });
   }
 }
 
 function findPublicMatch(id, cap){
   cap = clampRoomCap(cap);
-  // pick the fullest non-full public room (sticky matchmaking — fill rooms before opening new ones)
   let best = null;
   for (const r of rooms.values()){
     if (r.isPrivate) continue;
@@ -277,9 +354,9 @@ function findPublicMatch(id, cap){
   }
   if (!best){
     const code = 'M' + genCode().slice(1); // M-prefixed = public match room
-    best = ensureRoom(code, cap, false);
+    best = ensureRoom(code, cap, false, id, 'Auto Match');
   }
-  return joinRoom(id, best.code, cap, false);
+  return joinRoom(id, best.code, cap, false, best.note || 'Auto Match');
 }
 
 // ---- Per-room broadcast ----
@@ -337,19 +414,23 @@ wss.on('connection', (ws, req) => {
         break;
       case 'mm_create': {
         const code = genCode();
-        joinRoom(id, code, clampRoomCap(msg.cap), true);
+        const note = typeof msg.note === 'string' ? msg.note.slice(0, ROOM_NOTE_MAX) : '';
+        joinRoom(id, code, clampRoomCap(msg.cap), true, note);
         break;
       }
       case 'mm_join':
         if (typeof msg.code === 'string' && msg.code.length >= 3 && msg.code.length <= 8){
           const code = msg.code.toUpperCase();
           const existing = rooms.get(code);
-          const r = existing ? joinRoom(id, code, existing.capacity, existing.isPrivate) : null;
+          const r = existing ? joinRoom(id, code, existing.capacity, existing.isPrivate, existing.note || '') : null;
           if (!r) send(id, { t:'mm_error', reason:'room_full_or_invalid' });
         }
         break;
       case 'mm_leave':
         joinRoom(id, GLOBAL_ROOM, 9999, false);
+        break;
+      case 'mm_list':
+        send(id, { t:'room_list', rooms: getVisibleRooms() });
         break;
 
       // ---- gameplay (scoped to room) ----
